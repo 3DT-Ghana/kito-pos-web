@@ -9,6 +9,13 @@ import { formatCurrency } from '@/lib/utils/format'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface PosCategory {
+  id: string
+  name: string
+  color: string | null
+  icon: string | null
+}
+
 interface PosItem {
   id: string
   name: string
@@ -20,6 +27,8 @@ interface PosItem {
   quantity: number
   unitName: string | null
   piecesPerUnit: number | null
+  manufacturer: { id: string; name: string } | null
+  category: PosCategory | null
 }
 
 type PriceTier = 'sellingPrice' | 'retailPrice' | 'wholesalePrice' | 'promoPrice'
@@ -87,6 +96,8 @@ export default function PosPage() {
 
   // Catalog
   const [allItems, setAllItems] = useState<PosItem[]>([])
+  const [categories, setCategories] = useState<PosCategory[]>([])
+  const [activeGroup, setActiveGroup] = useState<string>('ALL')
   const [isLoadingItems, setIsLoadingItems] = useState(true)
   const [search, setSearch] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -145,7 +156,11 @@ export default function PosPage() {
     setIsLoadingItems(true)
     try {
       const res = await fetch('/api/pos/items?limit=200')
-      if (res.ok) setAllItems(await res.json())
+      if (res.ok) {
+        const data = await res.json()
+        setAllItems(data.items ?? [])
+        setCategories(data.categories ?? [])
+      }
     } finally { setIsLoadingItems(false) }
   }, [])
 
@@ -170,12 +185,17 @@ export default function PosPage() {
   // ── Derived values ──────────────────────────────────────────────────────────
 
   const q = search.trim().toLowerCase()
+
+  const groupFiltered = activeGroup === 'ALL'
+    ? allItems
+    : allItems.filter(i => i.category?.id === activeGroup)
+
   const displayItems = q
-    ? allItems.filter(i =>
+    ? groupFiltered.filter(i =>
         i.name.toLowerCase().includes(q) ||
         (i.barcode && i.barcode.startsWith(search.trim()))
       )
-    : allItems.slice(0, 80)
+    : groupFiltered.slice(0, 80)
 
   const cartSubtotal = cart.reduce((s, c) => s + lineTotal(c), 0)
 
@@ -842,10 +862,18 @@ export default function PosPage() {
             {inCart.qty}
           </span>
         )}
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base mb-1 ${
-          inCart ? 'bg-indigo-200 text-indigo-800' : isLow ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700'
-        }`}>
-          {item.name.charAt(0).toUpperCase()}
+        <div
+          className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base mb-1 ${
+            isLow ? 'bg-amber-100 text-amber-700' : ''
+          }`}
+          style={!isLow && item.category?.color
+            ? { backgroundColor: item.category.color + '22', color: item.category.color }
+            : !isLow
+            ? { backgroundColor: inCart ? '#c7d2fe' : '#e0e7ff', color: inCart ? '#3730a3' : '#4338ca' }
+            : {}
+          }
+        >
+          {item.category?.icon ?? item.name.charAt(0).toUpperCase()}
         </div>
         <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2 w-full">{item.name}</p>
         <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{formatCurrency(displayPrice)}</p>
@@ -867,7 +895,7 @@ export default function PosPage() {
           ref={searchRef}
           type="text"
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); if (e.target.value) setActiveGroup('ALL') }}
           onKeyDown={handleSearchKey}
           placeholder="Search item or scan barcode…"
           className={`w-full pl-9 pr-4 border-2 border-indigo-300 rounded-xl focus:border-indigo-500 focus:outline-none font-medium ${compact ? 'py-2 text-sm' : 'py-2.5 text-sm'}`}
@@ -897,6 +925,54 @@ export default function PosPage() {
       )}
     </div>
   )
+
+  // ── Category / group tab bar ────────────────────────────────────────────────
+  const CategoryTabs = () => {
+    if (categories.length === 0) return null
+    return (
+      <div className="shrink-0 bg-white border-b border-gray-100 overflow-x-auto">
+        <div className="flex gap-1 px-3 py-2 w-max min-w-full">
+          {/* "All" tab */}
+          <button
+            onClick={() => setActiveGroup('ALL')}
+            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
+              activeGroup === 'ALL'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            All
+          </button>
+          {categories.map(cat => {
+            const count = allItems.filter(i => i.category?.id === cat.id).length
+            const isActive = activeGroup === cat.id
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setActiveGroup(cat.id)}
+                style={isActive ? { backgroundColor: cat.color ?? '#6366f1', borderColor: cat.color ?? '#6366f1' } : {}}
+                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border-2 ${
+                  isActive
+                    ? 'text-white border-transparent'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent'
+                }`}
+              >
+                {cat.icon && <span className="text-sm leading-none">{cat.icon}</span>}
+                {cat.name}
+                <span
+                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    isActive ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-500'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   // ── Item grid area ──────────────────────────────────────────────────────────
   const ItemGrid = ({ cols }: { cols: string }) => (
@@ -979,6 +1055,7 @@ export default function PosPage() {
           {/* LEFT — search + grid */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <SearchBar />
+            <CategoryTabs />
             <ItemGrid cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
           </div>
 
@@ -1052,6 +1129,7 @@ export default function PosPage() {
           {mobileTab === 'items' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <SearchBar compact />
+              <CategoryTabs />
               <ItemGrid cols="grid-cols-3 sm:grid-cols-4" />
               {cart.length > 0 && (
                 <div className="shrink-0 px-3 py-2 bg-white border-t border-gray-200 flex items-center gap-3">

@@ -24,6 +24,7 @@ export default function ItemDetailPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [item, setItem] = useState<any>(null)
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string }[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string; color: string | null; icon: string | null }[]>([])
   const [useUnitSystem, setUseUnitSystem] = useState(false)
   const [enableRetailPrice, setEnableRetailPrice] = useState(false)
   const [enableWholesalePrice, setEnableWholesalePrice] = useState(false)
@@ -68,10 +69,15 @@ export default function ItemDetailPage() {
 
   const fetchManufacturers = async () => {
     try {
-      const res = await fetch('/api/manufacturers')
-      if (!res.ok) return
-      const data = await res.json()
-      setManufacturers(Array.isArray(data) ? data : data.data || [])
+      const [mfRes, catRes] = await Promise.all([
+        fetch('/api/manufacturers'),
+        fetch('/api/categories'),
+      ])
+      if (mfRes.ok) {
+        const data = await mfRes.json()
+        setManufacturers(Array.isArray(data) ? data : data.data || [])
+      }
+      if (catRes.ok) setCategories(await catRes.json())
     } catch {}
   }
 
@@ -158,9 +164,19 @@ export default function ItemDetailPage() {
                   {stockStatus.label}
                 </span>
               </div>
-              {item.manufacturer?.name && (
-                <p className="text-sm text-gray-500">{item.manufacturer.name}</p>
-              )}
+              <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                {item.manufacturer?.name && (
+                  <p className="text-sm text-gray-500">{item.manufacturer.name}</p>
+                )}
+                {item.category && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold text-white"
+                    style={{ backgroundColor: item.category.color ?? '#6366f1' }}
+                  >
+                    {item.category.icon} {item.category.name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           {!isEditing && (
@@ -247,8 +263,10 @@ export default function ItemDetailPage() {
                 wholesalePrice: item.wholesalePrice,
                 promoPrice: item.promoPrice,
                 expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '',
+                categoryId: item.categoryId ?? '',
               }}
               manufacturers={manufacturers}
+              categories={categories}
               onSubmit={handleSubmit}
               onCancel={() => setIsEditing(false)}
               useUnitSystem={useUnitSystem}

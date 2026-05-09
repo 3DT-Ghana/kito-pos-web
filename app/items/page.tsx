@@ -8,6 +8,7 @@ import { ExportButton } from '@/components/ExportButton'
 import { useTenantFeatures } from '@/hooks/useTenant'
 
 type Tab = 'all' | 'low' | 'out' | 'expiring'
+interface Category { id: string; name: string; color: string | null; icon: string | null }
 interface Item {
   id: string
   name: string
@@ -16,26 +17,32 @@ interface Item {
   sellingPrice: number
   expiryDate: string | null
   manufacturer: { id: string; name: string } | null
+  category: Category | null
 }
 
 export default function ItemsPage() {
   const router = useRouter()
   const { features } = useTenantFeatures()
   const [items, setItems] = useState<Item[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [manufacturerFilter, setManufacturerFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
 
   useEffect(() => { fetchItems() }, [])
 
   const fetchItems = async () => {
     try {
-      const res = await fetch('/api/items')
-      if (!res.ok) throw new Error('Failed')
-      const data = await res.json()
-      // API returns direct array
+      const [itemsRes, catsRes] = await Promise.all([
+        fetch('/api/items'),
+        fetch('/api/categories'),
+      ])
+      if (!itemsRes.ok) throw new Error('Failed')
+      const data = await itemsRes.json()
       setItems(Array.isArray(data) ? data : data.data || [])
+      if (catsRes.ok) setCategories(await catsRes.json())
     } finally {
       setIsLoading(false)
     }
@@ -55,6 +62,8 @@ export default function ItemsPage() {
       || i.name.toLowerCase().includes(q)
       || (i.manufacturer?.name || '').toLowerCase().includes(q)
     const matchMfr = !manufacturerFilter || i.manufacturer?.name === manufacturerFilter
+    const matchCat = !categoryFilter
+      || (categoryFilter === 'uncategorized' ? !i.category : i.category?.id === categoryFilter)
     const matchTab =
       activeTab === 'all' ? true
       : activeTab === 'low' ? i.quantity > 0 && i.quantity <= 10
@@ -64,7 +73,7 @@ export default function ItemsPage() {
           return new Date(i.expiryDate) <= thirtyDaysFromNow
         })()
       : false
-    return matchSearch && matchMfr && matchTab
+    return matchSearch && matchMfr && matchCat && matchTab
   })
   const lowStock = items.filter(i => i.quantity > 0 && i.quantity <= 10)
   const outOfStock = items.filter(i => i.quantity === 0)
@@ -193,6 +202,21 @@ export default function ItemsPage() {
             </select>
           )}
 
+          {/* Category filter */}
+          {categories.length > 0 && (
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
+            >
+              <option value="">All Categories</option>
+              {categories.map(c => (
+                <option key={c.id} value={c.id}>{c.icon ? `${c.icon} ` : ''}{c.name}</option>
+              ))}
+              <option value="uncategorized">Uncategorized</option>
+            </select>
+          )}
+
           {/* Search */}
           <div className="relative flex-1">
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -241,8 +265,16 @@ export default function ItemsPage() {
                         <p className="text-xs text-blue-600 font-semibold mt-0.5">
                           📦 {item.manufacturer?.name || 'Unknown'}
                         </p>
+                        {item.category && (
+                          <span
+                            className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-xs font-semibold text-white"
+                            style={{ backgroundColor: item.category.color ?? '#6366f1' }}
+                          >
+                            {item.category.icon} {item.category.name}
+                          </span>
+                        )}
                       </div>
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold flex-shrink-0 ${
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold shrink-0 ${
                         stockStatus === 'out' ? 'bg-red-100 text-red-700' :
                         stockStatus === 'low' ? 'bg-amber-100 text-amber-700' :
                         'bg-green-100 text-green-700'
@@ -281,6 +313,7 @@ export default function ItemsPage() {
                 <thead className="bg-gray-50 border-b-2 border-gray-100">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Item</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Category</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Manufacturer</th>
                     <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Stock</th>
                     <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase">Cost Price</th>
@@ -300,6 +333,18 @@ export default function ItemsPage() {
                         className="hover:bg-blue-50 cursor-pointer transition-colors"
                       >
                         <td className="px-6 py-4 font-semibold text-gray-900">{item.name}</td>
+                        <td className="px-6 py-4">
+                          {item.category ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+                              style={{ backgroundColor: item.category.color ?? '#6366f1' }}
+                            >
+                              {item.category.icon} {item.category.name}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300 text-sm">—</span>
+                          )}
+                        </td>
                         <td className="px-6 py-4">
                           <span className="text-sm text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-lg">
                             {item.manufacturer?.name || '—'}
@@ -340,7 +385,7 @@ export default function ItemsPage() {
                 </tbody>
                 <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                   <tr>
-                    <td colSpan={features.enableExpiryTracking ? 6 : 5} className="px-6 py-3 text-sm font-bold text-gray-700">
+                    <td colSpan={features.enableExpiryTracking ? 7 : 6} className="px-6 py-3 text-sm font-bold text-gray-700">
                       Total Stock Value ({filtered.length} items)
                     </td>
                     <td className="px-6 py-3 text-right text-sm font-bold text-blue-700">

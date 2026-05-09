@@ -17,6 +17,7 @@ export default function NewItemPage() {
   const router = useRouter()
   const { user } = useUser()
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string }[]>([])
+  const [categories, setCategories] = useState<{ id: string; name: string; color: string | null; icon: string | null }[]>([])
   const [useUnitSystem, setUseUnitSystem] = useState(false)
   const [enableRetailPrice, setEnableRetailPrice] = useState(false)
   const [enableWholesalePrice, setEnableWholesalePrice] = useState(false)
@@ -29,8 +30,10 @@ export default function NewItemPage() {
     Promise.all([
       fetch('/api/manufacturers').then(r => r.json()),
       user?.tenantId ? fetch(`/api/tenants/${user.tenantId}`).then(r => r.json()) : Promise.resolve(null),
-    ]).then(([mfData, tenantData]) => {
+      fetch('/api/categories').then(r => r.json()),
+    ]).then(([mfData, tenantData, catData]) => {
       setManufacturers(Array.isArray(mfData) ? mfData : mfData.data || [])
+      if (Array.isArray(catData)) setCategories(catData)
       if (tenantData?.useUnitSystem) setUseUnitSystem(true)
       if (tenantData?.enableRetailPrice) setEnableRetailPrice(true)
       if (tenantData?.enableWholesalePrice) setEnableWholesalePrice(true)
@@ -92,6 +95,7 @@ export default function NewItemPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <ItemForm
             manufacturers={manufacturers}
+            categories={categories}
             onSubmit={handleSubmit}
             onCancel={handleCancel}
             useUnitSystem={useUnitSystem}

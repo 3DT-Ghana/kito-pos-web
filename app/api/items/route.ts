@@ -23,6 +23,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const manufacturerId = searchParams.get('manufacturerId')
+    const categoryId = searchParams.get('categoryId')
     const lowStock = searchParams.get('lowStock') === 'true'
     const unitNamesOnly = searchParams.get('unitNames') === 'true'
 
@@ -52,6 +53,10 @@ export async function GET(req: Request) {
       where.manufacturerId = manufacturerId
     }
 
+    if (categoryId) {
+      where.categoryId = categoryId === 'uncategorized' ? null : categoryId
+    }
+
     if (lowStock) {
       where.quantity = {
         lte: 10, // Low stock threshold
@@ -61,12 +66,8 @@ export async function GET(req: Request) {
     const items = await prisma.item.findMany({
       where,
       include: {
-        manufacturer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        manufacturer: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, color: true, icon: true } },
       },
       orderBy: { name: 'asc' },
     })
@@ -149,6 +150,7 @@ export async function POST(req: Request) {
         quantity: parseFloat(body.quantity) || 0,
         costPrice: parseFloat(body.costPrice),
         sellingPrice: parseFloat(body.sellingPrice),
+        ...(body.categoryId ? { categoryId: body.categoryId } : {}),
         ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
         ...(body.piecesPerUnit !== undefined && { piecesPerUnit: parseInt(String(body.piecesPerUnit)) || 1 }),
         ...(body.retailPrice !== undefined && { retailPrice: body.retailPrice !== null ? parseFloat(body.retailPrice) : null }),
@@ -158,12 +160,8 @@ export async function POST(req: Request) {
         ...(body.expiryDate ? { expiryDate: new Date(body.expiryDate) } : {}),
       },
       include: {
-        manufacturer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        manufacturer: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, color: true, icon: true } },
       },
     })
 

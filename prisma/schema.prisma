@@ -152,29 +152,48 @@ model Manufacturer {
 }
 
 // =====================
+// PRODUCT CATEGORIES
+// =====================
+
+model Category {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  color       String?  @default("#6366f1")  // hex colour for UI badge
+  icon        String?  @default("📦")       // emoji icon
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  items       Item[]
+}
+
+// =====================
 // ITEMS & INVENTORY
 // =====================
 
 model Item {
   id              String @id @default(uuid())
   tenantId        String
-  branchId        String?  // optional: null = shared across all branches
+  branchId        String?
   manufacturerId  String
   manufacturer    Manufacturer @relation(fields: [manufacturerId], references: [id])
+  categoryId      String?
+  category        Category?    @relation(fields: [categoryId], references: [id])
   name            String
-  quantity        Float    @default(0)   // Float supports fractional units (e.g. 1.5 cartons)
+  quantity        Float    @default(0)
   costPrice       Float
   sellingPrice    Float
-  retailPrice     Float?   // optional retail price tier
-  wholesalePrice  Float?   // optional wholesale price tier
-  promoPrice      Float?   // optional promotional price tier
-  barcode         String?                    // optional barcode / SKU for POS scanning
-  expiryDate      DateTime?                  // optional expiry date tracking
+  retailPrice     Float?
+  wholesalePrice  Float?
+  promoPrice      Float?
+  barcode         String?
+  expiryDate      DateTime?
   createdAt       DateTime @default(now())
 
   // Unit System fields (only meaningful when tenant.useUnitSystem = true)
-  unitName        String?  @default("unit")   // e.g. "carton", "bag", "box"
-  piecesPerUnit   Int?     @default(1)         // e.g. 12 pieces per carton
+  unitName        String?  @default("unit")
+  piecesPerUnit   Int?     @default(1)
 
   saleItems       SaleItem[]
   purchaseItems   PurchaseItem[]

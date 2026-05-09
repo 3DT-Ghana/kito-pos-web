@@ -18,6 +18,7 @@ export const itemSchema = z.object({
   promoPrice: z.number().min(0).optional(),
   barcode: z.string().optional(),
   expiryDate: z.string().optional(),
+  categoryId: z.string().optional(),
 }).refine(data => data.sellingPrice >= data.costPrice, {
   message: 'Selling price should not be less than cost price',
   path: ['sellingPrice'],

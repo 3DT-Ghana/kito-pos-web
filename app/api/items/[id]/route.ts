@@ -33,6 +33,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       },
       include: {
         manufacturer: true,
+        category: { select: { id: true, name: true, color: true, icon: true } },
         saleItems: {
           take: 10,
           orderBy: { sale: { createdAt: 'desc' } },
@@ -165,9 +166,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.promoPrice !== undefined && { promoPrice: body.promoPrice !== null ? parseFloat(body.promoPrice) : null }),
         ...(body.barcode !== undefined && { barcode: body.barcode ? String(body.barcode).trim() : null }),
         ...(body.expiryDate !== undefined && { expiryDate: body.expiryDate ? new Date(body.expiryDate) : null }),
+        ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
       },
       include: {
         manufacturer: true,
+        category: { select: { id: true, name: true, color: true, icon: true } },
       },
     })
 

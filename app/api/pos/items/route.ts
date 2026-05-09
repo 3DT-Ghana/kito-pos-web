@@ -18,11 +18,15 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const q = searchParams.get('q')?.trim() ?? ''
+    const manufacturerId = searchParams.get('manufacturerId')?.trim() ?? ''
+    const categoryId = searchParams.get('categoryId')?.trim() ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 200)
 
     const where = {
       tenantId: tenantId!,
       quantity: { gt: 0 },
+      ...(manufacturerId ? { manufacturerId } : {}),
+      ...(categoryId ? { categoryId } : {}),
       ...(q
         ? {
             OR: [
@@ -46,12 +50,24 @@ export async function GET(req: Request) {
         quantity: true,
         unitName: true,
         piecesPerUnit: true,
+        manufacturer: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true, color: true, icon: true } },
       },
       orderBy: { name: 'asc' },
       take: limit,
     })
 
-    return NextResponse.json(items)
+    // Return categories that have in-stock items for the POS tab bar
+    const categories = await prisma.category.findMany({
+      where: {
+        tenantId: tenantId!,
+        items: { some: { quantity: { gt: 0 } } },
+      },
+      select: { id: true, name: true, color: true, icon: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    })
+
+    return NextResponse.json({ items, categories })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
