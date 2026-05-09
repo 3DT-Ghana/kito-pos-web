@@ -243,7 +243,40 @@ export const PERMISSIONS = {
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS][number]
 
-export function hasPermission(role: Role, permission: Permission): boolean {
+// Flat deduplicated list of every known permission string
+export const ALL_PERMISSIONS: Permission[] = Array.from(
+  new Set(Object.values(PERMISSIONS).flatMap(p => p as unknown as Permission[]))
+).sort() as Permission[]
+
+// Permission groups for the UI
+export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] = [
+  { label: 'Users & Settings',   permissions: ['manage_users','create_users','delete_users','update_user_roles','manage_settings','manage_tenant','view_audit_logs'] as Permission[] },
+  { label: 'Financial',          permissions: ['view_all_reports','view_basic_reports','view_profit_margins','record_payments','adjust_balances','delete_transactions','void_sales','void_purchases'] as Permission[] },
+  { label: 'Inventory',          permissions: ['view_items','create_items','update_items','delete_items','adjust_stock','manage_manufacturers'] as Permission[] },
+  { label: 'Sales & Purchases',  permissions: ['create_sale','create_purchase','process_returns'] as Permission[] },
+  { label: 'Customers & Suppliers', permissions: ['view_customers','create_customers','update_customers','delete_customers','view_suppliers','create_suppliers','update_suppliers','delete_suppliers'] as Permission[] },
+  { label: 'Expenses',           permissions: ['view_expenses','create_expenses','delete_expenses'] as Permission[] },
+  { label: 'Till',               permissions: ['manage_till'] as Permission[] },
+  { label: 'Quotations',         permissions: ['view_quotations','create_quotation','delete_quotation'] as Permission[] },
+  { label: 'Purchase Orders',    permissions: ['view_purchase_orders','create_purchase_order','delete_purchase_order'] as Permission[] },
+]
+
+// Type for the rolePermissions JSON column stored in the DB
+export type RolePermissionsMap = Partial<Record<Role, string[]>>
+
+// Returns effective permissions for a role, applying DB overrides when present.
+// OWNER always has all permissions and cannot be restricted.
+export function resolveRolePermissions(role: Role, overrides: RolePermissionsMap | null): string[] {
+  if (role === 'OWNER') return [...ALL_PERMISSIONS]
+  const override = overrides?.[role]
+  if (override && Array.isArray(override)) return override
+  return [...(PERMISSIONS[role] as readonly string[])]
+}
+
+export function hasPermission(role: Role, permission: Permission, overrides?: RolePermissionsMap | null): boolean {
+  if (overrides !== undefined) {
+    return resolveRolePermissions(role, overrides).includes(permission)
+  }
   return (PERMISSIONS[role] as readonly string[])?.includes(permission) ?? false
 }
 

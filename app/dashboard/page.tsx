@@ -20,6 +20,11 @@ export default async function DashboardPage() {
 
   const { user } = session
 
+  // Cashiers go straight to POS
+  if (user.role === 'CASHIER') {
+    redirect('/pos')
+  }
+
   // Get tenant name
   let tenantName = 'My Business'
   try {

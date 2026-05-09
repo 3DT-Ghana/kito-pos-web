@@ -101,15 +101,29 @@ export function ImprovedDashboard({ userName, tenantName }: DashboardProps) {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Header */}
       <div className="bg-white shadow-sm border-b-4 border-blue-600">
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">
-              {tenantName}
-            </h1>
-            <p className="text-lg text-gray-600">
-              Welcome back,{" "}
-              <span className="font-semibold text-blue-600">{userName}</span>
-            </p>
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between">
+            <div className="flex-1" />
+            <div className="text-center flex-1">
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">
+                {tenantName}
+              </h1>
+              <p className="text-base text-gray-600">
+                Welcome back,{" "}
+                <span className="font-semibold text-blue-600">{userName}</span>
+              </p>
+            </div>
+            <div className="flex-1 flex justify-end">
+              <Link
+                href="/api/auth/signout"
+                className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 font-semibold rounded-xl text-sm transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Sign out
+              </Link>
+            </div>
           </div>
         </div>
       </div>

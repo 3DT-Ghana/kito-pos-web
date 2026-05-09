@@ -8,7 +8,9 @@ import { UnitSettings } from './UnitSettings'
 import { PricingSettings } from './PricingSettings'
 import { SmsSettings } from './SmsSettings'
 import { FeaturesSettings } from './FeaturesSettings'
+import { RolePermissionsSettings } from './RolePermissionsSettings'
 import { Settings as SettingsIcon } from 'lucide-react'
+import { type RolePermissionsMap } from '@/lib/permissions/rbac'
 
 /**
  * Settings Page
@@ -34,6 +36,7 @@ export default async function SettingsPage() {
       id: true,
       name: true,
       phone: true,
+      rolePermissions: true,
       showManufacturerOnReceipt: true,
       receiptPrinterWidth: true,
       useUnitSystem: true,
@@ -141,6 +144,11 @@ export default async function SettingsPage() {
             enableTill: tenant.enableTill,
             allowSaleOnZeroStock: tenant.allowSaleOnZeroStock,
           }}
+        />
+
+        {/* Role Permissions */}
+        <RolePermissionsSettings
+          initialOverrides={(tenant.rolePermissions as RolePermissionsMap) ?? null}
         />
 
         {/* Help Section */}

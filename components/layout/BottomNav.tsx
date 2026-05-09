@@ -59,6 +59,7 @@ export function BottomNav() {
         { name: 'Customers',     href: '/customers',     icon: '👤' },
         { name: 'Suppliers',     href: '/suppliers',     icon: '🚚' },
         { name: 'Manufacturers', href: '/manufacturers', icon: '🏭' },
+        { name: 'Categories',    href: '/categories',    icon: '🗂️' },
       ],
     },
     {

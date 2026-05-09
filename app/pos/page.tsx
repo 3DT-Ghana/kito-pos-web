@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/hooks/useUser'
 import { useBranch } from '@/lib/branch/BranchContext'
-import { useTenantFeatures } from '@/hooks/useTenant'
+import { useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,6 +93,16 @@ export default function PosPage() {
   const { user } = useUser()
   const { currentBranch } = useBranch()
   const { features } = useTenantFeatures()
+  const { tenantId } = useTenant()
+
+  // Company name for title bar
+  const [companyName, setCompanyName] = useState('')
+  useEffect(() => {
+    if (!tenantId) return
+    fetch(`/api/tenants/${tenantId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.name) setCompanyName(d.name) })
+  }, [tenantId])
 
   // Catalog
   const [allItems, setAllItems] = useState<PosItem[]>([])
@@ -125,11 +135,19 @@ export default function PosPage() {
   const [method, setMethod] = useState<PaymentMethod>('CASH')
   const [tendered, setTendered] = useState('')
   const [numpadBuffer, setNumpadBuffer] = useState('')
-  const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'qty' | 'lineDiscount'>('tendered')
+  const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'qty' | 'lineDiscount' | 'price'>('tendered')
 
   // Line-discount editing
   const [editingDiscountIdx, setEditingDiscountIdx] = useState<number | null>(null)
   const [discountBuffer, setDiscountBuffer] = useState('')
+
+  // Price override editing (desktop numpad)
+  const [editingPriceIdx, setEditingPriceIdx] = useState<number | null>(null)
+  const [priceBuffer, setPriceBuffer] = useState('')
+
+  // Mobile numpad drawer state
+  type NumpadDrawerState = 'hidden' | 'drawer' | 'docked'
+  const [numpadDrawer, setNumpadDrawer] = useState<NumpadDrawerState>('docked')
 
   // Holds
   const [holds, setHolds] = useState<HeldOrder[]>([])
@@ -186,7 +204,7 @@ export default function PosPage() {
 
   const q = search.trim().toLowerCase()
 
-  const groupFiltered = activeGroup === 'ALL'
+  const groupFiltered = (activeGroup === 'ALL' || activeGroup === '__ALL_ITEMS__')
     ? allItems
     : allItems.filter(i => i.category?.id === activeGroup)
 
@@ -195,7 +213,7 @@ export default function PosPage() {
         i.name.toLowerCase().includes(q) ||
         (i.barcode && i.barcode.startsWith(search.trim()))
       )
-    : groupFiltered.slice(0, 80)
+    : groupFiltered
 
   const cartSubtotal = cart.reduce((s, c) => s + lineTotal(c), 0)
 
@@ -269,7 +287,18 @@ export default function PosPage() {
     ))
   }
 
+  const setLinePrice = (idx: number, price: number) => {
+    if (price <= 0) return
+    setCart(prev => prev.map((c, i) =>
+      i === idx ? { ...c, basePrice: price, lineDiscount: 0 } : c
+    ))
+  }
+
   const clearCart = () => { setCart([]); setSelectedCartIdx(null); setNote('') }
+
+  const addAllToCart = (items: PosItem[]) => {
+    items.forEach(item => addToCart(item))
+  }
 
   // ── Barcode / keyboard search ───────────────────────────────────────────────
 
@@ -279,7 +308,11 @@ export default function PosPage() {
       if (exact) { addToCart(exact); return }
       if (displayItems.length === 1) { addToCart(displayItems[0]); return }
     }
-    if (e.key === 'Escape') { setSearch(''); searchRef.current?.focus() }
+    if (e.key === 'Escape') {
+      setSearch('')
+      setActiveGroup('ALL')
+      searchRef.current?.focus()
+    }
   }
 
   // ── Numpad ──────────────────────────────────────────────────────────────────
@@ -306,6 +339,17 @@ export default function PosPage() {
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setDiscountBuffer(buf)
+    } else if (numpadTarget === 'price' && editingPriceIdx !== null) {
+      let buf = priceBuffer
+      if (key === '←') buf = buf.slice(0, -1)
+      else if (key === 'C') buf = ''
+      else if (key === '✓') {
+        setLinePrice(editingPriceIdx, parseFloat(buf) || 0)
+        setPriceBuffer(''); setEditingPriceIdx(null); setNumpadTarget('tendered')
+        return
+      } else if (key === '.' && buf.includes('.')) { /* skip */ }
+      else buf = buf + key
+      setPriceBuffer(buf)
     } else {
       let buf = tendered
       if (key === '←') buf = buf.slice(0, -1)
@@ -315,12 +359,6 @@ export default function PosPage() {
       else buf = buf + key
       setTendered(buf)
     }
-  }
-
-  // ── Quick quantity multiplier ───────────────────────────────────────────────
-
-  const quickQty = (idx: number, qty: number) => {
-    setCart(prev => prev.map((c, i) => i === idx ? { ...c, qty: Math.min(qty, c.maxStock) } : c))
   }
 
   // ── Holds ───────────────────────────────────────────────────────────────────
@@ -586,31 +624,94 @@ export default function PosPage() {
   )
 
   // ── Numpad ──────────────────────────────────────────────────────────────────
-  const Numpad = () => (
-    <div className="px-3 py-2 bg-white">
-      {numpadTarget !== 'tendered' && (
-        <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-          {numpadTarget === 'qty' ? `Setting qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}` : `Setting discount${discountBuffer ? ` → ${discountBuffer}` : ''}`}
+  // mobile prop: when true renders the drawer control bar (show/hide/dock)
+  const Numpad = ({ mobile = false }: { mobile?: boolean }) => (
+    <div className="bg-white">
+      {/* Mobile drawer control bar */}
+      {mobile && (
+        <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-gray-100">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+            {numpadTarget === 'qty'
+              ? `Qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
+              : numpadTarget === 'price'
+              ? `Price${priceBuffer ? ` → ${priceBuffer}` : ''}`
+              : numpadTarget === 'lineDiscount'
+              ? `Discount${discountBuffer ? ` → ${discountBuffer}` : ''}`
+              : 'Numpad'}
+          </span>
+          <div className="flex items-center gap-1">
+            {/* Dock toggle */}
+            <button
+              onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
+              title={numpadDrawer === 'docked' ? 'Make drawer' : 'Dock numpad'}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                numpadDrawer === 'docked'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}
+            >
+              {numpadDrawer === 'docked' ? (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                  Drawer
+                </>
+              ) : (
+                <>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                  Dock
+                </>
+              )}
+            </button>
+            {/* Hide button */}
+            <button
+              onClick={() => setNumpadDrawer('hidden')}
+              title="Hide numpad"
+              className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
       )}
-      <div className="grid grid-cols-3 gap-1.5">
-        {['7','8','9','4','5','6','1','2','3','.','0','←'].map(k => (
-          <button
-            key={k}
-            onClick={() => numpadPress(k)}
-            className="py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
-          >
-            {k}
-          </button>
-        ))}
-        <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 rounded-xl text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
-        <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
-        <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 rounded-xl text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
+
+      <div className="px-3 py-2">
+        {/* Context label — desktop only (mobile shows it in the bar above) */}
+        {!mobile && numpadTarget !== 'tendered' && (
+          <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+            {numpadTarget === 'qty'
+              ? `Setting qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
+              : numpadTarget === 'price'
+              ? `Override price${priceBuffer ? ` → ${priceBuffer}` : ''}`
+              : `Setting discount${discountBuffer ? ` → ${discountBuffer}` : ''}`}
+          </div>
+        )}
+        <div className="grid grid-cols-3 gap-1.5">
+          {['7','8','9','4','5','6','1','2','3','.','0','←'].map(k => (
+            <button
+              key={k}
+              onClick={() => numpadPress(k)}
+              className="py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
+            >
+              {k}
+            </button>
+          ))}
+          <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 rounded-xl text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
+          <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
+          <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 rounded-xl text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
+        </div>
       </div>
     </div>
   )
 
   // ── Cart line row (shared between mobile and desktop) ───────────────────────
+  const canEditPrice = user?.role === 'OWNER' || user?.role === 'STORE_MANAGER'
+
   const CartLineRow = ({ line, idx, mobile = false }: { line: CartLine; idx: number; mobile?: boolean }) => {
     const isSelected = selectedCartIdx === idx
     const tierOptions: { key: PriceTier; label: string }[] = [
@@ -627,52 +728,71 @@ export default function PosPage() {
       >
         {/* Main row */}
         <div className="flex items-center gap-2">
-          {/* Name + price */}
+          {/* Name */}
           <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedCartIdx(isSelected ? null : idx)}>
             <p className="text-sm font-semibold text-gray-900 truncate">{line.name}</p>
-            <p className="text-xs text-gray-400">
-              {formatCurrency(line.basePrice)}
-              {line.lineDiscount > 0 && <span className="text-green-600 ml-1">− {formatCurrency(line.lineDiscount)} disc.</span>}
-            </p>
+            {/* Price — tappable to edit if permitted */}
+            {canEditPrice ? (
+              mobile ? (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={line.basePrice}
+                  onChange={e => setLinePrice(idx, parseFloat(e.target.value) || 0)}
+                  onClick={e => e.stopPropagation()}
+                  className="w-20 text-xs font-bold text-indigo-600 bg-transparent border-b border-indigo-300 focus:outline-none focus:border-indigo-500"
+                />
+              ) : (
+                <button
+                  onClick={e => {
+                    e.stopPropagation()
+                    setEditingPriceIdx(idx)
+                    setPriceBuffer(String(line.basePrice))
+                    setNumpadTarget('price')
+                    setSelectedCartIdx(idx)
+                  }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-left"
+                  title="Edit price"
+                >
+                  {formatCurrency(line.basePrice)} ✎
+                </button>
+              )
+            ) : (
+              <p className="text-xs text-gray-400">
+                {formatCurrency(line.basePrice)}
+              </p>
+            )}
+            {line.lineDiscount > 0 && (
+              <p className="text-xs text-green-600">− {formatCurrency(line.lineDiscount)} disc.</p>
+            )}
           </div>
-          {/* Qty controls */}
-          {mobile ? (
-            <div className="flex items-center gap-1 shrink-0">
-              <button onClick={() => updateQty(idx, line.qty - 1)} className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation">−</button>
-              <span className="w-6 text-center text-sm font-bold">{line.qty}</span>
-              <button onClick={() => updateQty(idx, line.qty + 1)} className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation">+</button>
-            </div>
-          ) : (
+          {/* Qty controls — inline +/− on both mobile and desktop */}
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => updateQty(idx, line.qty - 1)}
+              className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-red-100 hover:text-red-600 transition-colors"
+            >−</button>
             <button
               onClick={() => { setSelectedCartIdx(isSelected ? null : idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)) }}
-              className="w-9 h-9 rounded-lg bg-gray-100 font-bold text-gray-700 text-sm flex items-center justify-center hover:bg-indigo-100 transition-colors"
+              className="w-8 h-7 rounded-lg bg-gray-50 border border-gray-200 font-bold text-gray-800 text-sm flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+              title="Tap to set qty via numpad"
             >
               {line.qty}
             </button>
-          )}
+            <button
+              onClick={() => updateQty(idx, line.qty + 1)}
+              className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-green-100 hover:text-green-700 transition-colors"
+            >+</button>
+          </div>
           {/* Line total */}
           <p className="text-sm font-bold text-gray-900 w-16 text-right shrink-0">{formatCurrency(lineTotal(line))}</p>
           {/* Remove */}
           <button onClick={() => removeFromCart(idx)} className="text-red-300 hover:text-red-500 text-xl leading-none shrink-0">×</button>
         </div>
 
-        {/* Expanded controls on desktop or when selected on mobile */}
-        {(isSelected || !mobile) && isSelected && (
+        {/* Expanded controls when selected */}
+        {isSelected && (
           <div className="mt-2 space-y-2">
-            {/* Quick qty presets */}
-            <div className="flex gap-1 flex-wrap">
-              {[1, 2, 3, 5, 10, 20].map(n => (
-                <button
-                  key={n}
-                  onClick={() => quickQty(idx, n)}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
-                    line.qty === n ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-                  }`}
-                >
-                  ×{n}
-                </button>
-              ))}
-            </div>
             {/* Price tier */}
             {hasMultipleTiers && (
               <div className="flex gap-1 flex-wrap">
@@ -926,75 +1046,124 @@ export default function PosPage() {
     </div>
   )
 
-  // ── Category / group tab bar ────────────────────────────────────────────────
-  const CategoryTabs = () => {
-    if (categories.length === 0) return null
-    return (
-      <div className="shrink-0 bg-white border-b border-gray-100 overflow-x-auto">
-        <div className="flex gap-1 px-3 py-2 w-max min-w-full">
-          {/* "All" tab */}
-          <button
-            onClick={() => setActiveGroup('ALL')}
-            className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-              activeGroup === 'ALL'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            All
-          </button>
+  // ── Category picker grid — shown when no category selected and no search ────
+  const CategoryPicker = ({ cols }: { cols: string }) => (
+    <div className="flex-1 overflow-y-auto p-3">
+      {isLoadingItems ? (
+        <div className={`grid ${cols} gap-3`}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-28 bg-white rounded-2xl animate-pulse border border-gray-200" />
+          ))}
+        </div>
+      ) : (
+        <div className={`grid ${cols} gap-3`}>
           {categories.map(cat => {
             const count = allItems.filter(i => i.category?.id === cat.id).length
-            const isActive = activeGroup === cat.id
             return (
               <button
                 key={cat.id}
                 onClick={() => setActiveGroup(cat.id)}
-                style={isActive ? { backgroundColor: cat.color ?? '#6366f1', borderColor: cat.color ?? '#6366f1' } : {}}
-                className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border-2 ${
-                  isActive
-                    ? 'text-white border-transparent'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent'
-                }`}
+                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-transparent bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all"
+                style={{ borderColor: (cat.color ?? '#6366f1') + '44' }}
               >
-                {cat.icon && <span className="text-sm leading-none">{cat.icon}</span>}
-                {cat.name}
-                <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                    isActive ? 'bg-white/30 text-white' : 'bg-gray-200 text-gray-500'
-                  }`}
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-sm"
+                  style={{ backgroundColor: (cat.color ?? '#6366f1') + '20' }}
                 >
-                  {count}
-                </span>
+                  {cat.icon ?? '📦'}
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-bold text-gray-800 leading-tight line-clamp-2">{cat.name}</p>
+                  <p className="text-[10px] font-semibold mt-0.5" style={{ color: cat.color ?? '#6366f1' }}>
+                    {count} item{count !== 1 ? 's' : ''}
+                  </p>
+                </div>
               </button>
             )
           })}
+          {/* All items tile */}
+          <button
+            onClick={() => setActiveGroup('__ALL_ITEMS__')}
+            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-gray-300 bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all hover:border-indigo-300"
+          >
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl bg-gray-100">
+              🏪
+            </div>
+            <div className="text-center">
+              <p className="text-xs font-bold text-gray-800">All Items</p>
+              <p className="text-[10px] font-semibold text-gray-400 mt-0.5">{allItems.length} items</p>
+            </div>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+
+  // ── Item grid area ──────────────────────────────────────────────────────────
+  const ItemGrid = ({ cols }: { cols: string }) => {
+    const activeCat = (activeGroup !== 'ALL' && activeGroup !== '__ALL_ITEMS__')
+      ? categories.find(c => c.id === activeGroup)
+      : null
+    return (
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        {/* Back + category header + Add All */}
+        <div
+          className="shrink-0 flex items-center justify-between px-3 py-2 bg-white border-b border-gray-100"
+          style={activeCat ? { borderLeftWidth: 3, borderLeftColor: activeCat.color ?? '#6366f1' } : {}}
+        >
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveGroup('ALL')}
+              className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-95 touch-manipulation"
+            >
+              ← Categories
+            </button>
+            {activeCat && (
+              <>
+                <span className="text-gray-300">·</span>
+                <span className="text-lg leading-none">{activeCat.icon}</span>
+                <span className="text-xs font-bold text-gray-700">{activeCat.name}</span>
+                <span className="text-[10px] text-gray-400 font-semibold">({displayItems.length})</span>
+              </>
+            )}
+            {!activeCat && (
+              <span className="text-xs font-bold text-gray-700">All Items <span className="text-gray-400 font-normal">({displayItems.length})</span></span>
+            )}
+          </div>
+          {activeCat && displayItems.length > 0 && (
+            <button
+              onClick={() => addAllToCart(displayItems)}
+              style={{ backgroundColor: activeCat.color ?? '#6366f1' }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-white active:scale-95 touch-manipulation transition-transform"
+            >
+              + Add All
+            </button>
+          )}
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {isLoadingItems ? (
+            <div className={`grid ${cols} gap-2`}>
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-gray-200" />
+              ))}
+            </div>
+          ) : displayItems.length === 0 ? (
+            <div className="flex flex-col items-center py-16 text-gray-400">
+              <span className="text-5xl mb-3">📦</span>
+              <p className="font-semibold text-sm">{q ? 'No items match' : 'No items in this category'}</p>
+            </div>
+          ) : (
+            <div className={`grid ${cols} gap-2`}>
+              {displayItems.map(item => <ItemTile key={item.id} item={item} />)}
+            </div>
+          )}
         </div>
       </div>
     )
   }
 
-  // ── Item grid area ──────────────────────────────────────────────────────────
-  const ItemGrid = ({ cols }: { cols: string }) => (
-    <div className="flex-1 overflow-y-auto p-2">
-      {isLoadingItems ? (
-        <div className={`grid ${cols} gap-2`}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-gray-200" />
-          ))}
-        </div>
-      ) : displayItems.length === 0 ? (
-        <div className="flex flex-col items-center py-16 text-gray-400">
-          <span className="text-5xl mb-3">📦</span>
-          <p className="font-semibold text-sm">{q ? 'No items match' : 'No items in stock'}</p>
-        </div>
-      ) : (
-        <div className={`grid ${cols} gap-2`}>
-          {displayItems.map(item => <ItemTile key={item.id} item={item} />)}
-        </div>
-      )}
-    </div>
-  )
+  // show category picker when: no search, no category chosen yet, and categories exist
+  const showCategoryPicker = !q && activeGroup === 'ALL' && categories.length > 0
 
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -1006,7 +1175,7 @@ export default function PosPage() {
 
         {/* ── Top bar ──────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 px-3 py-2 bg-indigo-700 text-white shrink-0">
-          <span className="font-bold text-sm tracking-wide">PETROS POS</span>
+          <span className="font-bold text-sm tracking-wide">{companyName || 'POS Terminal'}</span>
           {currentBranch && <span className="text-indigo-200 text-xs truncate">· {currentBranch.name}</span>}
           <div className="flex-1" />
 
@@ -1052,11 +1221,13 @@ export default function PosPage() {
         {/* ── DESKTOP layout (md+) ──────────────────────────────────────────── */}
         <div className="hidden md:flex flex-1 overflow-hidden">
 
-          {/* LEFT — search + grid */}
+          {/* LEFT — search + category picker or item grid */}
           <div className="flex flex-col flex-1 overflow-hidden">
             <SearchBar />
-            <CategoryTabs />
-            <ItemGrid cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+            {showCategoryPicker
+              ? <CategoryPicker cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+              : <ItemGrid cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+            }
           </div>
 
           {/* RIGHT — cart + controls */}
@@ -1129,8 +1300,10 @@ export default function PosPage() {
           {mobileTab === 'items' && (
             <div className="flex flex-col flex-1 overflow-hidden">
               <SearchBar compact />
-              <CategoryTabs />
-              <ItemGrid cols="grid-cols-3 sm:grid-cols-4" />
+              {showCategoryPicker
+                ? <CategoryPicker cols="grid-cols-3 sm:grid-cols-4" />
+                : <ItemGrid cols="grid-cols-3 sm:grid-cols-4" />
+              }
               {cart.length > 0 && (
                 <div className="shrink-0 px-3 py-2 bg-white border-t border-gray-200 flex items-center gap-3">
                   <div className="flex-1">
@@ -1150,7 +1323,7 @@ export default function PosPage() {
 
           {/* Cart / checkout tab */}
           {mobileTab === 'cart' && (
-            <div className="flex flex-col flex-1 overflow-hidden bg-white">
+            <div className="relative flex flex-col flex-1 overflow-hidden bg-white">
 
               {/* Customer */}
               <div className="px-3 pt-3 pb-2 border-b border-gray-100 shrink-0">
@@ -1183,16 +1356,51 @@ export default function PosPage() {
                 )}
               </div>
 
-              {/* Checkout panel */}
+              {/* Checkout panel — payment always docked at bottom */}
               {cart.length > 0 && (
                 <div className="shrink-0 border-t border-gray-200 overflow-y-auto max-h-[55vh]">
-                  <Numpad />
+                  {/* Docked numpad — sits inline above payment panel */}
+                  {numpadDrawer === 'docked' && (
+                    <div className="border-b border-gray-100">
+                      <Numpad mobile />
+                    </div>
+                  )}
                   <PaymentPanel mobile />
                 </div>
+              )}
+
+              {/* Floating "show numpad" button — only when numpad is hidden and cart has items */}
+              {cart.length > 0 && numpadDrawer === 'hidden' && (
+                <button
+                  onClick={() => setNumpadDrawer('drawer')}
+                  className="absolute bottom-24 right-4 z-30 w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center text-lg font-bold active:scale-95 touch-manipulation"
+                  title="Open numpad"
+                >
+                  123
+                </button>
               )}
             </div>
           )}
         </div>
+
+        {/* ── Mobile numpad drawer — floats over content when in 'drawer' mode ── */}
+        {numpadDrawer === 'drawer' && mobileTab === 'cart' && cart.length > 0 && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-40 bg-black/30 md:hidden"
+              onClick={() => setNumpadDrawer('hidden')}
+            />
+            {/* Bottom sheet */}
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden rounded-t-2xl shadow-2xl overflow-hidden">
+              {/* Drag handle */}
+              <div className="flex justify-center bg-white pt-2 pb-0">
+                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+              </div>
+              <Numpad mobile />
+            </div>
+          </>
+        )}
       </div>
     </>
   )

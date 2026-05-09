@@ -79,6 +79,7 @@ export function Sidebar() {
       icon: '📦',
       itemsRaw: [
         { name: 'Items',         href: '/items',         icon: '📦', show: true },
+        { name: 'Categories',    href: '/categories',    icon: '🗂️', show: true },
         { name: 'Manufacturers', href: '/manufacturers', icon: '🏭', show: true },
       ],
     },

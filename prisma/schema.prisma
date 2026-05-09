@@ -103,6 +103,10 @@ model Tenant {
 
   // Sales behaviour
   allowSaleOnZeroStock         Boolean  @default(false)
+
+  // Role permission overrides — JSON map of role → string[]
+  // When set, overrides the default PERMISSIONS constant in rbac.ts for that role
+  rolePermissions              Json?
 }
 
 // =====================
