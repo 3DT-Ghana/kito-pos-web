@@ -51,11 +51,7 @@ export async function GET(req: Request) {
         },
         ...(categoryId ? { item: { categoryId } } : {}),
       },
-      select: {
-        quantity: true,
-        price: true,
-        discountAmount: true,
-        lineSubtotalAmount: true,
+      include: {
         item: {
           select: {
             id: true,

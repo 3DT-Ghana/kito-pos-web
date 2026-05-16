@@ -8,7 +8,9 @@ import { buildVisibleQuotationWhere } from '@/lib/quotations/server'
 import {
   calculateLineTaxes,
   resolveItemTaxProfile,
+  type ComputedTaxLine,
 } from '@/lib/tax/engine'
+import { TaxCalculationType } from '@prisma/client'
 import {
   getTenantTaxConfiguration,
   itemTaxSettingInclude,
@@ -127,10 +129,16 @@ export async function POST(req: Request) {
     let subtotalAmount = 0
     let taxAmount = 0
 
-    const itemsData = body.items.map((i: QuotationRequestItem) => {
+    type ItemData = {
+      id: string; itemId: string; itemName: string; quantity: number; price: number
+      discountAmount: number; isTaxable: boolean; taxCalculationType: TaxCalculationType | null
+      lineSubtotalAmount: number; lineTaxAmount: number; lineTotalAmount: number
+      taxLines: ComputedTaxLine[]
+    }
+    const itemsData: ItemData[] = body.items.map((i: QuotationRequestItem): ItemData => {
       const item = itemMap[i.itemId]
-      const quantity = parseFloat(i.quantity)
-      const price = parseFloat(i.price) || item?.sellingPrice || 0
+      const quantity = parseFloat(String(i.quantity))
+      const price = parseFloat(String(i.price ?? 0)) || item?.sellingPrice || 0
       const discountAmount = Math.max(
         0,
         parseFloat(String(i.discountAmount ?? 0)) || 0
@@ -197,7 +205,7 @@ export async function POST(req: Request) {
             price: item.price,
             discountAmount: item.discountAmount,
             isTaxable: item.isTaxable,
-            taxCalculationType: item.taxCalculationType,
+            taxCalculationType: item.taxCalculationType ?? undefined,
             lineSubtotalAmount: item.lineSubtotalAmount,
             lineTaxAmount: item.lineTaxAmount,
             lineTotalAmount: item.lineTotalAmount,

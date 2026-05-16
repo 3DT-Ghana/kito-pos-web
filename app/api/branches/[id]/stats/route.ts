@@ -52,7 +52,7 @@ export async function GET(
           branchId: id,
           ...(dateFilter && { createdAt: dateFilter }),
         }),
-        _sum: { subtotalAmount: true, paidAmount: true },
+        _sum: { totalAmount: true, paidAmount: true },
         _count: true,
       }),
       prisma.purchase.aggregate({
@@ -88,7 +88,7 @@ export async function GET(
       period,
       sales: {
         count: salesAgg._count,
-        totalRevenue: salesAgg._sum.subtotalAmount ?? 0,
+        totalRevenue: salesAgg._sum.totalAmount ?? 0,
         totalPaid: salesAgg._sum.paidAmount ?? 0,
       },
       purchases: {

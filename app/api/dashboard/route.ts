@@ -116,12 +116,7 @@ export async function GET() {
         where: saleScope({}),
         orderBy: { createdAt: 'desc' },
         take: 5,
-        select: {
-          id: true,
-          subtotalAmount: true,
-          totalAmount: true,
-          paidAmount: true,
-          createdAt: true,
+        include: {
           customer: { select: { name: true } },
           _count: { select: { items: true } },
         },
@@ -158,7 +153,7 @@ export async function GET() {
     const itemMap = allSaleItems7.reduce<Record<string, { name: string; revenue: number; qty: number }>>((acc, si) => {
       const id = si.item.id
       if (!acc[id]) acc[id] = { name: si.item.name, revenue: 0, qty: 0 }
-      acc[id].revenue += si.lineSubtotalAmount ?? Math.max(0, si.price * si.quantity - (si.discountAmount ?? 0))
+      acc[id].revenue += Math.max(0, si.price * si.quantity - (si.discountAmount ?? 0))
       acc[id].qty     += si.quantity
       return acc
     }, {})
