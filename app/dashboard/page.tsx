@@ -43,10 +43,22 @@ export default async function DashboardPage() {
     console.error('Failed to fetch tenant:', error)
   }
 
+  const now = new Date()
+  const hour = now.getHours()
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(now)
+
   return (
     <ImprovedDashboard
       userName={user.name}
       tenantName={tenantName}
+      greeting={greeting}
+      dateStr={dateStr}
     />
   )
 }

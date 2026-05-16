@@ -1,13 +1,16 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { ShoppingCart, Package, TrendingDown, Plus, ArrowRight, LogOut } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
-import { useSessionGuard } from '@/lib/session/SessionGuard'
+import { SignOutConfirmModal } from '@/components/auth/SignOutModal'
 
 interface DashboardProps {
   userName: string
   tenantName: string
+  greeting: string
+  dateStr: string
 }
 
 const quickActions = [
@@ -16,16 +19,12 @@ const quickActions = [
   { label: 'Add Item',     href: '/items/new',     icon: Package       },
 ]
 
-export function ImprovedDashboard({ userName, tenantName }: DashboardProps) {
-  const { openSignOut } = useSessionGuard()
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-  const dateStr = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
+export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: DashboardProps) {
+  const [signOutOpen, setSignOutOpen] = useState(false)
 
   return (
     <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6">
+      <SignOutConfirmModal open={signOutOpen} onClose={() => setSignOutOpen(false)} />
 
       {/* ── Hero header ────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 px-6 sm:px-10 pt-10 pb-28">
@@ -58,7 +57,7 @@ export function ImprovedDashboard({ userName, tenantName }: DashboardProps) {
 
             {/* Sign out */}
             <button
-              onClick={openSignOut}
+              onClick={() => setSignOutOpen(true)}
               title="Sign out"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 text-white text-sm font-medium backdrop-blur-sm transition-all"
             >

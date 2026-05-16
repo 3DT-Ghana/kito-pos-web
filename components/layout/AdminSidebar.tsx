@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, Building2, ClipboardList,
-  FileText, ShieldCheck, LogOut, ChevronDown, BarChart2,
+  FileText, ShieldCheck, LogOut, ChevronDown, BarChart2, X,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -57,7 +57,12 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-export function AdminSidebar() {
+interface AdminSidebarProps {
+  mobileOpen?: boolean
+  onMobileClose?: () => void
+}
+
+export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps) {
   const pathname = usePathname()
   const { data: session } = useSession()
 
@@ -80,94 +85,120 @@ export function AdminSidebar() {
   const toggle = (label: string) =>
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
 
-  return (
-    <aside className="hidden md:flex flex-col fixed inset-y-0 z-30 w-60">
-      <div className="flex flex-col grow bg-slate-900 pb-4 overflow-y-auto">
+  const sidebarContent = (
+    <div className="flex flex-col grow bg-slate-900 pb-4 overflow-y-auto">
 
-        {/* Brand */}
-        <div className="flex items-center gap-3 shrink-0 h-14 px-4 border-b border-slate-800">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-4 h-4 text-white" />
+      {/* Brand */}
+      <div className="flex items-center gap-3 shrink-0 h-14 px-4 border-b border-slate-800">
+        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+          <ShieldCheck className="w-4 h-4 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-white leading-tight truncate">PETROS Platform</p>
+          <p className="text-xs text-indigo-400 font-semibold">Super Admin</p>
+        </div>
+        {/* Close button — mobile only */}
+        {onMobileClose && (
+          <button
+            onClick={onMobileClose}
+            className="md:hidden p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+        {NAV_GROUPS.map(group => {
+          const isOpen = openGroups[group.label] ?? false
+          const groupActive = group.items.some(i => isActive(i.href))
+
+          return (
+            <div key={group.label}>
+              <button
+                type="button"
+                onClick={() => toggle(group.label)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors mt-2 ${
+                  groupActive ? 'text-slate-300' : 'text-slate-500 hover:text-slate-400'
+                }`}
+              >
+                <span className="flex-1 text-left">{group.label}</span>
+                <ChevronDown
+                  className={`w-3 h-3 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isOpen && (
+                <div className="mt-0.5 space-y-0.5">
+                  {group.items.map(item => {
+                    const active = isActive(item.href)
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={onMobileClose}
+                        className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all ${
+                          active
+                            ? 'bg-indigo-600 text-white'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                        }`}
+                      >
+                        <span className="shrink-0">{item.icon}</span>
+                        <span className="truncate font-medium">{item.name}</span>
+                        {item.badge && (
+                          <span className="ml-auto text-xs bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </nav>
+
+      {/* User footer */}
+      <div className="shrink-0 border-t border-slate-800 p-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-indigo-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
+            {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-white leading-tight truncate">PETROS Platform</p>
-            <p className="text-xs text-indigo-400 font-semibold">Super Admin</p>
+            <p className="text-sm font-semibold text-slate-200 truncate">{session?.user?.name ?? 'Super Admin'}</p>
+            <p className="text-xs text-indigo-400 font-medium">Platform Admin</p>
           </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/auth/login' })}
+            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
+            title="Sign out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
-
-        {/* Nav */}
-        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
-          {NAV_GROUPS.map(group => {
-            const isOpen = openGroups[group.label] ?? false
-            const groupActive = group.items.some(i => isActive(i.href))
-
-            return (
-              <div key={group.label}>
-                <button
-                  type="button"
-                  onClick={() => toggle(group.label)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors mt-2 ${
-                    groupActive ? 'text-slate-300' : 'text-slate-500 hover:text-slate-400'
-                  }`}
-                >
-                  <span className="flex-1 text-left">{group.label}</span>
-                  <ChevronDown
-                    className={`w-3 h-3 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
-                  />
-                </button>
-
-                {isOpen && (
-                  <div className="mt-0.5 space-y-0.5">
-                    {group.items.map(item => {
-                      const active = isActive(item.href)
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all ${
-                            active
-                              ? 'bg-indigo-600 text-white'
-                              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                          }`}
-                        >
-                          <span className="shrink-0">{item.icon}</span>
-                          <span className="truncate font-medium">{item.name}</span>
-                          {item.badge && (
-                            <span className="ml-auto text-xs bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
-                              {item.badge}
-                            </span>
-                          )}
-                        </Link>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </nav>
-
-        {/* User footer */}
-        <div className="shrink-0 border-t border-slate-800 p-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-indigo-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-200 truncate">{session?.user?.name ?? 'Super Admin'}</p>
-              <p className="text-xs text-indigo-400 font-medium">Platform Admin</p>
-            </div>
-            <button
-              onClick={() => signOut({ callbackUrl: '/auth/login' })}
-              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
-              title="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
       </div>
-    </aside>
+
+    </div>
+  )
+
+  return (
+    <>
+      {/* Desktop sidebar — always visible */}
+      <aside className="hidden md:flex flex-col fixed inset-y-0 z-30 w-60">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile drawer */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 z-30 w-64 flex flex-col transform transition-transform duration-200 ease-in-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        {sidebarContent}
+      </aside>
+    </>
   )
 }
