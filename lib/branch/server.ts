@@ -97,7 +97,9 @@ export async function requireBranchAccess(): Promise<{
       ? userRecord.branchId
       : null
 
-  if (branchesEnabled && !canViewAllBranches && !assignedBranchId) {
+  const defaultBranchForFallback = allBranches.find((branch) => branch.isDefault) ?? allBranches[0] ?? null
+
+  if (branchesEnabled && !canViewAllBranches && !assignedBranchId && !defaultBranchForFallback) {
     return {
       error: NextResponse.json(
         {
@@ -117,7 +119,6 @@ export async function requireBranchAccess(): Promise<{
       : allBranches
 
   let currentBranchId: string | null = null
-  const defaultBranch = allBranches.find((branch) => branch.isDefault) ?? allBranches[0] ?? null
 
   if (branchesEnabled && allBranches.length > 0) {
     const cookieStore = await cookies()
@@ -125,12 +126,15 @@ export async function requireBranchAccess(): Promise<{
 
     if (assignedBranchId && !canViewAllBranches) {
       currentBranchId = assignedBranchId
+    } else if (!assignedBranchId && !canViewAllBranches) {
+      // Unassigned user — fall back to the default branch so they aren't blocked
+      currentBranchId = defaultBranchForFallback?.id ?? null
     } else if (canViewAllBranches && rawSelection === ALL_BRANCHES_SELECTION) {
       currentBranchId = null
     } else if (rawSelection && rawSelection !== ALL_BRANCHES_SELECTION && branchIds.has(rawSelection)) {
       currentBranchId = rawSelection
     } else {
-      currentBranchId = assignedBranchId ?? defaultBranch?.id ?? null
+      currentBranchId = assignedBranchId ?? defaultBranchForFallback?.id ?? null
     }
   }
 

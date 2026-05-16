@@ -101,7 +101,10 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60,
+    // Expires 5 minutes after last activity. If the browser is closed without
+    // signing out, the cookie is session-scoped and the JWT itself expires in
+    // 5 minutes — so re-opening the browser won't restore the session.
+    maxAge: 5 * 60,
   },
 
   callbacks: {

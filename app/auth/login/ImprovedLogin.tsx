@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Sparkles,
   AlertCircle,
+  Info,
   BarChart3,
   Package,
   Users,
@@ -23,7 +24,7 @@ const PILLARS = [
   { icon: Users,      label: "CRM & Suppliers",    desc: "Credit accounts & aging reports" },
 ];
 
-export function ImprovedLogin({ error: initialError }: { error?: string }) {
+export function ImprovedLogin({ error: initialError, notice }: { error?: string; notice?: string }) {
   const router = useRouter();
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -144,6 +145,14 @@ export function ImprovedLogin({ error: initialError }: { error?: string }) {
                     Enter your credentials to access your account
                   </p>
                 </div>
+
+                {/* Idle session notice */}
+                {notice && (
+                  <div className="mb-5 flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50/90 px-4 py-3">
+                    <Info className="h-4 w-4 shrink-0 text-blue-500 mt-0.5" />
+                    <p className="text-sm text-blue-700">{notice}</p>
+                  </div>
+                )}
 
                 {/* Error */}
                 {error && (

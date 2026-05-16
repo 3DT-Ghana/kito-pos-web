@@ -8,7 +8,8 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "npx prisma db seed"
+    "seed": "npx prisma db seed",
+    "backfill:branch-assignments": "tsx scripts/backfill-branch-assignments.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

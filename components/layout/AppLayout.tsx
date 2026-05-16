@@ -5,6 +5,7 @@ import { Header } from './Header'
 import { BottomNav } from './BottomNav'
 import { ReactNode } from 'react'
 import { SidebarProvider, useSidebar } from '@/lib/sidebar/SidebarContext'
+import { SessionGuard } from '@/lib/session/SessionGuard'
 
 /**
  * App Layout Component
@@ -60,7 +61,9 @@ function AppLayoutInner({ children }: AppLayoutProps) {
 export function AppLayout({ children }: AppLayoutProps) {
   return (
     <SidebarProvider>
-      <AppLayoutInner>{children}</AppLayoutInner>
+      <SessionGuard>
+        <AppLayoutInner>{children}</AppLayoutInner>
+      </SessionGuard>
     </SidebarProvider>
   )
 }

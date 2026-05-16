@@ -10,7 +10,7 @@ function applySecurityHeaders(response: NextResponse) {
 }
 
 /**
- * Global Middleware Configuration
+ * Global Proxy Configuration
  *
  * Automatically protects routes and enforces authentication
  *
@@ -35,9 +35,15 @@ function applySecurityHeaders(response: NextResponse) {
  */
 
 export default withAuth(
-  function middleware(req) {
+  function proxy(req) {
     const token = req.nextauth.token
     const { pathname } = req.nextUrl
+    const isApi = pathname.startsWith('/api/')
+    const isAuthApi = pathname.startsWith('/api/auth/')
+    const isPublicApi =
+      isAuthApi ||
+      pathname.startsWith('/api/tenants') ||
+      pathname.startsWith('/api/agent/register')
     const isSuperAdmin = token?.platformRole === 'SUPER_ADMIN'
     const isAdminPage = pathname.startsWith('/admin')
     const isAdminApi = pathname.startsWith('/api/admin/')
@@ -61,6 +67,81 @@ export default withAuth(
         role: token?.role,
         tenantId: token?.tenantId,
       })
+    }
+
+    if (isApi && !isPublicApi) {
+      if (!token) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'Authentication required' },
+            { status: 401 }
+          )
+        )
+      }
+
+      if (isAdminApi) {
+        if (!isSuperAdmin) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Forbidden — super admin access required' },
+              { status: 403 }
+            )
+          )
+        }
+
+        return applySecurityHeaders(NextResponse.next())
+      }
+
+      if (isAgentApi) {
+        if (token.platformRole !== 'AGENT') {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Forbidden — agent access required' },
+              { status: 403 }
+            )
+          )
+        }
+
+        if (isBlockedAgent) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Agent account is not allowed to access this resource' },
+              { status: 403 }
+            )
+          )
+        }
+
+        return applySecurityHeaders(NextResponse.next())
+      }
+
+      if (token.platformRole === 'AGENT') {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'Agent accounts cannot access tenant APIs' },
+            { status: 403 }
+          )
+        )
+      }
+
+      if (token.platformRole === 'SUPER_ADMIN') {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'Super admin accounts cannot access tenant APIs' },
+            { status: 403 }
+          )
+        )
+      }
+
+      if (!token.tenantId) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'No tenant associated with your account. Please sign in again.' },
+            { status: 403 }
+          )
+        )
+      }
+
+      return applySecurityHeaders(NextResponse.next())
     }
 
     // Super admin: allow /admin/* and /api/admin/*, block everything else
@@ -161,6 +242,10 @@ export default withAuth(
           return true
         }
 
+        if (pathname.startsWith('/api/')) {
+          return true
+        }
+
         // Require authentication for all other routes
         if (!token) {
           return false
@@ -190,7 +275,7 @@ export default withAuth(
 )
 
 /**
- * Middleware Configuration
+ * Proxy Configuration
  *
  * Defines which routes the middleware should run on
  * Uses Next.js matcher pattern

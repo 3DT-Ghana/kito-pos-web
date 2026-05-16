@@ -6,6 +6,7 @@ import { useUser } from '@/hooks/useUser'
 import { useState } from 'react'
 import { BranchSelector } from '@/components/layout/BranchSelector'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
+import { useSessionGuard } from '@/lib/session/SessionGuard'
 import { Menu, Settings, Users, Download, Sliders, Scale, LogOut, ChevronDown } from 'lucide-react'
 
 const PAGE_TITLES: Record<string, string> = {
@@ -47,6 +48,7 @@ export function Header() {
   const pathname = usePathname()
   const [menuOpen, setMenuOpen] = useState(false)
   const { toggle } = useSidebar()
+  const { openSignOut } = useSessionGuard()
 
   const pageTitle = Object.entries(PAGE_TITLES).find(([key]) =>
     pathname === key || pathname?.startsWith(key + '/')
@@ -110,14 +112,13 @@ export function Header() {
                     <MenuLink href="/items/adjust-bulk"        icon={<Sliders className="w-4 h-4" />}   label="Bulk Adjust Stock" onClick={() => setMenuOpen(false)} />
                     <MenuLink href="/customers/adjust-balance" icon={<Scale className="w-4 h-4" />}     label="Adjust Balances"   onClick={() => setMenuOpen(false)} />
                     <div className="my-1 border-t border-gray-100" />
-                    <Link
-                      href="/api/auth/signout"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    <button
+                      onClick={() => { setMenuOpen(false); openSignOut() }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Sign out
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </>

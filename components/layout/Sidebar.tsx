@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
+import { useSessionGuard } from '@/lib/session/SessionGuard'
 import {
   LayoutDashboard, Monitor, ShoppingCart, FileText, CornerUpLeft,
   Package, ArrowLeftRight, Tag, Factory, CreditCard, Receipt,
@@ -30,6 +31,7 @@ export function Sidebar() {
   const { user } = useUser()
   const { features } = useTenantFeatures()
   const { collapsed, toggle } = useSidebar()
+  const { openSignOut } = useSessionGuard()
   const role = user?.role || ''
 
   const ALL = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
@@ -292,13 +294,13 @@ export function Sidebar() {
                 <p className="text-sm font-semibold text-slate-200 truncate">{user?.name}</p>
                 <p className="text-xs text-slate-500 truncate">{roleLabel}</p>
               </div>
-              <Link
-                href="/api/auth/signout"
+              <button
+                onClick={openSignOut}
                 className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
                 title="Sign out"
               >
                 <LogOut className="w-4 h-4" />
-              </Link>
+              </button>
             </div>
           )}
         </div>

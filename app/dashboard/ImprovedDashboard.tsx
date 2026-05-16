@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { ShoppingCart, Package, TrendingDown, Plus, ArrowRight } from 'lucide-react'
+import { ShoppingCart, Package, TrendingDown, Plus, ArrowRight, LogOut } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
+import { useSessionGuard } from '@/lib/session/SessionGuard'
 
 interface DashboardProps {
   userName: string
@@ -16,6 +17,7 @@ const quickActions = [
 ]
 
 export function ImprovedDashboard({ userName, tenantName }: DashboardProps) {
+  const { openSignOut } = useSessionGuard()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
   const dateStr = new Date().toLocaleDateString('en-GB', {
@@ -53,6 +55,18 @@ export function ImprovedDashboard({ userName, tenantName }: DashboardProps) {
                 <span className="hidden sm:inline">{label}</span>
               </Link>
             ))}
+
+            {/* Sign out */}
+            <button
+              onClick={openSignOut}
+              title="Sign out"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/40 border border-red-400/30 text-white text-sm font-medium backdrop-blur-sm transition-all"
+            >
+              <LogOut className="w-4 h-4" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Sign out</span>
+            </button>
+
+            {/* Mobile: new sale shortcut */}
             <Link
               href="/sales/new"
               className="sm:hidden flex items-center justify-center w-10 h-10 rounded-xl bg-blue-500 hover:bg-blue-400 text-white transition-colors"

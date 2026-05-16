@@ -74,6 +74,24 @@ function readDashboardError(payload: unknown) {
   return null
 }
 
+function looksLikeHtmlDocument(value: string) {
+  const trimmed = value.trimStart().toLowerCase()
+  return (
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html') ||
+    trimmed.startsWith('<head') ||
+    trimmed.startsWith('<body')
+  )
+}
+
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return null
+  }
+}
+
 function normalizeDashboardData(payload: unknown): DashboardData | null {
   if (!isRecord(payload) || !Array.isArray(payload.salesLast7Days) || !Array.isArray(payload.paymentMethodSplit)) {
     return null
@@ -187,7 +205,6 @@ interface KpiProps {
 
 function KpiCard({ label, value, sub, icon: Icon, accent, iconColor, trend, href }: KpiProps) {
   const up = trend != null && trend >= 0
-  const down = trend != null && trend < 0
 
   return (
     <Link
@@ -257,12 +274,24 @@ export function DashboardCharts() {
 
     fetch('/api/dashboard')
       .then(async (response) => {
-        const payload = await response.json().catch(() => null)
+        const rawPayload = await response.text()
+        const htmlResponse = looksLikeHtmlDocument(rawPayload)
+        const payload = !rawPayload || htmlResponse
+          ? null
+          : safeParseJson(rawPayload)
 
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403 || htmlResponse) {
+            throw new Error('Your session has expired. Please sign in again.')
+          }
+
           throw new Error(
             readDashboardError(payload) ?? 'Dashboard data is unavailable right now.'
           )
+        }
+
+        if (htmlResponse) {
+          throw new Error('Your session has expired. Please sign in again.')
         }
 
         const normalized = normalizeDashboardData(payload)

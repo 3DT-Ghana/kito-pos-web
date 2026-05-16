@@ -18,8 +18,13 @@ import { ImprovedLogin } from './ImprovedLogin'
 function LoginPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
+  const reason = searchParams.get('reason')
 
-  return <ImprovedLogin error={error || undefined} />
+  const notice = reason === 'idle'
+    ? 'You were signed out due to inactivity. Please sign in again.'
+    : undefined
+
+  return <ImprovedLogin error={error || undefined} notice={notice} />
 }
 
 export default function LoginPage() {
