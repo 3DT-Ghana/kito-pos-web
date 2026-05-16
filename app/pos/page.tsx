@@ -4,8 +4,9 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUser } from '@/hooks/useUser'
 import { useBranch } from '@/lib/branch/BranchContext'
-import { useTenant, useTenantFeatures } from '@/hooks/useTenant'
+import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
+import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface PosItem {
   id: string
   name: string
   barcode: string | null
+  itemType: 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE'
   sellingPrice: number
   retailPrice: number | null
   wholesalePrice: number | null
@@ -40,7 +42,8 @@ interface CartLine {
   activeTier: PriceTier
   qty: number
   maxStock: number
-  lineDiscount: number    // fixed currency discount per line
+  lineDiscount: number    // discount value (amount or % depending on lineDiscountMode)
+  lineDiscountMode: DiscountMode
   unitName: string | null
   // snapshot of all available tiers for switching mid-cart
   tiers: { sellingPrice: number; retailPrice: number | null; wholesalePrice: number | null; promoPrice: number | null }
@@ -71,11 +74,24 @@ type DiscountMode = 'pct' | 'fixed'
 
 const HOLD_KEY = 'pos_held_orders'
 const LOW_STOCK_THRESHOLD = 5
+const UNTRACKED_MAX_STOCK = 999999
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function resolvedLineDiscount(line: CartLine): number {
+  const gross = line.basePrice * line.qty
+  if (line.lineDiscountMode === 'pct') {
+    return Math.min(100, line.lineDiscount) / 100 * gross
+  }
+  return Math.min(line.lineDiscount, gross)
+}
+
 function lineTotal(line: CartLine) {
-  return Math.max(0, line.basePrice * line.qty - line.lineDiscount)
+  return Math.max(0, line.basePrice * line.qty - resolvedLineDiscount(line))
+}
+
+function isStockTracked(item: Pick<PosItem, 'itemType'>) {
+  return item.itemType === 'INVENTORY'
 }
 
 function loadHolds(): HeldOrder[] {
@@ -91,8 +107,9 @@ function saveHolds(holds: HeldOrder[]) {
 export default function PosPage() {
   const router = useRouter()
   const { user } = useUser()
-  const { currentBranch } = useBranch()
+  const { currentBranch, currentBranchId } = useBranch()
   const { features } = useTenantFeatures()
+  const { hasTenantPermission } = useRolePermissions()
   const { tenantId } = useTenant()
 
   // Company name for title bar
@@ -149,6 +166,13 @@ export default function PosPage() {
   type NumpadDrawerState = 'hidden' | 'drawer' | 'docked'
   const [numpadDrawer, setNumpadDrawer] = useState<NumpadDrawerState>('docked')
 
+  // Approval PIN modal
+  const [showPinModal, setShowPinModal] = useState(false)
+  const [pinEmail, setPinEmail] = useState('')
+  const [pinPassword, setPinPassword] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [isPinVerifying, setIsPinVerifying] = useState(false)
+
   // Holds
   const [holds, setHolds] = useState<HeldOrder[]>([])
   const [showHolds, setShowHolds] = useState(false)
@@ -157,8 +181,27 @@ export default function PosPage() {
   const [showReceipt, setShowReceipt] = useState(false)
   const [lastSaleData, setLastSaleData] = useState<null | {
     id: string; receiptNumber: string; date: string; time: string
-    items: CartLine[]; subtotal: number; orderDiscount: number; total: number
-    paidAmount: number; change: number; method: PaymentMethod
+    items: {
+      name: string
+      qty: number
+      unitPrice: number
+      lineTotal: number
+      lineTaxAmount: number
+    }[]
+    subtotal: number
+    taxAmount: number
+    taxLines: {
+      taxRateId: string | null
+      taxName: string
+      taxRatePercentage: number
+      taxableAmount: number
+      taxAmount: number
+    }[]
+    orderDiscount: number
+    total: number
+    paidAmount: number
+    change: number
+    method: PaymentMethod
     customerName: string; note: string
   }>(null)
 
@@ -166,6 +209,7 @@ export default function PosPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [flashSuccess, setFlashSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [noticeMsg, setNoticeMsg] = useState('')
   const [mobileTab, setMobileTab] = useState<MobileTab>('items')
 
   // ── Load items ──────────────────────────────────────────────────────────────
@@ -182,7 +226,7 @@ export default function PosPage() {
     } finally { setIsLoadingItems(false) }
   }, [])
 
-  useEffect(() => { loadItems() }, [loadItems])
+  useEffect(() => { loadItems() }, [loadItems, currentBranchId])
   useEffect(() => { searchRef.current?.focus() }, [])
   useEffect(() => { setHolds(loadHolds()) }, [])
 
@@ -235,6 +279,7 @@ export default function PosPage() {
 
   const addToCart = (item: PosItem) => {
     const price = resolvePrice(item, globalTier)
+    const maxStock = isStockTracked(item) ? item.quantity : UNTRACKED_MAX_STOCK
     setCart(prev => {
       const idx = prev.findIndex(c => c.itemId === item.id)
       if (idx !== -1) {
@@ -248,8 +293,9 @@ export default function PosPage() {
         basePrice: price,
         activeTier: globalTier,
         qty: 1,
-        maxStock: item.quantity,
+        maxStock,
         lineDiscount: 0,
+        lineDiscountMode: 'pct' as DiscountMode,
         unitName: item.unitName,
         tiers: {
           sellingPrice: item.sellingPrice,
@@ -282,8 +328,16 @@ export default function PosPage() {
   }
 
   const setLineDiscount = (idx: number, discount: number) => {
+    setCart(prev => prev.map((c, i) => {
+      if (i !== idx) return c
+      const max = c.lineDiscountMode === 'pct' ? 100 : c.basePrice * c.qty
+      return { ...c, lineDiscount: Math.max(0, Math.min(discount, max)) }
+    }))
+  }
+
+  const setLineDiscountMode = (idx: number, mode: DiscountMode) => {
     setCart(prev => prev.map((c, i) =>
-      i === idx ? { ...c, lineDiscount: Math.max(0, Math.min(discount, c.basePrice * c.qty)) } : c
+      i === idx ? { ...c, lineDiscountMode: mode, lineDiscount: 0 } : c
     ))
   }
 
@@ -396,9 +450,21 @@ export default function PosPage() {
 
   // ── Checkout ────────────────────────────────────────────────────────────────
 
-  const handleCheckout = async () => {
+  // Returns true if the current cart has flags that require approval
+  const cartNeedsApproval = () => {
+    if (!features.requireApproval) return false
+    const canSelf = hasTenantPermission(user?.role, 'approve_transactions')
+    if (canSelf) return false
+    const hasDiscount = cart.some(c => c.lineDiscount > 0) || orderDiscountNum > 0
+    const hasPriceOverride = cart.some(c => c.basePrice < c.tiers.sellingPrice - 0.001)
+    const isCredit = (grandTotal - (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)) > 0.001
+    return hasDiscount || hasPriceOverride || isCredit
+  }
+
+  const handleCheckout = async (approvalGrant?: string) => {
     if (cart.length === 0 || isSubmitting) return
     setErrorMsg('')
+    setNoticeMsg('')
     setIsSubmitting(true)
     try {
       const paidAmount = method === 'CASH'
@@ -414,34 +480,73 @@ export default function PosPage() {
             itemId: c.itemId,
             quantity: c.qty,
             price: c.basePrice,
-            discountAmount: c.lineDiscount + (orderDiscountNum > 0
+            discountAmount: resolvedLineDiscount(c) + (orderDiscountNum > 0 && cartSubtotal > 0
               ? orderDiscountNum * (lineTotal(c) / cartSubtotal)  // prorate order discount
               : 0),
           })),
           paidAmount,
           paymentMethod: method,
           note,
+          ...(approvalGrant ? { approvalGrant } : {}),
         }),
       })
+
+      const result = await res.json()
+
+      if (res.status === 202 && result.requiresApproval) {
+        setNoticeMsg(result.message ?? 'This sale was submitted for approval and is waiting for a manager.')
+        clearCart()
+        setTendered('')
+        setNumpadBuffer('')
+        setSelectedCustomer(null)
+        setCustomerQuery('')
+        setOrderDiscountValue('')
+        setNote('')
+        setMobileTab('items')
+        loadItems()
+        searchRef.current?.focus()
+        return
+      }
+
       if (!res.ok) {
-        const err = await res.json()
+        const err = result
         throw new Error(err.error || 'Failed to record sale')
       }
-      const result = await res.json()
+
+      const saleTaxBreakdown = summariseTaxBreakdown(result.taxLines ?? [])
+
       const now = new Date()
       setLastSaleData({
         id: result.id ?? result.data?.id ?? '',
-        receiptNumber: result.id?.slice(-8).toUpperCase() ?? '—',
+        receiptNumber: result.id?.slice(0, 8).toUpperCase() ?? '—',
         date: now.toLocaleDateString('en-GH'),
         time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
-        items: [...cart],
-        subtotal: cartSubtotal,
+        items: (result.items ?? []).map((line: {
+          quantity: number
+          price: number
+          lineTotalAmount?: number
+          lineTaxAmount?: number
+          item?: { name: string }
+        }) => ({
+          name: line.item?.name ?? 'Item',
+          qty: line.quantity,
+          unitPrice: line.price,
+          lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
+          lineTaxAmount: line.lineTaxAmount ?? 0,
+        })),
+        subtotal: result.subtotalAmount ?? cartSubtotal,
+        taxAmount: result.taxAmount ?? 0,
+        taxLines: saleTaxBreakdown,
         orderDiscount: orderDiscountNum,
-        total: grandTotal,
-        paidAmount,
-        change: method === 'CASH' && tenderedNum > grandTotal ? tenderedNum - grandTotal : 0,
-        method,
-        customerName: selectedCustomer?.name ?? '',
+        total: result.totalAmount ?? grandTotal,
+        paidAmount: result.paidAmount ?? paidAmount,
+        change:
+          (result.paymentMethod ?? method) === 'CASH' &&
+          tenderedNum > (result.totalAmount ?? grandTotal)
+            ? tenderedNum - (result.totalAmount ?? grandTotal)
+            : 0,
+        method: result.paymentMethod ?? method,
+        customerName: result.customer?.name ?? selectedCustomer?.name ?? '',
         note,
       })
       setFlashSuccess(true)
@@ -501,9 +606,12 @@ export default function PosPage() {
                 <div key={i} className="flex justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="truncate font-medium">{line.name}</div>
-                    <div className="text-xs text-gray-500">{line.qty} × {formatCurrency(line.basePrice)}{line.lineDiscount > 0 ? ` - ${formatCurrency(line.lineDiscount)} disc.` : ''}</div>
+                    <div className="text-xs text-gray-500">
+                      {line.qty} × {formatCurrency(line.unitPrice)}
+                      {line.lineTaxAmount > 0 ? ` · Tax ${formatCurrency(line.lineTaxAmount)}` : ''}
+                    </div>
                   </div>
-                  <div className="font-semibold shrink-0">{formatCurrency(lineTotal(line))}</div>
+                  <div className="font-semibold shrink-0">{formatCurrency(line.lineTotal)}</div>
                 </div>
               ))}
             </div>
@@ -512,6 +620,15 @@ export default function PosPage() {
               {lastSaleData.orderDiscount > 0 && (
                 <div className="flex justify-between text-green-700"><span>Discount</span><span>− {formatCurrency(lastSaleData.orderDiscount)}</span></div>
               )}
+              {lastSaleData.taxLines.map((taxLine) => (
+                <div
+                  key={`${taxLine.taxRateId ?? taxLine.taxName}-${taxLine.taxRatePercentage}`}
+                  className="flex justify-between text-gray-600"
+                >
+                  <span>{formatTaxLabel(taxLine)}</span>
+                  <span>{formatCurrency(taxLine.taxAmount)}</span>
+                </div>
+              ))}
               <div className="flex justify-between font-bold text-base border-t pt-1"><span>TOTAL</span><span>{formatCurrency(lastSaleData.total)}</span></div>
               {lastSaleData.method === 'CASH' && lastSaleData.change > 0 && (
                 <>
@@ -710,7 +827,10 @@ export default function PosPage() {
   )
 
   // ── Cart line row (shared between mobile and desktop) ───────────────────────
-  const canEditPrice = user?.role === 'OWNER' || user?.role === 'STORE_MANAGER'
+  const canEditPrice =
+    user?.role === 'OWNER' ||
+    user?.role === 'STORE_MANAGER' ||
+    user?.role === 'BRANCH_MANAGER'
 
   const CartLineRow = ({ line, idx, mobile = false }: { line: CartLine; idx: number; mobile?: boolean }) => {
     const isSelected = selectedCartIdx === idx
@@ -763,7 +883,9 @@ export default function PosPage() {
               </p>
             )}
             {line.lineDiscount > 0 && (
-              <p className="text-xs text-green-600">− {formatCurrency(line.lineDiscount)} disc.</p>
+              <p className="text-xs text-green-600">
+                − {line.lineDiscountMode === 'pct' ? `${line.lineDiscount}%` : formatCurrency(line.lineDiscount)} disc.
+              </p>
             )}
           </div>
           {/* Qty controls — inline +/− on both mobile and desktop */}
@@ -811,8 +933,19 @@ export default function PosPage() {
             )}
             {/* Line discount */}
             {features.enableDiscounts && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-gray-500">Line disc.:</span>
+                {/* Mode toggle */}
+                <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setLineDiscountMode(idx, 'pct')}
+                    className={`px-2 py-1 text-xs font-bold transition-colors ${line.lineDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                  >%</button>
+                  <button
+                    onClick={() => setLineDiscountMode(idx, 'fixed')}
+                    className={`px-2 py-1 text-xs font-bold transition-colors ${line.lineDiscountMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                  >GHS</button>
+                </div>
                 {mobile ? (
                   <input
                     type="number"
@@ -820,7 +953,8 @@ export default function PosPage() {
                     value={line.lineDiscount || ''}
                     onChange={e => setLineDiscount(idx, parseFloat(e.target.value) || 0)}
                     placeholder="0"
-                    className="w-24 px-2 py-1 border border-gray-200 rounded-lg text-xs font-bold focus:border-indigo-400 focus:outline-none"
+                    max={line.lineDiscountMode === 'pct' ? 100 : line.basePrice * line.qty}
+                    className="w-20 px-2 py-1 border border-gray-200 rounded-lg text-xs font-bold focus:border-indigo-400 focus:outline-none"
                   />
                 ) : (
                   <button
@@ -832,7 +966,11 @@ export default function PosPage() {
                     }}
                     className="px-2.5 py-1 text-xs font-bold rounded-lg border border-gray-200 hover:border-indigo-300 bg-white"
                   >
-                    {line.lineDiscount > 0 ? `− ${formatCurrency(line.lineDiscount)}` : 'Add discount'}
+                    {line.lineDiscount > 0
+                      ? line.lineDiscountMode === 'pct'
+                        ? `− ${line.lineDiscount}% (${formatCurrency(resolvedLineDiscount(line))})`
+                        : `− ${formatCurrency(line.lineDiscount)}`
+                      : 'Add discount'}
                   </button>
                 )}
               </div>
@@ -934,7 +1072,7 @@ export default function PosPage() {
       {/* Credit sale indicator */}
       {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
         <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
-          {formatCurrency(Math.abs(change))} will be added to {selectedCustomer.name}'s balance
+          {formatCurrency(Math.abs(change))} will be added to {selectedCustomer.name}&apos;s balance
         </div>
       )}
 
@@ -950,9 +1088,21 @@ export default function PosPage() {
       {errorMsg && (
         <p className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded-xl mb-2">{errorMsg}</p>
       )}
+      {noticeMsg && (
+        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 rounded-xl mb-2">{noticeMsg}</p>
+      )}
 
       <button
-        onClick={handleCheckout}
+        onClick={() => {
+          if (cartNeedsApproval()) {
+            setPinEmail('')
+            setPinPassword('')
+            setPinError('')
+            setShowPinModal(true)
+          } else {
+            handleCheckout()
+          }
+        }}
         disabled={cart.length === 0 || isSubmitting}
         className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl text-base transition-colors active:scale-95 shadow-md touch-manipulation"
       >
@@ -964,7 +1114,8 @@ export default function PosPage() {
   // ── Item grid tile ──────────────────────────────────────────────────────────
   const ItemTile = ({ item }: { item: PosItem }) => {
     const inCart = cart.find(c => c.itemId === item.id)
-    const isLow = item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD
+    const stockTracked = isStockTracked(item)
+    const isLow = stockTracked && item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD
     const displayPrice = resolvePrice(item, globalTier)
     return (
       <button
@@ -998,7 +1149,11 @@ export default function PosPage() {
         <p className="text-[11px] font-semibold text-gray-900 leading-tight line-clamp-2 w-full">{item.name}</p>
         <p className="text-[11px] font-bold text-indigo-600 mt-0.5">{formatCurrency(displayPrice)}</p>
         <p className={`text-[9px] mt-0.5 font-medium ${isLow ? 'text-amber-600' : 'text-gray-400'}`}>
-          {isLow ? `⚠ ${item.quantity} left` : `Stk: ${item.quantity}`}
+          {!stockTracked
+            ? 'No stock tracking'
+            : isLow
+              ? `⚠ ${item.quantity} left`
+              : `Stk: ${item.quantity}`}
         </p>
       </button>
     )
@@ -1167,9 +1322,89 @@ export default function PosPage() {
 
   // ────────────────────────────────────────────────────────────────────────────
 
+  // ── PIN Approval Modal ──────────────────────────────────────────────────────
+  const PinModal = () => (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
+          <div>
+            <p className="font-bold text-gray-900">Manager Approval Required</p>
+            <p className="text-xs text-gray-500">This transaction has been flagged (discount / price override / credit). Enter a manager&apos;s credentials to proceed.</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">Manager Email</label>
+            <input
+              type="email"
+              value={pinEmail}
+              onChange={e => setPinEmail(e.target.value)}
+              autoFocus
+              placeholder="manager@example.com"
+              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 block mb-1">Password</label>
+            <input
+              type="password"
+              value={pinPassword}
+              onChange={e => setPinPassword(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handlePinVerify() }}
+              placeholder="••••••••"
+              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-400 focus:outline-none"
+            />
+          </div>
+          {pinError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{pinError}</p>}
+        </div>
+        <div className="px-5 pb-5 flex gap-2">
+          <button
+            onClick={handlePinVerify}
+            disabled={isPinVerifying || !pinEmail || !pinPassword}
+            className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
+          >
+            {isPinVerifying ? 'Verifying…' : 'Approve & Complete Sale'}
+          </button>
+          <button
+            onClick={() => { setShowPinModal(false) }}
+            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  const handlePinVerify = async () => {
+    if (!pinEmail || !pinPassword || isPinVerifying) return
+    setIsPinVerifying(true)
+    setPinError('')
+    try {
+      const res = await fetch('/api/approvals/pin-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pinEmail, password: pinPassword }),
+      })
+      const data = await res.json()
+      if (data.valid) {
+        setShowPinModal(false)
+        handleCheckout(data.grant)
+      } else {
+        setPinError(data.error ?? 'Invalid credentials')
+      }
+    } catch {
+      setPinError('Verification failed. Please try again.')
+    } finally {
+      setIsPinVerifying(false)
+    }
+  }
+
   return (
     <>
       {showHolds && <HoldsModal />}
+      {showPinModal && <PinModal />}
 
       <div className="fixed inset-0 bg-gray-100 flex flex-col overflow-hidden">
 

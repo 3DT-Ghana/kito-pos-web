@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency, formatNumber } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 interface EndOfDayData {
   salesSummary: {
@@ -55,6 +56,7 @@ interface EndOfDayData {
 }
 
 export default function EndOfDayReportPage() {
+  const { currentBranchId } = useBranch()
   const [data, setData] = useState<EndOfDayData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(() =>
@@ -63,7 +65,7 @@ export default function EndOfDayReportPage() {
 
   useEffect(() => {
     fetchReport()
-  }, [selectedDate])
+  }, [selectedDate, currentBranchId])
 
   const fetchReport = async () => {
     try {

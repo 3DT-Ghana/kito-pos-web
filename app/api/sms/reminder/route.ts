@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { sendSms, buildBalanceReminderSms } from '@/lib/sms/hubtel'
+import { isBranchFilterActive, requireBranchAccess } from '@/lib/branch/server'
+import { getScopedCustomerMetrics } from '@/lib/branch/scopedMetrics'
 
 /**
  * POST /api/sms/reminder
@@ -13,10 +14,10 @@ import { sendSms, buildBalanceReminderSms } from '@/lib/sms/hubtel'
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'record_payments')
+    const { authorized, error: permError } = requirePermission(context!, 'record_payments')
     if (!authorized) return permError!
 
     const body = await req.json()
@@ -27,24 +28,31 @@ export async function POST(req: Request) {
     }
 
     // Verify customer belongs to tenant
-    const customer = await prisma.customer.findFirst({
-      where: { id: customerId, tenantId: tenantId! },
-    })
+    const [customer, metrics] = await Promise.all([
+      prisma.customer.findFirst({
+        where: { id: customerId, tenantId: context!.tenantId },
+      }),
+      getScopedCustomerMetrics(context!, [customerId]),
+    ])
 
     if (!customer) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
     }
 
+    const scopedBalance = isBranchFilterActive(context!)
+      ? (metrics.get(customerId)?.balance ?? 0)
+      : customer.balance
+
     if (!customer.phone) {
       return NextResponse.json({ error: 'Customer has no phone number on file' }, { status: 400 })
     }
 
-    if (customer.balance <= 0) {
+    if (scopedBalance <= 0) {
       return NextResponse.json({ error: 'Customer has no outstanding balance' }, { status: 400 })
     }
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId! },
+      where: { id: context!.tenantId },
       select: {
         name: true,
         enableSmsNotifications: true,
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
     const message = buildBalanceReminderSms({
       businessName: tenant.name,
       customerName: customer.name,
-      balance: customer.balance,
+      balance: scopedBalance,
     })
 
     const result = await sendSms(

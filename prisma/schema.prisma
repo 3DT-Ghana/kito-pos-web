@@ -21,6 +21,7 @@ datasource db {
 enum Role {
   OWNER
   STORE_MANAGER
+  BRANCH_MANAGER
   CASHIER
   INVENTORY_MANAGER
   ACCOUNTANT
@@ -55,58 +56,216 @@ enum ReturnType {
   EXCHANGE
 }
 
+enum StockTransferStatus {
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+// =====================
+// ACCOUNTING ENUMS
+// =====================
+
+enum ItemType {
+  INVENTORY     // physical stock — tracks quantity and inventory value
+  NON_INVENTORY // appears on invoices/bills, no stock tracking
+  SERVICE       // services — no stock, no inventory value
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  COGS
+  EXPENSE
+}
+
+enum NormalBalance {
+  DEBIT   // increases with debit: Assets, COGS, Expenses
+  CREDIT  // increases with credit: Liabilities, Equity, Revenue
+}
+
+enum JournalEntryStatus {
+  POSTED    // live, affects balances
+  REVERSED  // cancelled by a reversal entry
+  VOID      // manually voided (OWNER only)
+}
+
+enum JournalSource {
+  SALE
+  PURCHASE
+  CUSTOMER_PAYMENT
+  SUPPLIER_PAYMENT
+  EXPENSE
+  CUSTOMER_RETURN
+  SUPPLIER_RETURN
+  STOCK_ADJUSTMENT
+  TRANSFER
+  MANUAL
+  PAYROLL
+}
+
+enum TaxCalculationType {
+  ADD_TO_PRICE
+  INCLUSIVE
+}
+
+enum TaxTransactionType {
+  SALE
+  QUOTATION
+  CUSTOMER_RETURN
+}
+
+// =====================
+// PAYROLL ENUMS
+// =====================
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+enum PayrollRunStatus {
+  DRAFT     // being built, can be edited
+  APPROVED  // locked, reviewed by manager
+  PAID      // disbursed, journal posted
+}
+
+enum SsfTier {
+  TIER1  // mandatory 5.5% employee + 13% employer
+  TIER2  // occupational pension — employer top-up
+  TIER3  // voluntary provident fund
+}
+
+// =====================
+// AGENT / PLATFORM ENUMS
+// =====================
+
+enum AgentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum BusinessType {
+  SHOP
+  COMPANY
+  OTHER
+}
+
+enum BusinessApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+// =====================
+// APPROVAL ENUMS
+// =====================
+
+enum ApprovalStatus {
+  PENDING   // waiting for a manager to approve or reject
+  APPROVED  // approved — side effects (stock, balance, journal) already committed
+  REJECTED  // rejected — no side effects applied
+}
+
+enum ApprovalFlag {
+  DISCOUNT          // sale has a line or order-level discount
+  PRICE_OVERRIDE    // cashier set a price below the catalogue price
+  CREDIT_SALE       // paidAmount < totalAmount (credit extended)
+  STOCK_ADJUSTMENT  // manual stock add/remove/set
+}
+
+enum TransferPartyType {
+  CUSTOMER  // party is a Customer record
+  SUPPLIER  // party is a Supplier record
+  ACCOUNT   // party is a ledger Account record
+}
+
 // =====================
 // CORE MULTI-TENANT
 // =====================
 
 model Tenant {
-  id                           String   @id @default(uuid())
-  name                         String
-  phone                        String?
-  status                       TenantStatus @default(TRIAL)
-  users                        User[]
-  branches                     Branch[]
-  createdAt                    DateTime @default(now())
+  id        String       @id @default(uuid())
+  name      String
+  phone     String?
+  status    TenantStatus @default(TRIAL)
+  users     User[]
+  branches  Branch[]
+  createdAt DateTime     @default(now())
 
   // Receipt Settings
-  showManufacturerOnReceipt    Boolean  @default(true)
-  receiptPrinterWidth          String   @default("80mm")  // "58mm" or "80mm"
+  showManufacturerOnReceipt Boolean @default(true)
+  receiptPrinterWidth       String  @default("80mm") // "58mm" or "80mm"
 
   // Unit System
   // When enabled, items have a unit name (e.g. "carton") and piecesPerUnit (e.g. 12).
   // Stock is tracked in the base unit (cartons). Quantities can be fractional (1.5 cartons).
-  useUnitSystem                Boolean  @default(false)
+  useUnitSystem Boolean @default(false)
 
   // Pricing Tiers — when enabled, items carry extra price tiers selectable at sale time
-  enableRetailPrice            Boolean  @default(false)
-  enableWholesalePrice         Boolean  @default(false)
-  enablePromoPrice             Boolean  @default(false)
+  enableRetailPrice    Boolean @default(false)
+  enableWholesalePrice Boolean @default(false)
+  enablePromoPrice     Boolean @default(false)
 
   // Discounts — when enabled, cashier can apply a discount (% or fixed amount) per sale
-  enableDiscounts              Boolean  @default(false)
+  enableDiscounts Boolean @default(false)
 
   // SMS Notifications — Hubtel Ghana SMS Gateway
-  enableSmsNotifications       Boolean  @default(false)
-  hubtelClientId               String?
-  hubtelClientSecret           String?
-  hubtelSenderId               String?  // e.g. "PETROS" (max 11 chars, no spaces)
+  enableSmsNotifications Boolean @default(false)
+  hubtelClientId         String?
+  hubtelClientSecret     String?
+  hubtelSenderId         String? // e.g. "PETROS" (max 11 chars, no spaces)
 
   // Feature Flags — enable/disable optional modules from Settings
-  enablePosTerminal            Boolean  @default(false)
-  enableQuotations             Boolean  @default(false)
-  enablePurchaseOrders         Boolean  @default(false)
-  enableExpiryTracking         Boolean  @default(false)
-  enableBranches               Boolean  @default(false)
-  enableCreditSales            Boolean  @default(false)
-  enableExpenses               Boolean  @default(false)
-  enableTill                   Boolean  @default(false)
+  enablePosTerminal    Boolean @default(false)
+  enableQuotations     Boolean @default(false)
+  enablePurchaseOrders Boolean @default(false)
+  enableExpiryTracking Boolean @default(false)
+  enableBranches       Boolean @default(false)
+  enableCreditSales    Boolean @default(false)
+  enableExpenses       Boolean @default(false)
+  enableTill           Boolean @default(false)
 
   // Sales behaviour
-  allowSaleOnZeroStock         Boolean  @default(false)
+  allowSaleOnZeroStock Boolean @default(false)
+
+  // Barcode / Label printing
+  enableBarcodeGenerator Boolean @default(false)
+
+  // Accounting module — double-entry ledger, COA, journal entries
+  enableAccounting Boolean @default(false)
+
+  // Payroll module — Ghana payroll with PAYE, SSF, SSNIT deductions
+  enablePayroll Boolean @default(false)
+
+  // Transaction approval — when enabled, sensitive operations by CASHIER/STAFF require approval
+  requireApproval Boolean @default(false)
+
+  // Agent onboarding — which platform agent onboarded this tenant (null = self-signup)
+  agentId String?
 
   // Role permission overrides — JSON map of role → string[]
   // When set, overrides the default PERMISSIONS constant in rbac.ts for that role
-  rolePermissions              Json?
+  rolePermissions Json?
+
+  // Accounting relations
+  accounts        Account[]
+  journalEntries  JournalEntry[]
+  ledgerTransfers LedgerTransfer[]
+  taxSetting      TenantTaxSetting?
+  taxRates        TaxRate[]
+  transactionTaxLines TransactionTaxLine[]
+
+  // Payroll relations
+  employees    Employee[]
+  payrollRuns  PayrollRun[]
 }
 
 // =====================
@@ -114,16 +273,23 @@ model Tenant {
 // =====================
 
 model User {
-  id        String   @id @default(uuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  name      String
-  email     String   @unique
-  password  String
-  role      Role
-  branchId  String?  // optional: assign user to a specific branch
-  branch    Branch?  @relation(fields: [branchId], references: [id])
-  createdAt DateTime @default(now())
+  id               String            @id @default(uuid())
+  tenantId         String
+  tenant           Tenant            @relation(fields: [tenantId], references: [id])
+  name             String
+  email            String            @unique
+  password         String
+  role             Role
+  branchId         String?
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  createdAt        DateTime          @default(now())
+  stockAdjustments StockAdjustment[]
+  payrollRunsCreated  PayrollRun[] @relation("PayrollRunCreatedBy")
+  payrollRunsApproved PayrollRun[] @relation("PayrollRunApprovedBy")
+  payrollRunsPaid     PayrollRun[] @relation("PayrollRunPaidBy")
+  approvedTransactions TransactionApproval[] @relation("ApprovedBy")
+  createdTransactions  TransactionApproval[] @relation("CreatedBy")
+  salesCreated         Sale[]               @relation("SaleCreatedBy")
 }
 
 // =====================
@@ -137,10 +303,10 @@ model Branch {
   name      String
   address   String?
   phone     String?
-  isDefault Boolean  @default(false)  // one branch per tenant is the "main" branch
+  isDefault Boolean  @default(false) // one branch per tenant is the "main" branch
   createdAt DateTime @default(now())
 
-  users     User[]
+  users User[]
 }
 
 // =====================
@@ -164,12 +330,12 @@ model Category {
   tenantId    String
   name        String
   description String?
-  color       String?  @default("#6366f1")  // hex colour for UI badge
-  icon        String?  @default("📦")       // emoji icon
+  color       String?  @default("#6366f1") // hex colour for UI badge
+  icon        String?  @default("📦") // emoji icon
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
 
-  items       Item[]
+  items Item[]
 }
 
 // =====================
@@ -177,46 +343,60 @@ model Category {
 // =====================
 
 model Item {
-  id              String @id @default(uuid())
-  tenantId        String
-  branchId        String?
-  manufacturerId  String
-  manufacturer    Manufacturer @relation(fields: [manufacturerId], references: [id])
-  categoryId      String?
-  category        Category?    @relation(fields: [categoryId], references: [id])
-  name            String
-  quantity        Float    @default(0)
-  costPrice       Float
-  sellingPrice    Float
-  retailPrice     Float?
-  wholesalePrice  Float?
-  promoPrice      Float?
-  barcode         String?
-  expiryDate      DateTime?
-  createdAt       DateTime @default(now())
+  id             String       @id @default(uuid())
+  tenantId       String
+  branchId       String?
+  manufacturerId String
+  manufacturer   Manufacturer @relation(fields: [manufacturerId], references: [id])
+  categoryId     String?
+  category       Category?    @relation(fields: [categoryId], references: [id])
+  name           String
+  quantity       Float        @default(0)
+  costPrice      Float
+  sellingPrice   Float
+  retailPrice    Float?
+  wholesalePrice Float?
+  promoPrice     Float?
+  barcode        String?
+  expiryDate     DateTime?
+  createdAt      DateTime     @default(now())
 
   // Unit System fields (only meaningful when tenant.useUnitSystem = true)
-  unitName        String?  @default("unit")
-  piecesPerUnit   Int?     @default(1)
+  unitName      String? @default("unit")
+  piecesPerUnit Int?    @default(1)
 
-  saleItems       SaleItem[]
-  purchaseItems   PurchaseItem[]
-  customerReturns CustomerReturn[]
-  supplierReturns SupplierReturn[]
+  // Item type — controls stock tracking and accounting behaviour
+  itemType      ItemType @default(INVENTORY)
+
+  // Accounting account assignments (only used when enableAccounting = true)
+  incomeAccountId  String?
+  cogsAccountId    String?
+  expenseAccountId String?
+  incomeAccount    Account? @relation("ItemIncomeAccount",  fields: [incomeAccountId],  references: [id])
+  cogsAccount      Account? @relation("ItemCogsAccount",    fields: [cogsAccountId],    references: [id])
+  expenseAccount   Account? @relation("ItemExpenseAccount", fields: [expenseAccountId], references: [id])
+  productTaxSetting ProductTaxSetting?
+
+  saleItems        SaleItem[]
+  purchaseItems    PurchaseItem[]
+  customerReturns  CustomerReturn[]
+  supplierReturns  SupplierReturn[]
+  stockAdjustments StockAdjustment[]
 }
-
 
 // =====================
 // CUSTOMERS (DEBTORS)
 // =====================
 
 model Customer {
-  id        String @id @default(uuid())
-  tenantId  String
-  name      String
-  phone     String?
-  balance   Float @default(0)
-  sales     Sale[]
+  id       String  @id @default(uuid())
+  tenantId String
+  name     String
+  phone    String?
+  balance  Float   @default(0)
+  sales    Sale[]
+  debitTransfers  LedgerTransfer[] @relation("TransferDebitCustomer")
+  creditTransfers LedgerTransfer[] @relation("TransferCreditCustomer")
 }
 
 // =====================
@@ -224,12 +404,14 @@ model Customer {
 // =====================
 
 model Supplier {
-  id        String @id @default(uuid())
+  id        String     @id @default(uuid())
   tenantId  String
   name      String
   phone     String?
-  balance   Float @default(0)
+  balance   Float      @default(0)
   purchases Purchase[]
+  debitTransfers  LedgerTransfer[] @relation("TransferDebitSupplier")
+  creditTransfers LedgerTransfer[] @relation("TransferCreditSupplier")
 }
 
 // =====================
@@ -237,58 +419,73 @@ model Supplier {
 // =====================
 
 model Sale {
-  id            String         @id @default(uuid())
+  id            String           @id @default(uuid())
   tenantId      String
-  branchId      String?        // optional: which branch this sale was made at
+  branchId      String? // optional: which branch this sale was made at
   customerId    String?
-  customer      Customer?      @relation(fields: [customerId], references: [id])
+  customer      Customer?        @relation(fields: [customerId], references: [id])
+  subtotalAmount Float           @default(0)
+  taxAmount      Float           @default(0)
   totalAmount   Float
   paidAmount    Float
-  paymentType   PaymentType    // CASH = fully paid, CREDIT = balance owed
-  paymentMethod PaymentMethod  @default(CASH) // how money was received: CASH, MOMO, BANK
-  createdAt     DateTime       @default(now())
+  paymentType   PaymentType // CASH = fully paid, CREDIT = balance owed
+  paymentMethod PaymentMethod    @default(CASH) // how money was received: CASH, MOMO, BANK
+  createdAt     DateTime         @default(now())
   items         SaleItem[]
   returns       CustomerReturn[]
+  taxLines      TransactionTaxLine[] @relation("SaleTaxLines")
+
+  // Approval workflow — null means no approval required (auto-approved)
+  approvalStatus   ApprovalStatus?
+  approvalFlags    ApprovalFlag[]  // which flags triggered approval requirement
+  createdById      String?         // who initiated the sale
+  createdBy        User?           @relation("SaleCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId, approvalStatus])
 }
 
 model SaleItem {
-  id             String @id @default(uuid())
-  saleId        String
-  sale          Sale   @relation(fields: [saleId], references: [id])
-  itemId        String
-  item          Item   @relation(fields: [itemId], references: [id])
-  quantity      Float   // Float supports fractional units
-  price         Float
-  discountAmount Float  @default(0)  // per-line discount in currency
+  id                  String               @id @default(uuid())
+  saleId         String
+  sale           Sale                 @relation(fields: [saleId], references: [id])
+  itemId         String
+  item           Item                 @relation(fields: [itemId], references: [id])
+  quantity       Float // Float supports fractional units
+  price          Float
+  discountAmount Float                @default(0) // per-line discount in currency
+  isTaxable      Boolean              @default(false)
+  taxCalculationType TaxCalculationType?
+  lineSubtotalAmount Float            @default(0)
+  lineTaxAmount   Float               @default(0)
+  lineTotalAmount Float               @default(0)
+  taxLines        TransactionTaxLine[] @relation("SaleItemTaxLines")
 }
-
-
 
 // =====================
 // PURCHASES
 // =====================
 model Purchase {
-  id          String @id @default(uuid())
+  id          String           @id @default(uuid())
   tenantId    String
-  branchId    String?  // optional: which branch received this purchase
+  branchId    String? // optional: which branch received this purchase
   supplierId  String
-  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  supplier    Supplier         @relation(fields: [supplierId], references: [id])
   totalAmount Float
   paidAmount  Float
   paymentType PaymentType
-  createdAt   DateTime @default(now())
+  createdAt   DateTime         @default(now())
   items       PurchaseItem[]
   returns     SupplierReturn[]
 }
 
 model PurchaseItem {
-  id          String @id @default(uuid())
-  purchaseId  String
-  purchase    Purchase @relation(fields: [purchaseId], references: [id])
-  itemId      String
-  item        Item     @relation(fields: [itemId], references: [id])
-  quantity    Float    // Float supports fractional units
-  costPrice   Float
+  id         String   @id @default(uuid())
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  itemId     String
+  item       Item     @relation(fields: [itemId], references: [id])
+  quantity   Float // Float supports fractional units
+  costPrice  Float
 }
 
 // =====================
@@ -296,21 +493,23 @@ model PurchaseItem {
 // =====================
 
 model CustomerPayment {
-  id         String @id @default(uuid())
+  id         String        @id @default(uuid())
   tenantId   String
+  branchId   String? // optional: which branch received this payment
   customerId String
   amount     Float
   method     PaymentMethod
-  createdAt  DateTime @default(now())
+  createdAt  DateTime      @default(now())
 }
 
 model SupplierPayment {
-  id         String @id @default(uuid())
+  id         String        @id @default(uuid())
   tenantId   String
+  branchId   String? // optional: which branch made this payment
   supplierId String
   amount     Float
   method     PaymentMethod
-  createdAt  DateTime @default(now())
+  createdAt  DateTime      @default(now())
 }
 
 // =====================
@@ -326,8 +525,11 @@ model CustomerReturn {
   item      Item       @relation(fields: [itemId], references: [id])
   quantity  Float
   type      ReturnType
+  subtotalAmount Float @default(0)
+  taxAmount Float      @default(0)
   amount    Float
   createdAt DateTime   @default(now())
+  taxLines  TransactionTaxLine[] @relation("CustomerReturnTaxLines")
 }
 
 model SupplierReturn {
@@ -348,14 +550,55 @@ model SupplierReturn {
 // =====================
 
 model StockAdjustment {
-  id        String @id @default(uuid())
-  tenantId  String
-  branchId  String?  // optional: which branch made this adjustment
-  itemId    String
-  type      StockAdjustmentType
-  quantity  Float
-  reason    String
+  id               String              @id @default(uuid())
+  tenantId         String
+  branchId         String?
+  itemId           String
+  userId           String?
+  type             StockAdjustmentType
+  category         String              @default("other")
+  quantity         Float
+  previousQuantity Float               @default(0)
+  newQuantity      Float               @default(0)
+  reason           String
+  createdAt        DateTime            @default(now())
+
+  // Approval workflow — null means no approval required
+  approvalStatus ApprovalStatus? // null = auto-approved (manager performed it directly)
+
+  item Item  @relation(fields: [itemId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, approvalStatus])
+}
+
+// =====================
+// TRANSACTION APPROVALS
+// =====================
+
+// Unified approval record linking to a Sale or StockAdjustment
+model TransactionApproval {
+  id          String         @id @default(uuid())
+  tenantId    String
+  flag        ApprovalFlag   // the primary reason this needs approval
+  status      ApprovalStatus @default(PENDING)
+
+  // Exactly one of these is set
+  saleId            String?
+  stockAdjustmentId String?
+
+  createdById  String   // who submitted the transaction
+  createdBy    User     @relation("CreatedBy",  fields: [createdById],  references: [id])
+  approvedById String?  // who approved/rejected
+  approvedBy   User?    @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  note         String?  // optional rejection/approval note
+
   createdAt DateTime @default(now())
+
+  @@index([tenantId, status])
+  @@index([tenantId, saleId])
+  @@index([tenantId, stockAdjustmentId])
 }
 
 // =====================
@@ -375,7 +618,7 @@ enum ExpenseCategory {
 model Expense {
   id          String          @id @default(uuid())
   tenantId    String
-  branchId    String?  // optional: which branch incurred this expense
+  branchId    String? // optional: which branch incurred this expense
   amount      Float
   category    ExpenseCategory
   description String
@@ -393,18 +636,64 @@ enum ShiftStatus {
 }
 
 model CashRegister {
-  id              String      @id @default(uuid())
-  tenantId        String
-  branchId        String?  // optional: which branch this till belongs to
-  userId          String
-  status          ShiftStatus @default(OPEN)
-  openingFloat    Float                         // cash in till at shift start
-  closingCount    Float?                        // cash counted at shift close
-  expectedCash    Float?                        // calculated: float + cash sales + payments
-  variance        Float?                        // closingCount - expectedCash
-  note            String?
-  openedAt        DateTime    @default(now())
-  closedAt        DateTime?
+  id           String      @id @default(uuid())
+  tenantId     String
+  branchId     String? // optional: which branch this till belongs to
+  userId       String
+  status       ShiftStatus @default(OPEN)
+  openingFloat Float // cash in till at shift start
+  closingCount Float? // cash counted at shift close
+  expectedCash Float? // calculated: float + cash sales + payments
+  variance     Float? // closingCount - expectedCash
+  note         String?
+  openedAt     DateTime    @default(now())
+  closedAt     DateTime?
+}
+
+// =====================
+// INTER-BRANCH TRANSFERS
+// =====================
+
+model StockTransfer {
+  id                 String              @id @default(uuid())
+  tenantId           String
+  fromBranchId       String
+  toBranchId         String
+  status             StockTransferStatus @default(PENDING)
+  note               String?
+  initiatedByUserId  String
+  dispatchedByUserId String?
+  receivedByUserId   String?
+  dispatchedAt       DateTime?
+  receivedAt         DateTime?
+  createdAt          DateTime            @default(now())
+  items              StockTransferItem[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, fromBranchId, createdAt])
+  @@index([tenantId, toBranchId, createdAt])
+}
+
+model StockTransferItem {
+  id              String        @id @default(uuid())
+  stockTransferId String
+  stockTransfer   StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  sourceItemId    String
+  manufacturerId  String
+  categoryId      String?
+  itemName        String
+  barcode         String?
+  expiryDate      DateTime?
+  unitName        String?
+  piecesPerUnit   Int?
+  quantity        Float
+  costPrice       Float
+  sellingPrice    Float
+  retailPrice     Float?
+  wholesalePrice  Float?
+  promoPrice      Float?
+
+  @@index([stockTransferId])
 }
 
 // =====================
@@ -422,23 +711,37 @@ enum QuotationStatus {
 model Quotation {
   id          String          @id @default(uuid())
   tenantId    String
+  branchId    String?
   customerId  String?
   status      QuotationStatus @default(DRAFT)
+  subtotalAmount Float        @default(0)
+  taxAmount Float             @default(0)
   totalAmount Float
   note        String?
   validUntil  DateTime?
   createdAt   DateTime        @default(now())
   items       QuotationItem[]
+  taxLines    TransactionTaxLine[] @relation("QuotationTaxLines")
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, branchId, createdAt])
 }
 
 model QuotationItem {
-  id           String    @id @default(uuid())
-  quotationId  String
-  quotation    Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-  itemId       String
-  itemName     String    // snapshot of name at time of quote
-  quantity     Float
-  price        Float
+  id          String               @id @default(uuid())
+  quotationId String
+  quotation   Quotation            @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  itemId      String
+  itemName    String // snapshot of name at time of quote
+  quantity    Float
+  price       Float
+  discountAmount Float            @default(0)
+  isTaxable      Boolean          @default(false)
+  taxCalculationType TaxCalculationType?
+  lineSubtotalAmount Float        @default(0)
+  lineTaxAmount   Float           @default(0)
+  lineTotalAmount Float           @default(0)
+  taxLines        TransactionTaxLine[] @relation("QuotationItemTaxLines")
 }
 
 // =====================
@@ -455,6 +758,7 @@ enum PurchaseOrderStatus {
 model PurchaseOrder {
   id          String              @id @default(uuid())
   tenantId    String
+  branchId    String? // optional: which branch this purchase order belongs to
   supplierId  String?
   status      PurchaseOrderStatus @default(DRAFT)
   totalAmount Float
@@ -462,6 +766,9 @@ model PurchaseOrder {
   expectedAt  DateTime?
   createdAt   DateTime            @default(now())
   items       PurchaseOrderItem[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, branchId, createdAt])
 }
 
 model PurchaseOrderItem {
@@ -469,7 +776,7 @@ model PurchaseOrderItem {
   purchaseOrderId String
   purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   itemId          String
-  itemName        String        // snapshot of name at time of order
+  itemName        String // snapshot of name at time of order
   quantity        Float
   costPrice       Float
 }
@@ -479,10 +786,424 @@ model PurchaseOrderItem {
 // =====================
 
 model AuditLog {
-  id        String @id @default(uuid())
+  id        String   @id @default(uuid())
   tenantId  String
   userId    String
   action    String
   entity    String
+  entityId  String?
+  details   Json?
   createdAt DateTime @default(now())
+
+  @@index([tenantId, entity, entityId, createdAt])
+  @@index([tenantId, userId, createdAt])
+}
+
+// =====================
+// TAXES
+// =====================
+
+model TenantTaxSetting {
+  id                        String             @id @default(uuid())
+  tenantId                  String             @unique
+  tenant                    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  taxEnabled                Boolean            @default(false)
+  defaultTaxCalculationType TaxCalculationType @default(ADD_TO_PRICE)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+}
+
+model TaxRate {
+  id                  String      @id @default(uuid())
+  tenantId            String
+  tenant              Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                String
+  ratePercentage      Float
+  description         String?
+  isDefault           Boolean     @default(false)
+  isActive            Boolean     @default(true)
+  taxPayableAccountId String?
+  taxPayableAccount   Account?    @relation("TaxPayableAccount", fields: [taxPayableAccountId], references: [id])
+  effectiveFrom       DateTime    @default(now())
+  effectiveTo         DateTime?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  productTaxSettings ProductTaxSetting[] @relation("ProductPrimaryTaxRate")
+  productTaxRateLinks ProductTaxRate[]
+  transactionTaxLines TransactionTaxLine[]
+
+  @@index([tenantId, isActive, isDefault])
+  @@index([tenantId, name])
+  @@index([tenantId, effectiveFrom, effectiveTo])
+}
+
+model ProductTaxSetting {
+  id                   String             @id @default(uuid())
+  productId            String             @unique
+  product              Item               @relation(fields: [productId], references: [id], onDelete: Cascade)
+  isTaxable            Boolean            @default(false)
+  taxRateId            String?
+  taxRate              TaxRate?           @relation("ProductPrimaryTaxRate", fields: [taxRateId], references: [id])
+  taxCalculationType   TaxCalculationType?
+  useTenantDefaultTaxes Boolean           @default(true)
+  taxRates             ProductTaxRate[]
+}
+
+model ProductTaxRate {
+  id                  String            @id @default(uuid())
+  productTaxSettingId String
+  productTaxSetting   ProductTaxSetting @relation(fields: [productTaxSettingId], references: [id], onDelete: Cascade)
+  taxRateId           String
+  taxRate             TaxRate           @relation(fields: [taxRateId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@unique([productTaxSettingId, taxRateId])
+  @@index([taxRateId])
+}
+
+model TransactionTaxLine {
+  id                String             @id @default(uuid())
+  tenantId          String
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  transactionType   TaxTransactionType
+  transactionId     String
+  transactionLineId String
+  saleId            String?
+  sale              Sale?              @relation("SaleTaxLines", fields: [saleId], references: [id], onDelete: Cascade)
+  saleItemId        String?
+  saleItem          SaleItem?          @relation("SaleItemTaxLines", fields: [saleItemId], references: [id], onDelete: Cascade)
+  quotationId       String?
+  quotation         Quotation?         @relation("QuotationTaxLines", fields: [quotationId], references: [id], onDelete: Cascade)
+  quotationItemId   String?
+  quotationItem     QuotationItem?     @relation("QuotationItemTaxLines", fields: [quotationItemId], references: [id], onDelete: Cascade)
+  customerReturnId  String?
+  customerReturn    CustomerReturn?    @relation("CustomerReturnTaxLines", fields: [customerReturnId], references: [id], onDelete: Cascade)
+  taxRateId         String?
+  taxRate           TaxRate?           @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  taxName           String
+  taxRatePercentage Float
+  taxableAmount     Float
+  taxAmount         Float
+  calculationType   TaxCalculationType
+  createdAt         DateTime           @default(now())
+
+  @@index([tenantId, transactionType, transactionId])
+  @@index([tenantId, taxName, createdAt])
+  @@index([saleId])
+  @@index([quotationId])
+  @@index([customerReturnId])
+}
+
+// =====================
+// ACCOUNTING MODULE
+// =====================
+
+model Account {
+  id            String      @id @default(uuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id])
+  code          String      // e.g. "1010", unique per tenant
+  name          String
+  type          AccountType
+  normalBalance NormalBalance
+  parentId      String?
+  parent        Account?    @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children      Account[]   @relation("AccountHierarchy")
+  isSystemAccount Boolean   @default(false) // system accounts cannot be deleted or renamed
+  isActive        Boolean   @default(true)
+  description     String?
+  createdAt       DateTime  @default(now())
+
+  lines            JournalLine[]
+  itemsIncome      Item[]        @relation("ItemIncomeAccount")
+  itemsCogs        Item[]        @relation("ItemCogsAccount")
+  itemsExpense     Item[]        @relation("ItemExpenseAccount")
+  taxRates         TaxRate[]     @relation("TaxPayableAccount")
+  debitTransfers   LedgerTransfer[] @relation("TransferDebitAccount")
+  creditTransfers  LedgerTransfer[] @relation("TransferCreditAccount")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type, isActive])
+}
+
+model JournalEntry {
+  id          String             @id @default(uuid())
+  tenantId    String
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  entryNumber String             // human-readable ref e.g. "JE-0001"
+  date        DateTime           @default(now())
+  description String
+  source      JournalSource
+  status      JournalEntryStatus @default(POSTED)
+
+  // Source references — at most one is set per entry
+  saleId            String?
+  purchaseId        String?
+  customerPaymentId String?
+  supplierPaymentId String?
+  expenseId         String?
+  customerReturnId  String?
+  supplierReturnId  String?
+  stockAdjustmentId String?
+  ledgerTransferId  String?
+  payrollRunId      String?
+
+  // Reversal linkage
+  reversedById String?  // if reversed, points to the reversal JE id
+  reversalOfId String?  // if this is a reversal, points to original JE id
+
+  postedById  String
+  createdAt   DateTime      @default(now())
+  lines       JournalLine[]
+
+  @@unique([tenantId, entryNumber])
+  @@index([tenantId, date, source])
+  @@index([tenantId, saleId])
+  @@index([tenantId, purchaseId])
+  @@index([tenantId, expenseId])
+  @@index([tenantId, customerPaymentId])
+  @@index([tenantId, supplierPaymentId])
+  @@index([tenantId, customerReturnId])
+  @@index([tenantId, supplierReturnId])
+  @@index([tenantId, stockAdjustmentId])
+  @@index([tenantId, ledgerTransferId])
+  @@index([tenantId, payrollRunId])
+}
+
+model JournalLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+  debit          Float        @default(0)
+  credit         Float        @default(0)
+  description    String?
+
+  @@index([journalEntryId])
+  @@index([accountId])
+}
+
+// =====================
+// LEDGER TRANSFERS
+// =====================
+
+// A LedgerTransfer moves value between any two parties:
+//   Customer ↔ Customer, Supplier ↔ Supplier, Customer ↔ Supplier,
+//   or any party ↔ a ledger Account.
+// Each transfer always produces a balanced JournalEntry (TRANSFER source).
+model LedgerTransfer {
+  id          String   @id @default(uuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  amount      Float
+  description String
+  date        DateTime @default(now())
+
+  // Debit side (the party losing value / being debited)
+  debitPartyType  TransferPartyType
+  debitCustomerId  String?
+  debitSupplierId  String?
+  debitAccountId   String?
+  debitCustomer    Customer? @relation("TransferDebitCustomer",  fields: [debitCustomerId],  references: [id])
+  debitSupplier    Supplier? @relation("TransferDebitSupplier",  fields: [debitSupplierId],  references: [id])
+  debitAccount     Account?  @relation("TransferDebitAccount",   fields: [debitAccountId],   references: [id])
+
+  // Credit side (the party gaining value / being credited)
+  creditPartyType TransferPartyType
+  creditCustomerId String?
+  creditSupplierId String?
+  creditAccountId  String?
+  creditCustomer   Customer? @relation("TransferCreditCustomer", fields: [creditCustomerId], references: [id])
+  creditSupplier   Supplier? @relation("TransferCreditSupplier", fields: [creditSupplierId], references: [id])
+  creditAccount    Account?  @relation("TransferCreditAccount",  fields: [creditAccountId],  references: [id])
+
+  // Journal linkage
+  journalEntryId String?
+
+  postedById  String
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, date])
+  @@index([tenantId, debitCustomerId])
+  @@index([tenantId, creditCustomerId])
+  @@index([tenantId, debitSupplierId])
+  @@index([tenantId, creditSupplierId])
+}
+
+// =====================
+// PAYROLL
+// =====================
+
+// A single employee in the payroll system.
+// Separate from User — employees don't need system access.
+model Employee {
+  id         String @id @default(uuid())
+  tenantId   String
+  tenant     Tenant @relation(fields: [tenantId], references: [id])
+
+  staffId    String  // internal HR code e.g. "EMP-001"
+  name       String
+  email      String?
+  phone      String?
+  position   String  // job title
+  department String?
+
+  employmentType EmploymentType @default(FULL_TIME)
+
+  // Compensation
+  basicSalary    Float           // monthly gross base salary (GHS)
+  ssfTier        SsfTier         @default(TIER1)
+  isExemptFromPAYE Boolean       @default(false) // e.g. certain agricultural workers
+
+  // Bank details for disbursement
+  bankName       String?
+  bankBranch     String?
+  accountNumber  String?
+
+  // Status
+  isActive   Boolean  @default(true)
+  hireDate   DateTime @default(now())
+  endDate    DateTime?
+
+  createdAt  DateTime @default(now())
+
+  payrollLines PayrollLine[]
+
+  @@unique([tenantId, staffId])
+  @@index([tenantId, isActive])
+  @@index([tenantId, department])
+}
+
+// A payroll run covers one calendar month for all active employees.
+model PayrollRun {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  periodYear  Int   // e.g. 2025
+  periodMonth Int   // 1–12
+
+  status     PayrollRunStatus @default(DRAFT)
+
+  // Totals (computed and stored for reporting without re-summing lines)
+  totalGross         Float @default(0)
+  totalSSFEmployee   Float @default(0)
+  totalSSFEmployer   Float @default(0)
+  totalPAYE          Float @default(0)
+  totalOtherDeductions Float @default(0)
+  totalNetPay        Float @default(0)
+
+  // Audit
+  createdById  String
+  approvedById String?
+  paidById     String?
+  approvedAt   DateTime?
+  paidAt       DateTime?
+  createdAt    DateTime @default(now())
+
+  createdBy  User  @relation("PayrollRunCreatedBy",  fields: [createdById],  references: [id])
+  approvedBy User? @relation("PayrollRunApprovedBy", fields: [approvedById], references: [id])
+  paidBy     User? @relation("PayrollRunPaidBy",     fields: [paidById],     references: [id])
+
+  // Journal linkage (posted when status → PAID and accounting is enabled)
+  journalEntryId String?
+
+  lines PayrollLine[]
+
+  @@unique([tenantId, periodYear, periodMonth])
+  @@index([tenantId, status])
+  @@index([tenantId, periodYear, periodMonth])
+}
+
+// One row per employee per payroll run.
+model PayrollLine {
+  id           String     @id @default(uuid())
+  payrollRunId String
+  payrollRun   PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id])
+
+  // Input (can be overridden per run)
+  basicSalary  Float
+  allowances   Float @default(0)   // transport, housing, etc.
+  overtime     Float @default(0)   // overtime pay
+  bonus        Float @default(0)   // one-off bonus
+
+  // Computed deductions (Ghana statutory)
+  grossPay       Float  // basicSalary + allowances + overtime + bonus
+  ssfEmployee    Float  // 5.5% of basicSalary (not on allowances per GRA rules)
+  ssfEmployer    Float  // 13% of basicSalary
+  taxableIncome  Float  // grossPay − ssfEmployee
+  paye           Float  // Ghana PAYE on taxableIncome
+  otherDeductions Float @default(0) // loans, advances, etc.
+  netPay         Float  // grossPay − ssfEmployee − paye − otherDeductions
+
+  createdAt DateTime @default(now())
+
+  @@index([payrollRunId])
+  @@index([employeeId])
+}
+
+// =====================
+// PLATFORM — AGENTS & ONBOARDING
+// =====================
+
+model Agent {
+  id                  String      @id @default(uuid())
+  agentCode           String      @unique // e.g. "AGT-0001"
+  fullName            String
+  phone               String
+  email               String      @unique
+  passwordHash        String
+  ghanaCardNumber     String?
+  ghanaCardImageUrl   String?
+  residentialAddress  String?
+  territory           String?
+  status              AgentStatus @default(PENDING)
+  approvedAt          DateTime?
+  approvedById        String?     // platform admin email (not a User FK)
+  onboardedBusinesses BusinessApplication[]
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+}
+
+model BusinessApplication {
+  id                     String                    @id @default(uuid())
+  businessName           String
+  businessType           BusinessType              @default(SHOP)
+  businessAddress        String
+  gpsLatitude            Float?
+  gpsLongitude           Float?
+  ownerFullName          String
+  ownerPhone             String
+  ownerEmail             String
+  ownerGhanaCardNumber   String?
+  ownerGhanaCardImageUrl String?
+  status                 BusinessApplicationStatus @default(PENDING)
+  rejectionReason        String?
+  agentId                String
+  agent                  Agent                     @relation(fields: [agentId], references: [id])
+  tenantId               String?   // set when approved → tenant created
+  reviewedById           String?   // platform admin email
+  reviewedAt             DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([agentId])
+  @@index([status])
+}
+
+model PlatformAuditLog {
+  id         String   @id @default(uuid())
+  actorEmail String
+  action     String
+  entity     String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entity, entityId])
 }

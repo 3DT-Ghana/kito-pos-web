@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ReturnType } from '@prisma/client'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { postSupplierReturnJournal } from '@/lib/accounting/journalEngine'
 
 /**
  * Supplier Returns API
@@ -17,8 +18,8 @@ import { ReturnType } from '@prisma/client'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const purchaseId = searchParams.get('purchaseId')
@@ -26,10 +27,14 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = { tenantId: context!.tenantId }
 
     if (purchaseId) {
       where.purchaseId = purchaseId
+    }
+
+    if (context!.branchesEnabled && !context!.allBranchesSelected) {
+      where.purchase = { branchId: context!.currentBranchId }
     }
 
     if (startDate || endDate) {
@@ -82,19 +87,24 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'process_returns'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'process_returns')
     if (!authorized) return permError!
 
     const body = await req.json()
 
     // Validate
-    if (!body.purchaseId || !body.itemId || !body.quantity || !body.type || !body.amount) {
+    if (
+      !body.purchaseId ||
+      !body.itemId ||
+      body.quantity === undefined ||
+      body.quantity === null ||
+      !body.type ||
+      body.amount === undefined ||
+      body.amount === null
+    ) {
       return NextResponse.json(
         { error: 'purchaseId, itemId, quantity, type, and amount are required' },
         { status: 400 }
@@ -108,10 +118,10 @@ export async function POST(req: Request) {
       )
     }
 
-    const quantity = parseInt(body.quantity)
-    const amount = parseFloat(body.amount)
+    const quantity = parseFloat(String(body.quantity))
+    const amount = parseFloat(String(body.amount))
 
-    if (quantity <= 0 || amount < 0) {
+    if (!Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(amount) || amount < 0) {
       return NextResponse.json(
         { error: 'Quantity must be positive and amount must be non-negative' },
         { status: 400 }
@@ -120,7 +130,7 @@ export async function POST(req: Request) {
 
     // Verify purchase belongs to tenant
     const purchase = await prisma.purchase.findFirst({
-      where: { id: body.purchaseId, tenantId: tenantId! },
+      where: applyBranchScope({ id: body.purchaseId, tenantId: context!.tenantId }, context!),
       include: {
         items: true,
         supplier: true,
@@ -143,31 +153,60 @@ export async function POST(req: Request) {
       )
     }
 
-    if (quantity > purchaseItem.quantity) {
+    const previousReturns = await prisma.supplierReturn.aggregate({
+      where: {
+        tenantId: context!.tenantId,
+        purchaseId: body.purchaseId,
+        itemId: body.itemId,
+      },
+      _sum: { quantity: true },
+    })
+    const alreadyReturned = previousReturns._sum.quantity ?? 0
+    const remainingQuantity = purchaseItem.quantity - alreadyReturned
+
+    if (quantity > remainingQuantity + 0.00001) {
       return NextResponse.json(
-        { error: 'Return quantity exceeds purchased quantity' },
+        { error: `Return quantity exceeds remaining returnable quantity (${remainingQuantity})` },
         { status: 400 }
       )
     }
 
-    // Check if item has enough stock to return
-    const item = await prisma.item.findUnique({
-      where: { id: body.itemId },
+    // Fetch item type + current stock
+    const item = await prisma.item.findFirst({
+      where: {
+        id: body.itemId,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+      },
+      select: { quantity: true, itemType: true },
     })
 
-    if (!item || item.quantity < quantity) {
+    if (!item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    }
+
+    const isInventoryItem = item.itemType === 'INVENTORY'
+
+    // Stock check only applies to INVENTORY items
+    if (isInventoryItem && item.quantity < quantity) {
       return NextResponse.json(
         { error: 'Insufficient stock to process return' },
         { status: 400 }
       )
     }
 
+    const tenantSettings = await prisma.tenant.findUnique({
+      where: { id: context!.tenantId },
+      select: { enableAccounting: true },
+    })
+    const accountingEnabled = tenantSettings?.enableAccounting ?? false
+
     // Execute atomic transaction
     const returnRecord = await prisma.$transaction(async (tx) => {
       // 1. Create return record
       const newReturn = await tx.supplierReturn.create({
         data: {
-          tenantId,
+          tenantId: context!.tenantId,
           purchaseId: body.purchaseId,
           itemId: body.itemId,
           quantity,
@@ -176,39 +215,37 @@ export async function POST(req: Request) {
         },
       })
 
-      // 2. Reduce item stock (we're returning to supplier)
-      await tx.item.update({
-        where: { id: body.itemId },
-        data: {
-          quantity: {
-            decrement: quantity,
-          },
-        },
-      })
+      // 2. Reduce item stock — INVENTORY items only
+      if (isInventoryItem) {
+        await tx.item.update({
+          where: { id: body.itemId },
+          data: { quantity: { decrement: quantity } },
+        })
+      }
 
       // 3. Adjust supplier balance based on return type
-      if (body.type === ReturnType.CASH) {
-        // Reduce supplier balance (we get cash refund)
+      if (body.type === ReturnType.CREDIT) {
+        // Supplier issues credit note — reduces our AP balance
         await tx.supplier.update({
           where: { id: purchase.supplierId },
-          data: {
-            balance: {
-              decrement: Math.min(amount, purchase.supplier.balance),
-            },
-          },
-        })
-      } else if (body.type === ReturnType.CREDIT) {
-        // Reduce our credit to supplier
-        await tx.supplier.update({
-          where: { id: purchase.supplierId },
-          data: {
-            balance: {
-              decrement: amount,
-            },
-          },
+          data: { balance: { decrement: amount } },
         })
       }
       // EXCHANGE: no balance adjustment needed
+
+      // 4. Post journal entry (if accounting enabled)
+      if (accountingEnabled) {
+        await postSupplierReturnJournal(tx, {
+          tenantId:        context!.tenantId,
+          supplierReturnId: newReturn.id,
+          postedById:      context!.user.id,
+          returnAmount:    amount,
+          itemCostPrice:   purchaseItem.costPrice,
+          quantity,
+          returnType:      body.type as ReturnType,
+          isInventoryItem,
+        })
+      }
 
       return newReturn
     })

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { requireBranchAccess, isBranchFilterActive } from '@/lib/branch/server'
+import { getScopedCustomerMetrics } from '@/lib/branch/scopedMetrics'
 
 /**
  * Customers API Routes
@@ -17,8 +18,8 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
 
     // Build where clause
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = { tenantId: context!.tenantId }
 
     if (search) {
       where.OR = [
@@ -44,33 +45,76 @@ export async function GET(req: Request) {
       ]
     }
 
-    if (hasDebt) {
-      where.balance = {
-        gt: 0,
+    if (!isBranchFilterActive(context!)) {
+      if (hasDebt) {
+        where.balance = {
+          gt: 0,
+        }
       }
+
+      const customers = await prisma.customer.findMany({
+        where,
+        include: {
+          _count: {
+            select: { sales: true },
+          },
+        },
+        orderBy: [
+          { balance: 'desc' }, // Debtors first
+          { name: 'asc' },
+        ],
+      })
+
+      const totalDebt = customers.reduce((sum, customer) => sum + customer.balance, 0)
+
+      return NextResponse.json({
+        customers,
+        summary: {
+          total: customers.length,
+          withDebt: customers.filter(c => c.balance > 0).length,
+          totalDebt,
+        },
+      })
     }
 
     const customers = await prisma.customer.findMany({
       where,
-      include: {
-        _count: {
-          select: { sales: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
       },
-      orderBy: [
-        { balance: 'desc' }, // Debtors first
-        { name: 'asc' },
-      ],
     })
 
-    // Calculate total debt
-    const totalDebt = customers.reduce((sum, customer) => sum + customer.balance, 0)
+    const metrics = await getScopedCustomerMetrics(
+      context!,
+      customers.map((customer) => customer.id)
+    )
+
+    const scopedCustomers = customers
+      .map((customer) => {
+        const metric = metrics.get(customer.id)
+        return {
+          ...customer,
+          balance: metric?.balance ?? 0,
+          _count: {
+            sales: metric?.transactionCount ?? 0,
+          },
+        }
+      })
+      .filter((customer) => !hasDebt || customer.balance > 0)
+      .sort((a, b) => {
+        if (b.balance !== a.balance) return b.balance - a.balance
+        return a.name.localeCompare(b.name)
+      })
+
+    const totalDebt = scopedCustomers.reduce((sum, customer) => sum + customer.balance, 0)
 
     return NextResponse.json({
-      customers,
+      customers: scopedCustomers,
       summary: {
-        total: customers.length,
-        withDebt: customers.filter(c => c.balance > 0).length,
+        total: scopedCustomers.length,
+        withDebt: scopedCustomers.filter((customer) => customer.balance > 0).length,
         totalDebt,
       },
     })
@@ -90,14 +134,11 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'create_customers'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'create_customers')
     if (!authorized) return permError!
 
     const body = await req.json()
@@ -115,7 +156,7 @@ export async function POST(req: Request) {
     // the same name are still considered duplicates).
     const existing = await prisma.customer.findFirst({
       where: {
-        tenantId,
+        tenantId: context!.tenantId,
         name: {
           equals: body.name.trim(),
           mode: 'insensitive' as const,
@@ -134,7 +175,7 @@ export async function POST(req: Request) {
     // Create customer
     const customer = await prisma.customer.create({
       data: {
-        tenantId,
+        tenantId: context!.tenantId,
         name: body.name.trim(),
         phone: body.phone ? body.phone.trim() : null,
         balance: 0, // Always start with 0 balance

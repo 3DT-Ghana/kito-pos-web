@@ -2,6 +2,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { NextResponse } from 'next/server'
 import type { Session } from 'next-auth'
+import { prisma } from '@/lib/db/prisma'
+import type { RolePermissionsMap } from '@/lib/permissions/rbac'
+import {
+  TENANT_FEATURE_SELECT,
+  type TenantFeatureFlags,
+} from '@/lib/tenant/features'
 
 /**
  * Tenant Enforcement Middleware
@@ -38,11 +44,15 @@ export type TenantContext =
       error: NextResponse
       tenantId: null
       user: null
+      rolePermissions: null
+      features: null
     }
   | {
       error: null
       tenantId: string
       user: Session['user']
+      rolePermissions: RolePermissionsMap | null
+      features: TenantFeatureFlags
     }
 
 /**
@@ -66,6 +76,8 @@ export async function requireTenant(): Promise<TenantContext> {
       ),
       tenantId: null,
       user: null,
+      rolePermissions: null,
+      features: null,
     }
   }
 
@@ -81,6 +93,32 @@ export async function requireTenant(): Promise<TenantContext> {
       ),
       tenantId: null,
       user: null,
+      rolePermissions: null,
+      features: null,
+    }
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: {
+      rolePermissions: true,
+      ...TENANT_FEATURE_SELECT,
+    },
+  })
+
+  if (!tenant) {
+    return {
+      error: NextResponse.json(
+        {
+          error: 'Forbidden',
+          message: 'Your tenant could not be found. Please contact support.',
+        },
+        { status: 403 }
+      ),
+      tenantId: null,
+      user: null,
+      rolePermissions: null,
+      features: null,
     }
   }
 
@@ -89,6 +127,16 @@ export async function requireTenant(): Promise<TenantContext> {
     error: null,
     tenantId: session.user.tenantId,
     user: session.user,
+    rolePermissions: (tenant.rolePermissions as RolePermissionsMap | null) ?? null,
+    features: {
+      enableBranches: tenant.enableBranches,
+      enableQuotations: tenant.enableQuotations,
+      enablePurchaseOrders: tenant.enablePurchaseOrders,
+      enableTill: tenant.enableTill,
+      enableAccounting: tenant.enableAccounting,
+      enablePayroll: tenant.enablePayroll,
+      requireApproval: tenant.requireApproval,
+    },
   }
 }
 

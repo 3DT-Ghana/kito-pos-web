@@ -15,6 +15,10 @@ interface FeaturesSettingsProps {
     enableExpenses: boolean
     enableTill: boolean
     allowSaleOnZeroStock: boolean
+    enableBarcodeGenerator: boolean
+    enableAccounting: boolean
+    enablePayroll: boolean
+    requireApproval: boolean
   }
 }
 
@@ -140,6 +144,36 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
           label: 'Expiry Date Tracking',
           icon: '📅',
           desc: 'Track expiry dates on items. Get alerts for items expiring within 30 days. Ideal for pharmacies, food stores, and FMCG businesses.',
+        },
+        {
+          key: 'enableBarcodeGenerator',
+          label: 'Barcode & Label Printing',
+          icon: '🏷️',
+          desc: 'Generate and print barcode (Code128) or QR code stickers for your items. Choose label size, quantity per item, and print directly from the inventory page. Ideal for shops that manufacture or repackage their own products.',
+        },
+      ],
+    },
+    {
+      label: 'Finance & Accounting',
+      icon: '📒',
+      items: [
+        {
+          key: 'enableAccounting',
+          label: 'Double-Entry Accounting',
+          icon: '📒',
+          desc: 'Automatically post journal entries for every sale, purchase, payment, expense, return, and stock adjustment. Includes Chart of Accounts, Journal Ledger, and financial reports (P&L, Balance Sheet, Trial Balance).',
+        },
+        {
+          key: 'enablePayroll',
+          label: 'Payroll (Ghana)',
+          icon: '💼',
+          desc: 'Manage employee records and run monthly payroll with automatic Ghana PAYE plus Tier 1 pension deductions. Disbursing payroll posts the cash/bank movement and statutory liabilities when accounting is enabled.',
+        },
+        {
+          key: 'requireApproval',
+          label: 'Transaction Approvals',
+          icon: '🔐',
+          desc: 'Require manager approval for sensitive transactions — discounts, price overrides, credit sales, and stock adjustments — when performed by CASHIER or STAFF. Managers (OWNER, STORE_MANAGER, BRANCH_MANAGER, ACCOUNTANT) can approve inline via PIN on the POS or through the Approvals queue.',
         },
       ],
     },

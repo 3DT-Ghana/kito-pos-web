@@ -1,4 +1,4 @@
-import { PrismaClient, Role, TenantStatus } from '../lib/generated/prisma/client'
+import { PrismaClient, Role, TenantStatus } from '@prisma/client'
 import { hash } from 'bcryptjs'
 
 const prisma = new PrismaClient()
@@ -27,6 +27,8 @@ async function main() {
     await prisma.customerReturn.deleteMany()
     await prisma.supplierPayment.deleteMany()
     await prisma.customerPayment.deleteMany()
+    await prisma.stockTransferItem.deleteMany()
+    await prisma.stockTransfer.deleteMany()
     await prisma.purchaseItem.deleteMany()
     await prisma.purchase.deleteMany()
     await prisma.saleItem.deleteMany()

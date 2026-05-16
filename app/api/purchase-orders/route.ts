@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import type { PurchaseOrderStatus } from '@prisma/client'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import {
+  isBranchFilterActive,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
+import { getVisiblePurchaseOrderIds } from '@/lib/purchase-orders/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
  * GET /api/purchase-orders
@@ -9,30 +16,46 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
+
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enablePurchaseOrders'
+    )
+    if (featureError) return featureError
 
     const { searchParams } = new URL(req.url)
-    const status = searchParams.get('status')
+    const status = searchParams.get('status')?.trim() || null
+
+    if (isBranchFilterActive(context!) && !context!.currentBranchId) {
+      return NextResponse.json([])
+    }
 
     const orders = await prisma.purchaseOrder.findMany({
       where: {
-        tenantId: tenantId!,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ...(status ? { status: status as any } : {}),
+        tenantId: context!.tenantId,
+        ...(status ? { status: status as PurchaseOrderStatus } : {}),
+        ...(isBranchFilterActive(context!) && context!.currentBranchId
+          ? {
+              OR: [{ branchId: context!.currentBranchId }, { branchId: null }],
+            }
+          : {}),
       },
       include: { items: true },
       orderBy: { createdAt: 'desc' },
     })
+    const visibleOrderIds = await getVisiblePurchaseOrderIds(context!, orders)
+    const visibleOrders = orders.filter((order) => visibleOrderIds.has(order.id))
 
     // Join supplier names manually (no Prisma relation)
-    const supplierIds = [...new Set(orders.map(o => o.supplierId).filter(Boolean))] as string[]
+    const supplierIds = [...new Set(visibleOrders.map(o => o.supplierId).filter(Boolean))] as string[]
     const suppliers = supplierIds.length
-      ? await prisma.supplier.findMany({ where: { id: { in: supplierIds } }, select: { id: true, name: true } })
+      ? await prisma.supplier.findMany({ where: { id: { in: supplierIds }, tenantId: context!.tenantId }, select: { id: true, name: true } })
       : []
     const supplierMap = Object.fromEntries(suppliers.map(s => [s.id, s]))
 
-    const result = orders.map(o => ({
+    const result = visibleOrders.map(o => ({
       ...o,
       supplier: o.supplierId ? supplierMap[o.supplierId] ?? null : null,
     }))
@@ -50,11 +73,23 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_purchase_order')
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enablePurchaseOrders'
+    )
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'create_purchase_order')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before creating a purchase order.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
 
@@ -66,7 +101,11 @@ export async function POST(req: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const itemIds = body.items.map((i: any) => i.itemId)
     const items = await prisma.item.findMany({
-      where: { id: { in: itemIds }, tenantId: tenantId! },
+      where: {
+        id: { in: itemIds },
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled ? { branchId } : {}),
+      },
       select: { id: true, name: true },
     })
     const itemMap = Object.fromEntries(items.map(i => [i.id, i]))
@@ -86,17 +125,22 @@ export async function POST(req: Request) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const totalAmount = orderItems.reduce((s: number, i: any) => s + i.quantity * i.costPrice, 0)
 
-    const order = await prisma.purchaseOrder.create({
-      data: {
-        tenantId: tenantId!,
-        supplierId: body.supplierId || null,
-        status: 'DRAFT',
-        totalAmount,
-        note: body.note || null,
-        expectedAt: body.expectedAt ? new Date(body.expectedAt) : null,
-        items: { create: orderItems },
-      },
-      include: { items: true },
+    const order = await prisma.$transaction(async (tx) => {
+      const createdOrder = await tx.purchaseOrder.create({
+        data: {
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
+          supplierId: body.supplierId || null,
+          status: 'DRAFT',
+          totalAmount,
+          note: body.note || null,
+          expectedAt: body.expectedAt ? new Date(body.expectedAt) : null,
+          items: { create: orderItems },
+        },
+        include: { items: true },
+      })
+
+      return createdOrder
     })
 
     return NextResponse.json(order, { status: 201 })

@@ -13,10 +13,13 @@ import { sendSms } from '@/lib/sms/hubtel'
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'manage_settings')
+    const { authorized, error: permError } = requirePermission(
+      { role: user!.role, rolePermissions },
+      'manage_settings'
+    )
     if (!authorized) return permError!
 
     const body = await req.json()

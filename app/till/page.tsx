@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency } from '@/lib/utils/format'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 interface Shift {
   id: string
@@ -29,11 +30,9 @@ interface RunningTotals {
 function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
 }
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-}
 
 export default function TillPage() {
+  const { currentBranchId } = useBranch()
   const [openShift, setOpenShift] = useState<Shift | null>(null)
   const [todayShifts, setTodayShifts] = useState<Shift[]>([])
   const [runningTotals, setRunningTotals] = useState<RunningTotals | null>(null)
@@ -55,7 +54,7 @@ export default function TillPage() {
     // Refresh running totals every 60 seconds while shift is open
     const interval = setInterval(() => { if (openShift) fetchTill() }, 60000)
     return () => clearInterval(interval)
-  }, [])
+  }, [currentBranchId])
 
   const fetchTill = async () => {
     try {

@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { PaymentMethod } from '@prisma/client'
 import { sendSms, buildPaymentReceivedSms } from '@/lib/sms/hubtel'
+import {
+  applyBranchScope,
+  isBranchFilterActive,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
+import { getScopedCustomerMetrics } from '@/lib/branch/scopedMetrics'
+import { postCustomerPaymentJournal } from '@/lib/accounting/journalEngine'
 
 /**
  * Customer Payments API
@@ -18,8 +25,8 @@ import { sendSms, buildPaymentReceivedSms } from '@/lib/sms/hubtel'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const customerId = searchParams.get('customerId')
@@ -27,7 +34,7 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (customerId) {
       where.customerId = customerId
@@ -73,14 +80,17 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'record_payments'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'record_payments')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before recording a customer payment.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
 
@@ -107,9 +117,12 @@ export async function POST(req: Request) {
     }
 
     // Verify customer belongs to tenant
-    const customer = await prisma.customer.findFirst({
-      where: { id: body.customerId, tenantId: tenantId! },
-    })
+    const [customer, metrics] = await Promise.all([
+      prisma.customer.findFirst({
+        where: { id: body.customerId, tenantId: context!.tenantId },
+      }),
+      getScopedCustomerMetrics(context!, [body.customerId]),
+    ])
 
     if (!customer) {
       return NextResponse.json(
@@ -119,25 +132,37 @@ export async function POST(req: Request) {
     }
 
     const amount = parseFloat(body.amount)
+    const scopedMetric = metrics.get(body.customerId)
+    const visibleBalance = isBranchFilterActive(context!)
+      ? Math.min(scopedMetric?.balance ?? 0, customer.balance)
+      : customer.balance
 
     // Check if payment exceeds balance
-    if (amount > customer.balance) {
+    if (amount > visibleBalance) {
       return NextResponse.json(
         {
           error: 'Payment amount exceeds customer balance',
-          customerBalance: customer.balance,
+          customerBalance: visibleBalance,
           paymentAmount: amount,
         },
         { status: 400 }
       )
     }
 
+    // Fetch accounting flag before transaction
+    const tenantSettings = await prisma.tenant.findUnique({
+      where: { id: context!.tenantId },
+      select: { enableAccounting: true },
+    })
+    const accountingEnabled = tenantSettings?.enableAccounting ?? false
+
     // Execute atomic transaction
     const payment = await prisma.$transaction(async (tx) => {
       // 1. Create payment record
       const newPayment = await tx.customerPayment.create({
         data: {
-          tenantId,
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
           customerId: body.customerId,
           amount,
           method: body.method as PaymentMethod,
@@ -154,6 +179,17 @@ export async function POST(req: Request) {
         },
       })
 
+      // 3. Post journal entry (if accounting enabled)
+      if (accountingEnabled) {
+        await postCustomerPaymentJournal(tx, {
+          tenantId: context!.tenantId,
+          customerPaymentId: newPayment.id,
+          postedById: context!.user.id,
+          amount,
+          paymentMethod: body.method as PaymentMethod,
+        })
+      }
+
       return newPayment
     })
 
@@ -161,11 +197,12 @@ export async function POST(req: Request) {
     const updatedCustomer = await prisma.customer.findUnique({
       where: { id: body.customerId },
     })
+    const scopedNewBalance = Math.max(0, visibleBalance - amount)
 
     // Send SMS notification (fire-and-forget — don't block or fail the payment)
     if (customer.phone) {
       const tenant = await prisma.tenant.findUnique({
-        where: { id: tenantId! },
+        where: { id: context!.tenantId },
         select: {
           name: true,
           enableSmsNotifications: true,
@@ -184,7 +221,9 @@ export async function POST(req: Request) {
           businessName: tenant.name,
           customerName: customer.name,
           amount,
-          balance: updatedCustomer?.balance ?? 0,
+          balance: isBranchFilterActive(context!)
+            ? scopedNewBalance
+            : (updatedCustomer?.balance ?? 0),
         })
         sendSms(
           { clientId: tenant.hubtelClientId, clientSecret: tenant.hubtelClientSecret, senderId: tenant.hubtelSenderId },
@@ -200,8 +239,10 @@ export async function POST(req: Request) {
         customer: {
           id: updatedCustomer?.id,
           name: updatedCustomer?.name,
-          previousBalance: customer.balance,
-          newBalance: updatedCustomer?.balance,
+          previousBalance: visibleBalance,
+          newBalance: isBranchFilterActive(context!)
+            ? scopedNewBalance
+            : (updatedCustomer?.balance ?? 0),
           amountPaid: amount,
         },
       },

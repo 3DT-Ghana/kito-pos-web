@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
+import { approvedSaleWhere } from '@/lib/approvals/sales'
+import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
  * Till / Cash Register API
@@ -11,17 +13,26 @@ import { prisma } from '@/lib/db/prisma'
  * PUT  /api/till          - Close current shift (closingCount, note)
  */
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'manage_till')
+    const featureError = requireTenantFeature(context!.features, 'enableTill')
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_till')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before opening or viewing a till shift.'
+    )
+    if (branchError) return branchError
 
     // Find the current user's open shift
     const openShift = await prisma.cashRegister.findFirst({
-      where: { tenantId: tenantId!, userId: user!.id, status: 'OPEN' },
+      where: { tenantId: context!.tenantId, branchId, userId: context!.user.id, status: 'OPEN' },
       orderBy: { openedAt: 'desc' },
     })
 
@@ -30,7 +41,7 @@ export async function GET(req: Request) {
     todayStart.setHours(0, 0, 0, 0)
 
     const todayShifts = await prisma.cashRegister.findMany({
-      where: { tenantId: tenantId!, userId: user!.id, openedAt: { gte: todayStart } },
+      where: { tenantId: context!.tenantId, branchId, userId: context!.user.id, openedAt: { gte: todayStart } },
       orderBy: { openedAt: 'desc' },
     })
 
@@ -42,18 +53,20 @@ export async function GET(req: Request) {
     const [cashSales, cashPaymentsReceived, cashExpenses] = await Promise.all([
       // Cash sales since shift opened
       prisma.sale.aggregate({
-        where: {
-          tenantId: tenantId!,
+        where: approvedSaleWhere({
+          tenantId: context!.tenantId,
+          branchId,
           paymentType: 'CASH',
           createdAt: { gte: openShift.openedAt },
-        },
+        }),
         _sum: { paidAmount: true },
       }),
 
       // Customer cash payments received since shift opened
       prisma.customerPayment.aggregate({
         where: {
-          tenantId: tenantId!,
+          tenantId: context!.tenantId,
+          branchId,
           method: 'CASH',
           createdAt: { gte: openShift.openedAt },
         },
@@ -63,7 +76,8 @@ export async function GET(req: Request) {
       // Cash expenses since shift opened
       prisma.expense.aggregate({
         where: {
-          tenantId: tenantId!,
+          tenantId: context!.tenantId,
+          branchId,
           createdAt: { gte: openShift.openedAt },
         },
         _sum: { amount: true },
@@ -93,15 +107,24 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'manage_till')
+    const featureError = requireTenantFeature(context!.features, 'enableTill')
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_till')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before opening a till shift.'
+    )
+    if (branchError) return branchError
 
     // Prevent opening a second shift while one is already open
     const existing = await prisma.cashRegister.findFirst({
-      where: { tenantId: tenantId!, userId: user!.id, status: 'OPEN' },
+      where: { tenantId: context!.tenantId, branchId, userId: context!.user.id, status: 'OPEN' },
     })
     if (existing) {
       return NextResponse.json({ error: 'You already have an open shift. Close it first.' }, { status: 400 })
@@ -115,8 +138,9 @@ export async function POST(req: Request) {
 
     const shift = await prisma.cashRegister.create({
       data: {
-        tenantId: tenantId!,
-        userId: user!.id,
+        tenantId: context!.tenantId,
+        branchId,
+        userId: context!.user.id,
         openingFloat,
         status: 'OPEN',
       },
@@ -131,14 +155,23 @@ export async function POST(req: Request) {
 
 export async function PUT(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'manage_till')
+    const featureError = requireTenantFeature(context!.features, 'enableTill')
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_till')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before closing a till shift.'
+    )
+    if (branchError) return branchError
+
     const openShift = await prisma.cashRegister.findFirst({
-      where: { tenantId: tenantId!, userId: user!.id, status: 'OPEN' },
+      where: { tenantId: context!.tenantId, branchId, userId: context!.user.id, status: 'OPEN' },
     })
     if (!openShift) {
       return NextResponse.json({ error: 'No open shift found' }, { status: 404 })
@@ -153,15 +186,20 @@ export async function PUT(req: Request) {
     // Recalculate expected cash at close time
     const [cashSales, cashPayments, cashExpenses] = await Promise.all([
       prisma.sale.aggregate({
-        where: { tenantId: tenantId!, paymentType: 'CASH', createdAt: { gte: openShift.openedAt } },
+        where: approvedSaleWhere({
+          tenantId: context!.tenantId,
+          branchId,
+          paymentType: 'CASH',
+          createdAt: { gte: openShift.openedAt },
+        }),
         _sum: { paidAmount: true },
       }),
       prisma.customerPayment.aggregate({
-        where: { tenantId: tenantId!, method: 'CASH', createdAt: { gte: openShift.openedAt } },
+        where: { tenantId: context!.tenantId, branchId, method: 'CASH', createdAt: { gte: openShift.openedAt } },
         _sum: { amount: true },
       }),
       prisma.expense.aggregate({
-        where: { tenantId: tenantId!, createdAt: { gte: openShift.openedAt } },
+        where: { tenantId: context!.tenantId, branchId, createdAt: { gte: openShift.openedAt } },
         _sum: { amount: true },
       }),
     ])

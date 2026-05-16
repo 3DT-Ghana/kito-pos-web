@@ -30,7 +30,7 @@ export default function NewPurchaseOrderPage() {
   const [expectedAt, setExpectedAt] = useState('')
 
   useEffect(() => {
-    fetch('/api/suppliers').then(r => r.json()).then(d => setSuppliers(Array.isArray(d) ? d : d.data || [])).catch(() => {})
+    fetch('/api/suppliers').then(r => r.json()).then(d => setSuppliers(Array.isArray(d) ? d : d.suppliers || d.data || [])).catch(() => {})
     fetch('/api/items').then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : d.data || [])).catch(() => {})
   }, [])
 

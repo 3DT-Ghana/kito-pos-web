@@ -9,6 +9,8 @@ interface AuditLog {
   userId: string
   action: string
   entity: string
+  entityId?: string | null
+  details?: Record<string, unknown> | null
   createdAt: string
 }
 
@@ -175,6 +177,11 @@ export default function AuditLogsPage() {
                         )}
                         {' · '}{formatDate(new Date(log.createdAt))}
                       </p>
+                      {log.entityId && (
+                        <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
+                          Record {log.entityId.slice(0, 12)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 )

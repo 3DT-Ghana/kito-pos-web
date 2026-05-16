@@ -23,12 +23,12 @@ import { getAuditLogs } from '@/lib/audit/auditLog'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
 
     // Check permission - only OWNERs can view audit logs
     const { authorized, error: permError } = requirePermission(
-      user!.role,
+      { role: user!.role, rolePermissions },
       'view_audit_logs'
     )
     if (!authorized) return permError!

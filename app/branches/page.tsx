@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatDate } from '@/lib/utils/format'
+import { useBranch } from '@/lib/branch/BranchContext'
+import { useUser } from '@/hooks/useUser'
 
 interface Branch {
   id: string
@@ -17,6 +19,8 @@ interface Branch {
 
 export default function BranchesPage() {
   const router = useRouter()
+  const { refreshBranches } = useBranch()
+  const { isOwner, isLoading: isUserLoading } = useUser()
   const [branches, setBranches] = useState<Branch[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -24,7 +28,36 @@ export default function BranchesPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  useEffect(() => { fetchBranches() }, [])
+  useEffect(() => {
+    if (!isUserLoading && !isOwner) {
+      router.push('/dashboard')
+      return
+    }
+
+    if (isOwner) {
+      let isActive = true
+
+      const loadBranches = async () => {
+        try {
+          const res = await fetch('/api/branches')
+          if (!res.ok) throw new Error()
+          const data = await res.json()
+          if (!isActive) return
+          setBranches(data.branches || [])
+        } finally {
+          if (isActive) {
+            setIsLoading(false)
+          }
+        }
+      }
+
+      void loadBranches()
+
+      return () => {
+        isActive = false
+      }
+    }
+  }, [isOwner, isUserLoading, router])
 
   const fetchBranches = async () => {
     try {
@@ -54,6 +87,7 @@ export default function BranchesPage() {
       }
       setFormData({ name: '', address: '', phone: '' })
       setShowForm(false)
+      await refreshBranches()
       fetchBranches()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to create branch')
@@ -68,6 +102,7 @@ export default function BranchesPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ isDefault: true }),
     })
+    await refreshBranches()
     fetchBranches()
   }
 
@@ -79,7 +114,18 @@ export default function BranchesPage() {
       alert(err.error || 'Failed to delete branch')
       return
     }
+    await refreshBranches()
     fetchBranches()
+  }
+
+  if (isUserLoading || !isOwner) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-16">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </AppLayout>
+    )
   }
 
   return (

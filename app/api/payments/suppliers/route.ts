@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { PaymentMethod } from '@prisma/client'
+import {
+  applyBranchScope,
+  isBranchFilterActive,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
+import { getScopedSupplierMetrics } from '@/lib/branch/scopedMetrics'
+import { postSupplierPaymentJournal } from '@/lib/accounting/journalEngine'
 
 /**
  * Supplier Payments API
@@ -17,8 +24,8 @@ import { PaymentMethod } from '@prisma/client'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const supplierId = searchParams.get('supplierId')
@@ -26,7 +33,7 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (supplierId) {
       where.supplierId = supplierId
@@ -72,14 +79,17 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'record_payments'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'record_payments')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before recording a supplier payment.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
 
@@ -106,9 +116,12 @@ export async function POST(req: Request) {
     }
 
     // Verify supplier belongs to tenant
-    const supplier = await prisma.supplier.findFirst({
-      where: { id: body.supplierId, tenantId: tenantId! },
-    })
+    const [supplier, metrics] = await Promise.all([
+      prisma.supplier.findFirst({
+        where: { id: body.supplierId, tenantId: context!.tenantId },
+      }),
+      getScopedSupplierMetrics(context!, [body.supplierId]),
+    ])
 
     if (!supplier) {
       return NextResponse.json(
@@ -118,25 +131,37 @@ export async function POST(req: Request) {
     }
 
     const amount = parseFloat(body.amount)
+    const scopedMetric = metrics.get(body.supplierId)
+    const visibleBalance = isBranchFilterActive(context!)
+      ? Math.min(scopedMetric?.balance ?? 0, supplier.balance)
+      : supplier.balance
 
     // Check if payment exceeds balance
-    if (amount > supplier.balance) {
+    if (amount > visibleBalance) {
       return NextResponse.json(
         {
           error: 'Payment amount exceeds supplier balance',
-          supplierBalance: supplier.balance,
+          supplierBalance: visibleBalance,
           paymentAmount: amount,
         },
         { status: 400 }
       )
     }
 
+    // Fetch accounting flag before transaction
+    const tenantSettings = await prisma.tenant.findUnique({
+      where: { id: context!.tenantId },
+      select: { enableAccounting: true },
+    })
+    const accountingEnabled = tenantSettings?.enableAccounting ?? false
+
     // Execute atomic transaction
     const payment = await prisma.$transaction(async (tx) => {
       // 1. Create payment record
       const newPayment = await tx.supplierPayment.create({
         data: {
-          tenantId,
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
           supplierId: body.supplierId,
           amount,
           method: body.method as PaymentMethod,
@@ -153,6 +178,17 @@ export async function POST(req: Request) {
         },
       })
 
+      // 3. Post journal entry (if accounting enabled)
+      if (accountingEnabled) {
+        await postSupplierPaymentJournal(tx, {
+          tenantId: context!.tenantId,
+          supplierPaymentId: newPayment.id,
+          postedById: context!.user.id,
+          amount,
+          paymentMethod: body.method as PaymentMethod,
+        })
+      }
+
       return newPayment
     })
 
@@ -160,6 +196,7 @@ export async function POST(req: Request) {
     const updatedSupplier = await prisma.supplier.findUnique({
       where: { id: body.supplierId },
     })
+    const scopedNewBalance = Math.max(0, visibleBalance - amount)
 
     return NextResponse.json(
       {
@@ -167,8 +204,10 @@ export async function POST(req: Request) {
         supplier: {
           id: updatedSupplier?.id,
           name: updatedSupplier?.name,
-          previousBalance: supplier.balance,
-          newBalance: updatedSupplier?.balance,
+          previousBalance: visibleBalance,
+          newBalance: isBranchFilterActive(context!)
+            ? scopedNewBalance
+            : (updatedSupplier?.balance ?? 0),
           amountPaid: amount,
         },
       },

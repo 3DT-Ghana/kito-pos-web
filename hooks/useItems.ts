@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 /**
  * useItems Hook
@@ -20,6 +21,7 @@ interface UseItemsOptions {
 }
 
 export function useItems(options: UseItemsOptions = {}) {
+  const { currentBranchId } = useBranch()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +54,7 @@ export function useItems(options: UseItemsOptions = {}) {
 
   useEffect(() => {
     fetchItems()
-  }, [options.search, options.manufacturerId, options.lowStock])
+  }, [options.search, options.manufacturerId, options.lowStock, currentBranchId])
 
   return {
     items,

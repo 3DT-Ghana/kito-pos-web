@@ -6,33 +6,22 @@ import { useState } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
-
-/**
- * Sidebar Navigation Component
- *
- * Desktop/Tablet sidebar - hidden on mobile (md:flex)
- * Collapsible: full (w-64) ↔ icon rail (w-16)
- *
- * Groups (like QuickBooks / Odoo pattern):
- *  - Main         : Dashboard, POS Terminal
- *  - Sales        : Sales, Quotations, Returns (customer side)
- *  - Purchasing   : Purchases, Purchase Orders, Returns (supplier side)
- *  - Inventory    : Items, Manufacturers, Stock Adjustments
- *  - Finance      : Payments, Expenses, Till / Cash Register
- *  - CRM          : Customers, Suppliers
- *  - Reports      : Reports, Audit Log
- *  - Admin        : Users, Branches, Settings, Import / Tools
- */
+import {
+  LayoutDashboard, Monitor, ShoppingCart, FileText, CornerUpLeft,
+  Package, ArrowLeftRight, Tag, Factory, CreditCard, Receipt,
+  Landmark, Users, Truck, BarChart2, ClipboardList, UserCog,
+  GitBranch, Settings, Download, Sliders, Scale, ChevronDown,
+  LogOut, Building2, ClipboardCheck, Printer, BookOpen, List, TrendingUp, Briefcase, ShieldCheck,
+} from 'lucide-react'
 
 interface NavItem {
   name: string
   href: string
-  icon: string
+  icon: React.ReactNode
 }
 
 interface NavGroup {
   label: string
-  icon: string         // group icon shown in collapsed rail tooltip header
   items: NavItem[]
 }
 
@@ -43,106 +32,124 @@ export function Sidebar() {
   const { collapsed, toggle } = useSidebar()
   const role = user?.role || ''
 
-  const ALL = ['OWNER', 'STORE_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
+  const ALL = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
   const has = (...roles: string[]) => roles.includes(role)
-  const isSuperAdmin = user?.email === 'ee.wilson@outlook.com'
+  const superAdminEmails = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
+  const isSuperAdmin = !!user?.email && superAdminEmails.includes(user.email.toLowerCase())
 
-  // Build nav groups — items with show: false are filtered out
+  const sz = 'w-4 h-4'
+
   const rawGroups = [
     {
       label: 'Main',
-      icon: '🏠',
       itemsRaw: [
-        { name: 'Dashboard',    href: '/dashboard', icon: '📊', show: true },
-        { name: 'POS Terminal', href: '/pos',       icon: '🖥️', show: features.enablePosTerminal && has('OWNER','STORE_MANAGER','CASHIER') },
+        { name: 'Dashboard',    href: '/dashboard', icon: <LayoutDashboard className={sz} />, show: true },
+        { name: 'POS Terminal', href: '/pos',        icon: <Monitor className={sz} />,         show: features.enablePosTerminal && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','CASHIER') },
       ],
     },
     {
       label: 'Sales',
-      icon: '💰',
       itemsRaw: [
-        { name: 'Sales',       href: '/sales',       icon: '💰', show: true },
-        { name: 'Quotations',  href: '/quotations',  icon: '📄', show: features.enableQuotations && has('OWNER','STORE_MANAGER','CASHIER') },
-        { name: 'Returns',     href: '/returns',     icon: '↩️', show: has('OWNER','STORE_MANAGER','STAFF') },
+        { name: 'Sales',       href: '/sales',       icon: <ShoppingCart className={sz} />,  show: true },
+        { name: 'Quotations',  href: '/quotations',  icon: <FileText className={sz} />,       show: features.enableQuotations && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','CASHIER') },
+        { name: 'Returns',     href: '/returns',     icon: <CornerUpLeft className={sz} />,   show: has('OWNER','STORE_MANAGER','BRANCH_MANAGER','STAFF') },
       ],
     },
     {
       label: 'Purchasing',
-      icon: '🛒',
       itemsRaw: [
-        { name: 'Purchases',        href: '/purchases',        icon: '🛒', show: true },
-        { name: 'Purchase Orders',  href: '/purchase-orders',  icon: '📋', show: features.enablePurchaseOrders && has('OWNER','STORE_MANAGER','INVENTORY_MANAGER') },
+        { name: 'Purchases',       href: '/purchases',       icon: <Package className={sz} />,       show: true },
+        { name: 'Purchase Orders', href: '/purchase-orders', icon: <ClipboardCheck className={sz} />, show: features.enablePurchaseOrders && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER') },
       ],
     },
     {
       label: 'Inventory',
-      icon: '📦',
       itemsRaw: [
-        { name: 'Items',         href: '/items',         icon: '📦', show: true },
-        { name: 'Categories',    href: '/categories',    icon: '🗂️', show: true },
-        { name: 'Manufacturers', href: '/manufacturers', icon: '🏭', show: true },
+        { name: 'Items',         href: '/items',         icon: <Package className={sz} />,        show: true },
+        { name: 'Transfers',     href: '/transfers',     icon: <ArrowLeftRight className={sz} />,  show: features.enableBranches && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER') },
+        { name: 'Categories',    href: '/categories',    icon: <Tag className={sz} />,             show: true },
+        { name: 'Manufacturers', href: '/manufacturers', icon: <Factory className={sz} />,         show: true },
+        { name: 'Barcode Labels', href: '/barcodes',     icon: <Printer className={sz} />,         show: features.enableBarcodeGenerator && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER') },
       ],
     },
     {
       label: 'Finance',
-      icon: '💳',
       itemsRaw: [
-        { name: 'Payments',  href: '/payments',  icon: '💳', show: true },
-        { name: 'Expenses',  href: '/expenses',  icon: '💸', show: features.enableExpenses && has('OWNER','STORE_MANAGER','ACCOUNTANT') },
-        { name: 'Till',      href: '/till',      icon: '🏧', show: features.enableTill && has('OWNER','STORE_MANAGER','CASHIER') },
+        { name: 'Payments', href: '/payments', icon: <CreditCard className={sz} />, show: true },
+        { name: 'Expenses', href: '/expenses', icon: <Receipt className={sz} />,    show: features.enableExpenses && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Till',     href: '/till',     icon: <Landmark className={sz} />,   show: features.enableTill && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','CASHIER') },
       ],
     },
     {
       label: 'CRM',
-      icon: '👥',
       itemsRaw: [
-        { name: 'Customers', href: '/customers', icon: '👤', show: true },
-        { name: 'Suppliers',  href: '/suppliers', icon: '🚚', show: true },
+        { name: 'Customers', href: '/customers', icon: <Users className={sz} />,  show: true },
+        { name: 'Suppliers', href: '/suppliers', icon: <Truck className={sz} />,   show: true },
+      ],
+    },
+    {
+      label: 'Accounting',
+      itemsRaw: [
+        { name: 'Chart of Accounts', href: '/accounting/chart-of-accounts', icon: <List className={sz} />,     show: features.enableAccounting && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Journal',           href: '/accounting/journal',            icon: <BookOpen className={sz} />, show: features.enableAccounting && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Transfers',         href: '/accounting/transfers',          icon: <ArrowLeftRight className={sz} />, show: features.enableAccounting && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Financial Reports', href: '/accounting/reports',            icon: <TrendingUp className={sz} />, show: features.enableAccounting && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+      ],
+    },
+    {
+      label: 'Payroll',
+      itemsRaw: [
+        { name: 'Employees',    href: '/payroll/employees', icon: <Users className={sz} />,    show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Payroll Runs', href: '/payroll/runs',      icon: <Briefcase className={sz} />, show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+      ],
+    },
+    {
+      label: 'Approvals',
+      itemsRaw: [
+        { name: 'Approvals', href: '/approvals', icon: <ShieldCheck className={sz} />, show: features.requireApproval && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
       ],
     },
     {
       label: 'Reports',
-      icon: '📈',
       itemsRaw: [
-        { name: 'Reports',   href: '/reports',     icon: '📈', show: true },
-        { name: 'Audit Log', href: '/audit-logs',  icon: '🔍', show: has('OWNER','STORE_MANAGER') },
+        { name: 'Reports',   href: '/reports',    icon: <BarChart2 className={sz} />,     show: true },
+        { name: 'Audit Log', href: '/audit-logs', icon: <ClipboardList className={sz} />, show: has('OWNER','STORE_MANAGER') },
       ],
     },
     {
       label: 'Admin',
-      icon: '⚙️',
       itemsRaw: [
-        { name: 'Users',            href: '/users',                    icon: '👥', show: has('OWNER') },
-        { name: 'Branches',         href: '/branches',                 icon: '🏪', show: features.enableBranches && has('OWNER') },
-        { name: 'Settings',         href: '/settings',                 icon: '⚙️', show: has('OWNER') },
-        { name: 'Import Items',     href: '/import/items',             icon: '📥', show: ALL.includes(role) },
-        { name: 'Import Customers', href: '/import/customers',         icon: '📥', show: ALL.includes(role) },
-        { name: 'Adjust Stock',     href: '/items/adjust-bulk',        icon: '🔧', show: ALL.includes(role) },
-        { name: 'Adjust Balances',  href: '/customers/adjust-balance', icon: '⚖️', show: ALL.includes(role) },
+        { name: 'Users',             href: '/users',                    icon: <UserCog className={sz} />,     show: has('OWNER','BRANCH_MANAGER') },
+        { name: 'Branches',          href: '/branches',                 icon: <GitBranch className={sz} />,   show: features.enableBranches && has('OWNER') },
+        { name: 'Settings',          href: '/settings',                 icon: <Settings className={sz} />,    show: has('OWNER') },
+        { name: 'Import Items',      href: '/import/items',             icon: <Download className={sz} />,    show: ALL.includes(role) },
+        { name: 'Import Customers',  href: '/import/customers',         icon: <Download className={sz} />,    show: ALL.includes(role) },
+        { name: 'Adjust Stock',      href: '/items/adjust-bulk',        icon: <Sliders className={sz} />,     show: ALL.includes(role) },
+        { name: 'Adjust Balances',   href: '/customers/adjust-balance', icon: <Scale className={sz} />,       show: ALL.includes(role) },
       ],
     },
     {
       label: 'Platform',
-      icon: '🌐',
       itemsRaw: [
-        { name: 'All Companies', href: '/admin', icon: '🏢', show: isSuperAdmin },
+        { name: 'Admin Dashboard',       href: '/admin',               icon: <Building2 className={sz} />,    show: isSuperAdmin },
+        { name: 'All Companies',         href: '/admin/companies',     icon: <Building2 className={sz} />,    show: isSuperAdmin },
+        { name: 'Business Applications', href: '/admin/applications',  icon: <FileText className={sz} />,     show: isSuperAdmin },
+        { name: 'Sales Agents',          href: '/admin/agents',        icon: <UserCog className={sz} />,      show: isSuperAdmin },
+        { name: 'Platform Audit Log',    href: '/admin/audit-log',     icon: <ClipboardList className={sz} />, show: isSuperAdmin },
       ],
     },
   ]
 
-  // Filter items and groups
   const groups: (NavGroup & { defaultOpen: boolean })[] = rawGroups
     .map(g => ({
       label: g.label,
-      icon: g.icon,
-      items: g.itemsRaw.filter(i => i.show).map(({ show: _s, ...i }) => i),
+      items: g.itemsRaw.filter(i => i.show).map(i => ({ name: i.name, href: i.href, icon: i.icon })),
       defaultOpen: g.itemsRaw.filter(i => i.show).some(
         i => pathname === i.href || pathname?.startsWith(i.href + '/')
       ),
     }))
     .filter(g => g.items.length > 0)
 
-  // Track which groups are expanded
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map(g => [g.label, g.defaultOpen]))
   )
@@ -153,37 +160,40 @@ export function Sidebar() {
   const isActive = (href: string) =>
     pathname === href || pathname?.startsWith(href + '/')
 
+  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
+  const roleLabel = user?.role?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? ''
+
   return (
     <aside
       className={`hidden md:flex flex-col fixed inset-y-0 z-30 transition-all duration-200 ease-in-out ${
-        collapsed ? 'w-16' : 'w-64'
+        collapsed ? 'w-16' : 'w-60'
       }`}
     >
-      <div className="flex flex-col grow bg-white border-r border-gray-200 pb-4 overflow-y-auto overflow-x-hidden shadow-sm">
+      <div className="flex flex-col grow bg-slate-900 pb-4 overflow-y-auto overflow-x-hidden">
 
-        {/* Logo / Brand + collapse toggle */}
-        <div className={`flex items-center shrink-0 h-14 border-b border-gray-100 ${collapsed ? 'justify-center px-0' : 'px-4 gap-3'}`}>
+        {/* Brand */}
+        <div className={`flex items-center shrink-0 h-14 border-b border-slate-800 ${collapsed ? 'justify-center' : 'px-4 gap-3'}`}>
           {collapsed ? (
             <button
               onClick={toggle}
               title="Expand sidebar"
-              className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-xl shadow-md hover:bg-blue-700 transition-colors"
+              className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-500 transition-colors"
             >
-              🏪
+              <LayoutDashboard className="w-4 h-4 text-white" />
             </button>
           ) : (
             <>
-              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-xl shadow-md shrink-0">
-                🏪
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                <LayoutDashboard className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <h1 className="text-sm font-bold text-gray-900 leading-tight truncate">PETROS Business</h1>
-                <p className="text-xs text-gray-500">Management Mini</p>
+                <p className="text-sm font-bold text-white leading-tight truncate">PETROS Business</p>
+                <p className="text-xs text-slate-400">Management</p>
               </div>
               <button
                 onClick={toggle}
                 title="Collapse sidebar"
-                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0"
+                className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
@@ -193,16 +203,15 @@ export function Sidebar() {
           )}
         </div>
 
-        {/* Navigation */}
-        <nav className={`flex-1 py-2 space-y-0 ${collapsed ? 'px-2' : 'px-2'}`}>
+        {/* Nav */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
           {groups.map((group) => {
             const groupActive = group.items.some(i => isActive(i.href))
             const isOpen = openGroups[group.label] ?? group.defaultOpen
 
             if (collapsed) {
-              // Collapsed rail: show each item as icon-only with tooltip
               return (
-                <div key={group.label} className="space-y-0.5 py-1 border-b border-gray-100 last:border-0">
+                <div key={group.label} className="space-y-0.5 py-1 border-b border-slate-800 last:border-0">
                   {group.items.map(item => {
                     const active = isActive(item.href)
                     return (
@@ -210,13 +219,13 @@ export function Sidebar() {
                         key={item.href}
                         href={item.href}
                         title={`${group.label}: ${item.name}`}
-                        className={`flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                        className={`flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-all ${
                           active
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-200'
-                            : 'text-gray-600 hover:bg-gray-100'
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                         }`}
                       >
-                        <span className="text-lg">{item.icon}</span>
+                        {item.icon}
                       </Link>
                     )
                   })}
@@ -224,49 +233,37 @@ export function Sidebar() {
               )
             }
 
-            // Expanded: group header + collapsible items
             return (
-              <div key={group.label} className="pt-1">
-                {/* Group header button */}
+              <div key={group.label}>
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors ${
-                    groupActive
-                      ? 'text-blue-700'
-                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors mt-2 ${
+                    groupActive ? 'text-slate-300' : 'text-slate-500 hover:text-slate-400'
                   }`}
                 >
-                  <span className="text-sm">{group.icon}</span>
                   <span className="flex-1 text-left">{group.label}</span>
-                  <svg
-                    className={`w-3.5 h-3.5 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <ChevronDown
+                    className={`w-3 h-3 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
+                  />
                 </button>
 
-                {/* Group items */}
                 {isOpen && (
-                  <div className="ml-2 pl-3 border-l-2 border-gray-100 space-y-0.5 mb-1 mt-0.5">
+                  <div className="mt-0.5 space-y-0.5">
                     {group.items.map(item => {
                       const active = isActive(item.href)
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
-                          className={`flex items-center gap-2.5 px-2.5 py-2 text-sm font-medium rounded-lg transition-all ${
+                          className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all ${
                             active
-                              ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                              : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                              ? 'bg-blue-600 text-white'
+                              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                           }`}
                         >
-                          <span className="text-base shrink-0">{item.icon}</span>
-                          <span className="truncate">{item.name}</span>
-                          {active && (
-                            <div className="ml-auto w-1.5 h-1.5 bg-white rounded-full opacity-70 shrink-0" />
-                          )}
+                          <span className="shrink-0">{item.icon}</span>
+                          <span className="truncate font-medium">{item.name}</span>
                         </Link>
                       )
                     })}
@@ -277,34 +274,30 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* User Info */}
-        <div className={`shrink-0 border-t border-gray-200 ${collapsed ? 'p-2' : 'p-3'}`}>
+        {/* User footer */}
+        <div className={`shrink-0 border-t border-slate-800 ${collapsed ? 'p-2' : 'p-3'}`}>
           {collapsed ? (
             <div
-              title={`${user?.name} · ${user?.role}`}
-              className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-base shadow-md mx-auto"
+              title={`${user?.name} · ${roleLabel}`}
+              className="w-9 h-9 rounded-lg bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto"
             >
-              {user?.name?.charAt(0).toUpperCase()}
+              {initials}
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white font-bold text-sm shadow-md shrink-0">
-                {user?.name?.charAt(0).toUpperCase()}
+              <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs shrink-0">
+                {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{user?.name}</p>
-                <p className="text-xs font-medium text-gray-500">
-                  {user?.role?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
-                </p>
+                <p className="text-sm font-semibold text-slate-200 truncate">{user?.name}</p>
+                <p className="text-xs text-slate-500 truncate">{roleLabel}</p>
               </div>
               <Link
                 href="/api/auth/signout"
-                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0"
+                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
                 title="Sign out"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
+                <LogOut className="w-4 h-4" />
               </Link>
             </div>
           )}

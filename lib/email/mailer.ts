@@ -33,7 +33,7 @@ export interface MailOptions {
  * Send an email. Silently catches errors so a mail failure
  * never breaks the calling API response.
  */
-export async function sendMail(opts: MailOptions): Promise<void> {
+export async function sendMail(opts: MailOptions): Promise<boolean> {
   try {
     await transporter.sendMail({
       from: process.env.SMTP_FROM || 'PETROS Business <noreply@petros.app>',
@@ -42,8 +42,10 @@ export async function sendMail(opts: MailOptions): Promise<void> {
       html: opts.html,
       text: opts.text,
     })
+    return true
   } catch (err) {
     // Log but never throw — email failure must not break the API
     console.error('[mailer] Failed to send email:', err)
+    return false
   }
 }

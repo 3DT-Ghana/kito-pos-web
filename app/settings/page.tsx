@@ -9,6 +9,7 @@ import { PricingSettings } from './PricingSettings'
 import { SmsSettings } from './SmsSettings'
 import { FeaturesSettings } from './FeaturesSettings'
 import { RolePermissionsSettings } from './RolePermissionsSettings'
+import { TaxSettings } from './TaxSettings'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { type RolePermissionsMap } from '@/lib/permissions/rbac'
 
@@ -28,6 +29,10 @@ export default async function SettingsPage() {
   }
 
   const { user } = session
+
+  if (!user.tenantId) {
+    redirect('/agent/dashboard')
+  }
 
   // Fetch tenant settings
   const tenant = await prisma.tenant.findUnique({
@@ -57,6 +62,10 @@ export default async function SettingsPage() {
       enableExpenses: true,
       enableTill: true,
       allowSaleOnZeroStock: true,
+      enableBarcodeGenerator: true,
+      enableAccounting: true,
+      enablePayroll: true,
+      requireApproval: true,
     },
   })
 
@@ -110,6 +119,11 @@ export default async function SettingsPage() {
           tenantId={tenant.id}
         />
 
+        <TaxSettings
+          tenantId={tenant.id}
+          enableAccounting={tenant.enableAccounting}
+        />
+
         {/* Receipt Settings */}
         <ReceiptSettings
           initialSettings={{
@@ -143,6 +157,10 @@ export default async function SettingsPage() {
             enableExpenses: tenant.enableExpenses,
             enableTill: tenant.enableTill,
             allowSaleOnZeroStock: tenant.allowSaleOnZeroStock,
+            enableBarcodeGenerator: tenant.enableBarcodeGenerator,
+            enableAccounting: tenant.enableAccounting,
+            enablePayroll: tenant.enablePayroll,
+            requireApproval: tenant.requireApproval ?? false,
           }}
         />
 

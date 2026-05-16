@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 
 /**
  * POST /api/import/items
@@ -21,11 +21,17 @@ import { prisma } from '@/lib/db/prisma'
 
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_items')
+    const { authorized, error: permError } = requirePermission(context!, 'create_items')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before importing inventory.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
     const rows: Record<string, unknown>[] = body.rows || []
@@ -65,11 +71,11 @@ export async function POST(req: Request) {
         const mfrKey = mfrName.toLowerCase()
         if (!mfrCache[mfrKey]) {
           let mfr = await prisma.manufacturer.findFirst({
-            where: { tenantId: tenantId!, name: { equals: mfrName, mode: 'insensitive' } },
+            where: { tenantId: context!.tenantId, name: { equals: mfrName, mode: 'insensitive' } },
           })
           if (!mfr) {
             mfr = await prisma.manufacturer.create({
-              data: { tenantId: tenantId!, name: mfrName },
+              data: { tenantId: context!.tenantId, name: mfrName },
             })
           }
           mfrCache[mfrKey] = mfr.id
@@ -78,7 +84,12 @@ export async function POST(req: Request) {
 
         // Skip duplicate item names within the same manufacturer
         const existing = await prisma.item.findFirst({
-          where: { tenantId: tenantId!, manufacturerId, name: { equals: name, mode: 'insensitive' } },
+          where: {
+            tenantId: context!.tenantId,
+            manufacturerId,
+            ...(context!.branchesEnabled ? { branchId } : {}),
+            name: { equals: name, mode: 'insensitive' },
+          },
         })
         if (existing) {
           results.errors.push(`Row ${rowNum}: item "${name}" already exists for this manufacturer — skipped`)
@@ -87,7 +98,15 @@ export async function POST(req: Request) {
         }
 
         await prisma.item.create({
-          data: { tenantId: tenantId!, manufacturerId, name, costPrice, sellingPrice, quantity },
+          data: {
+            tenantId: context!.tenantId,
+            ...(context!.branchesEnabled ? { branchId } : {}),
+            manufacturerId,
+            name,
+            costPrice,
+            sellingPrice,
+            quantity,
+          },
         })
         results.imported++
       } catch (err) {

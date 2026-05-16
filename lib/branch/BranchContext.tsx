@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { ALL_BRANCHES_SELECTION, BRANCH_SELECTION_COOKIE } from '@/lib/branch/constants'
 
 interface Branch {
   id: string
@@ -10,49 +11,74 @@ interface Branch {
 
 interface BranchContextValue {
   branches: Branch[]
-  currentBranchId: string | null  // null = "All Branches" (owner view)
+  branchesEnabled: boolean
+  currentBranchId: string | null
   currentBranch: Branch | null
+  assignedBranchId: string | null
+  canViewAllBranches: boolean
+  isBranchLocked: boolean
   setBranchId: (id: string | null) => void
+  refreshBranches: () => Promise<void>
   isLoading: boolean
 }
 
 const BranchContext = createContext<BranchContextValue>({
   branches: [],
+  branchesEnabled: false,
   currentBranchId: null,
   currentBranch: null,
+  assignedBranchId: null,
+  canViewAllBranches: false,
+  isBranchLocked: false,
   setBranchId: () => {},
+  refreshBranches: async () => {},
   isLoading: false,
 })
 
-const STORAGE_KEY = 'petros_branch_id'
+const STORAGE_KEY = BRANCH_SELECTION_COOKIE
+
+function writeBranchSelection(value: string | null) {
+  if (typeof window === 'undefined') return
+
+  const storedValue = value ?? ALL_BRANCHES_SELECTION
+  sessionStorage.setItem(STORAGE_KEY, storedValue)
+  document.cookie = `${STORAGE_KEY}=${encodeURIComponent(storedValue)}; path=/; samesite=lax`
+}
 
 export function BranchProvider({ children }: { children: ReactNode }) {
   const [branches, setBranches] = useState<Branch[]>([])
+  const [branchesEnabled, setBranchesEnabled] = useState(false)
   const [currentBranchId, setCurrentBranchId] = useState<string | null>(null)
+  const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null)
+  const [canViewAllBranches, setCanViewAllBranches] = useState(false)
+  const [isBranchLocked, setIsBranchLocked] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
-    fetchBranches(saved)
+    if (saved) {
+      document.cookie = `${STORAGE_KEY}=${encodeURIComponent(saved)}; path=/; samesite=lax`
+    }
+    void fetchBranches()
   }, [])
 
-  const fetchBranches = async (savedId?: string | null) => {
+  const fetchBranches = async () => {
     try {
       const res = await fetch('/api/branches')
       if (!res.ok) return
       const data = await res.json()
       const list: Branch[] = data.branches || []
       setBranches(list)
+      setBranchesEnabled(Boolean(data.context?.branchesEnabled))
+      setAssignedBranchId(data.context?.assignedBranchId ?? null)
+      setCanViewAllBranches(Boolean(data.context?.canViewAllBranches))
+      setIsBranchLocked(Boolean(data.context?.isBranchLocked))
+      setCurrentBranchId(data.context?.currentBranchId ?? null)
 
-      if (list.length === 0) return
-
-      // Restore saved selection, fall back to default branch
-      if (savedId && list.find(b => b.id === savedId)) {
-        setCurrentBranchId(savedId)
-      } else {
-        const def = list.find(b => b.isDefault) || list[0]
-        setCurrentBranchId(def.id)
-        if (typeof window !== 'undefined') sessionStorage.setItem(STORAGE_KEY, def.id)
+      if (data.context?.currentBranchId === null && data.context?.canViewAllBranches) {
+        writeBranchSelection(null)
+      } else if (data.context?.currentBranchId) {
+        writeBranchSelection(data.context.currentBranchId)
       }
     } finally {
       setIsLoading(false)
@@ -60,17 +86,28 @@ export function BranchProvider({ children }: { children: ReactNode }) {
   }
 
   const setBranchId = (id: string | null) => {
+    if (isBranchLocked) return
     setCurrentBranchId(id)
-    if (typeof window !== 'undefined') {
-      if (id) sessionStorage.setItem(STORAGE_KEY, id)
-      else sessionStorage.removeItem(STORAGE_KEY)
-    }
+    writeBranchSelection(id)
   }
 
   const currentBranch = branches.find(b => b.id === currentBranchId) ?? null
 
   return (
-    <BranchContext.Provider value={{ branches, currentBranchId, currentBranch, setBranchId, isLoading }}>
+    <BranchContext.Provider
+      value={{
+        branches,
+        branchesEnabled,
+        currentBranchId,
+        currentBranch,
+        assignedBranchId,
+        canViewAllBranches,
+        isBranchLocked,
+        setBranchId,
+        refreshBranches: fetchBranches,
+        isLoading,
+      }}
+    >
       {children}
     </BranchContext.Provider>
   )

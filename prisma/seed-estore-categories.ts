@@ -68,7 +68,7 @@ async function main() {
   })
 
   let assigned = 0
-  let unmatched: string[] = []
+  const unmatched: string[] = []
 
   for (const item of items) {
     const catName = matchCategory(item.name)

@@ -1,6 +1,7 @@
 'use client'
 
 import { formatCurrency } from '@/lib/utils/format'
+import { formatTaxLabel } from '@/lib/tax/summary'
 
 interface ReceiptItem {
   name: string
@@ -22,6 +23,12 @@ interface ReceiptData {
   items: ReceiptItem[]
   subtotal: number
   discount?: number
+  taxLines?: {
+    taxRateId?: string | null
+    taxName: string
+    taxRatePercentage: number
+    taxAmount: number
+  }[]
   total: number
   paidAmount: number
   change: number
@@ -134,6 +141,15 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
             <span className="font-bold">-{formatCurrency(data.discount)}</span>
           </div>
         )}
+        {(data.taxLines ?? []).map((taxLine) => (
+          <div
+            key={`${taxLine.taxRateId ?? taxLine.taxName}-${taxLine.taxRatePercentage}`}
+            className="flex justify-between"
+          >
+            <span>{formatTaxLabel(taxLine).toUpperCase()}:</span>
+            <span className="font-bold">{formatCurrency(taxLine.taxAmount)}</span>
+          </div>
+        ))}
         <div className="flex justify-between font-bold border-t border-dashed border-black mt-1 pt-1" style={{ fontSize: is58mm ? '12px' : '14px' }}>
           <span>TOTAL:</span>
           <span>{formatCurrency(data.total)}</span>

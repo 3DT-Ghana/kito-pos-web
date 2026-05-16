@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { Btn } from '@/components/ui/Btn'
+import { Tag, Plus } from 'lucide-react'
 
 interface Category {
   id: string
@@ -142,21 +145,11 @@ export default function CategoriesPage() {
   return (
     <AppLayout>
       <div className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Product Categories</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Organise your inventory into departments — used for POS browsing and reports
-            </p>
-          </div>
-          <button
-            onClick={openNew}
-            className="flex items-center gap-1.5 px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm"
-          >
-            <span className="text-lg leading-none">+</span> New Category
-          </button>
-        </div>
+        <PageHeader
+          title="Product Categories"
+          subtitle="Organise your inventory into departments — used for POS browsing and reports"
+          actions={<Btn icon={Plus} onClick={openNew}>New Category</Btn>}
+        />
 
         {/* Slide-in form */}
         {showForm && (
@@ -231,21 +224,23 @@ export default function CategoriesPage() {
         {/* List */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-gray-200" />)}
+            {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-white rounded-2xl animate-pulse shadow-sm ring-1 ring-black/5" />)}
           </div>
         ) : categories.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center py-16">
-            <span className="text-6xl mb-4">🗂️</span>
-            <p className="font-bold text-gray-700 text-lg">No categories yet</p>
-            <p className="text-sm text-gray-400 mt-1 mb-5">Create categories like Beverages, Dairy, Personal Care…</p>
-            <button onClick={openNew} className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700">
-              Create First Category
-            </button>
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 flex flex-col items-center py-16 gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+              <Tag className="w-7 h-7 text-gray-400" strokeWidth={1.5} />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-semibold text-gray-700">No categories yet</p>
+              <p className="text-xs text-gray-400 mt-1">Create categories like Beverages, Dairy, Personal Care…</p>
+            </div>
+            <Btn icon={Plus} size="sm" onClick={openNew}>Create First Category</Btn>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {categories.map(cat => (
-              <div key={cat.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden group">
+              <div key={cat.id} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden group">
                 {/* Colour bar */}
                 <div className="h-1.5" style={{ backgroundColor: cat.color ?? DEFAULT_COLOR }} />
                 <div className="p-4">

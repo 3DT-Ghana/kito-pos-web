@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ReturnType } from '@prisma/client'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { postCustomerReturnJournal } from '@/lib/accounting/journalEngine'
+import { approvedSaleWhere } from '@/lib/approvals/sales'
+import { round2 } from '@/lib/accounting/accounts'
+import { scaleTaxLines } from '@/lib/tax/engine'
 
 /**
  * Customer Returns API
@@ -17,8 +21,8 @@ import { ReturnType } from '@prisma/client'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const saleId = searchParams.get('saleId')
@@ -26,10 +30,14 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = { tenantId: context!.tenantId }
 
     if (saleId) {
       where.saleId = saleId
+    }
+
+    if (context!.branchesEnabled && !context!.allBranchesSelected) {
+      where.sale = { branchId: context!.currentBranchId }
     }
 
     if (startDate || endDate) {
@@ -82,21 +90,24 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'process_returns'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'process_returns')
     if (!authorized) return permError!
 
     const body = await req.json()
 
     // Validate
-    if (!body.saleId || !body.itemId || !body.quantity || !body.type || !body.amount) {
+    if (
+      !body.saleId ||
+      !body.itemId ||
+      body.quantity === undefined ||
+      body.quantity === null ||
+      !body.type
+    ) {
       return NextResponse.json(
-        { error: 'saleId, itemId, quantity, type, and amount are required' },
+        { error: 'saleId, itemId, quantity, and type are required' },
         { status: 400 }
       )
     }
@@ -108,21 +119,42 @@ export async function POST(req: Request) {
       )
     }
 
-    const quantity = parseInt(body.quantity)
-    const amount = parseFloat(body.amount)
+    const quantity = parseFloat(String(body.quantity))
+    const amount = body.amount === undefined || body.amount === null
+      ? null
+      : parseFloat(String(body.amount))
 
-    if (quantity <= 0 || amount < 0) {
+    if (
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      (amount !== null && (!Number.isFinite(amount) || amount < 0))
+    ) {
       return NextResponse.json(
-        { error: 'Quantity must be positive and amount must be non-negative' },
+        { error: 'Quantity must be positive and amount must be non-negative when provided' },
         { status: 400 }
       )
     }
 
     // Verify sale belongs to tenant
     const sale = await prisma.sale.findFirst({
-      where: { id: body.saleId, tenantId: tenantId! },
+      where: approvedSaleWhere(
+        applyBranchScope({ id: body.saleId, tenantId: context!.tenantId }, context!)
+      ),
       include: {
-        items: true,
+        items: {
+          include: {
+            taxLines: {
+              include: {
+                taxRate: {
+                  select: {
+                    id: true,
+                    taxPayableAccountId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
         customer: true,
       },
     })
@@ -143,60 +175,164 @@ export async function POST(req: Request) {
       )
     }
 
-    if (quantity > saleItem.quantity) {
+    const previousReturns = await prisma.customerReturn.aggregate({
+      where: {
+        tenantId: context!.tenantId,
+        saleId: body.saleId,
+        itemId: body.itemId,
+      },
+      _sum: { quantity: true },
+    })
+    const alreadyReturned = previousReturns._sum.quantity ?? 0
+    const remainingQuantity = saleItem.quantity - alreadyReturned
+
+    if (quantity > remainingQuantity + 0.00001) {
       return NextResponse.json(
-        { error: 'Return quantity exceeds sold quantity' },
+        { error: `Return quantity exceeds remaining returnable quantity (${remainingQuantity})` },
         { status: 400 }
       )
     }
+
+    const quantityRatio = saleItem.quantity > 0 ? quantity / saleItem.quantity : 0
+    const maxReturnAmount = round2(
+      (saleItem.lineTotalAmount || Math.max(0, saleItem.price * saleItem.quantity - (saleItem.discountAmount ?? 0))) *
+        quantityRatio
+    )
+
+    if (amount !== null && amount > maxReturnAmount + 0.01) {
+      return NextResponse.json(
+        { error: `Return amount exceeds the refundable value for this quantity (${maxReturnAmount.toFixed(2)})` },
+        { status: 400 }
+      )
+    }
+
+    const extraScale = amount !== null && maxReturnAmount > 0
+      ? amount / maxReturnAmount
+      : 1
+    const effectiveScale = quantityRatio * extraScale
+
+    let subtotalAmount = round2(
+      (saleItem.lineSubtotalAmount || Math.max(0, saleItem.price * saleItem.quantity - (saleItem.discountAmount ?? 0))) *
+        effectiveScale
+    )
+
+    const returnTaxLines = scaleTaxLines(
+      saleItem.taxLines.map((taxLine) => ({
+        taxRateId: taxLine.taxRateId,
+        taxName: taxLine.taxName,
+        taxRatePercentage: taxLine.taxRatePercentage,
+        taxableAmount: taxLine.taxableAmount,
+        taxAmount: taxLine.taxAmount,
+        calculationType: taxLine.calculationType,
+      })),
+      effectiveScale
+    ).map((taxLine) => ({
+      ...taxLine,
+      taxPayableAccountId: saleItem.taxLines.find(
+        (existingTaxLine) => existingTaxLine.taxRateId === taxLine.taxRateId
+      )?.taxRate?.taxPayableAccountId ?? null,
+    }))
+
+    const postedTaxLines =
+      body.type === ReturnType.EXCHANGE ? [] : returnTaxLines
+
+    if (amount !== null) {
+      const diff = round2(
+        amount -
+          (subtotalAmount +
+            round2(postedTaxLines.reduce((sum, taxLine) => sum + taxLine.taxAmount, 0)))
+      )
+      subtotalAmount = round2(Math.max(0, subtotalAmount + diff))
+    }
+
+    const resolvedTaxAmount = round2(
+      postedTaxLines.reduce((sum, taxLine) => sum + taxLine.taxAmount, 0)
+    )
+    const resolvedAmount = round2(subtotalAmount + resolvedTaxAmount)
+
+    const tenantSettings = await prisma.tenant.findUnique({
+      where: { id: context!.tenantId },
+      select: { enableAccounting: true },
+    })
+    const accountingEnabled = tenantSettings?.enableAccounting ?? false
+
+    // Fetch item type and cost for stock + COGS reversal decisions
+    const returnItem = await prisma.item.findFirst({
+      where: { id: body.itemId, tenantId: context!.tenantId },
+      select: { costPrice: true, itemType: true },
+    })
+    const itemCostPrice = returnItem?.costPrice ?? 0
+    const isInventoryItem = (returnItem?.itemType ?? 'INVENTORY') === 'INVENTORY'
 
     // Execute atomic transaction
     const returnRecord = await prisma.$transaction(async (tx) => {
       // 1. Create return record
       const newReturn = await tx.customerReturn.create({
         data: {
-          tenantId,
+          tenantId: context!.tenantId,
           saleId: body.saleId,
           itemId: body.itemId,
           quantity,
           type: body.type as ReturnType,
-          amount,
+          subtotalAmount,
+          taxAmount: resolvedTaxAmount,
+          amount: resolvedAmount,
         },
       })
 
-      // 2. Restore item stock
-      await tx.item.update({
-        where: { id: body.itemId },
-        data: {
-          quantity: {
-            increment: quantity,
-          },
-        },
-      })
+      if (postedTaxLines.length > 0) {
+        await tx.transactionTaxLine.createMany({
+          data: postedTaxLines.map((taxLine) => ({
+            tenantId: context!.tenantId,
+            transactionType: 'CUSTOMER_RETURN' as const,
+            transactionId: newReturn.id,
+            transactionLineId: newReturn.id,
+            customerReturnId: newReturn.id,
+            saleId: sale.id,
+            saleItemId: saleItem.id,
+            taxRateId: taxLine.taxRateId,
+            taxName: taxLine.taxName,
+            taxRatePercentage: taxLine.taxRatePercentage,
+            taxableAmount: -Math.abs(taxLine.taxableAmount),
+            taxAmount: -Math.abs(taxLine.taxAmount),
+            calculationType: taxLine.calculationType,
+          })),
+        })
+      }
+
+      // 2. Restore item stock — INVENTORY items only
+      if (isInventoryItem) {
+        await tx.item.update({
+          where: { id: body.itemId },
+          data: { quantity: { increment: quantity } },
+        })
+      }
 
       // 3. Adjust customer balance based on return type
-      if (body.type === ReturnType.CASH && sale.customerId) {
-        // Reduce customer balance by return amount (cash refund)
+      if (body.type === ReturnType.CREDIT && sale.customerId) {
+        // Credit note reduces what customer owes
         await tx.customer.update({
           where: { id: sale.customerId },
-          data: {
-            balance: {
-              decrement: Math.min(amount, sale.customer!.balance),
-            },
-          },
-        })
-      } else if (body.type === ReturnType.CREDIT && sale.customerId) {
-        // Increase customer credit (they now owe less or have credit)
-        await tx.customer.update({
-          where: { id: sale.customerId },
-          data: {
-            balance: {
-              decrement: amount,
-            },
-          },
+          data: { balance: { decrement: resolvedAmount } },
         })
       }
       // EXCHANGE: no balance adjustment needed
+
+      // 4. Post journal entry (if accounting enabled)
+      if (accountingEnabled) {
+        await postCustomerReturnJournal(tx, {
+          tenantId:        context!.tenantId,
+          customerReturnId: newReturn.id,
+          postedById:      context!.user.id,
+          subtotalAmount,
+          returnAmount:    resolvedAmount,
+          taxLines:        postedTaxLines,
+          itemCostPrice,
+          quantity,
+          returnType:      body.type as ReturnType,
+          isInventoryItem,
+        })
+      }
 
       return newReturn
     })

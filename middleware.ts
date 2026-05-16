@@ -1,6 +1,14 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
 
+function applySecurityHeaders(response: NextResponse) {
+  response.headers.set('X-Frame-Options', 'DENY')
+  response.headers.set('X-Content-Type-Options', 'nosniff')
+  response.headers.set('X-XSS-Protection', '1; mode=block')
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  return response
+}
+
 /**
  * Global Middleware Configuration
  *
@@ -30,6 +38,21 @@ export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token
     const { pathname } = req.nextUrl
+    const isSuperAdmin = token?.platformRole === 'SUPER_ADMIN'
+    const isAdminPage = pathname.startsWith('/admin')
+    const isAdminApi = pathname.startsWith('/api/admin/')
+    const isAgentPage = pathname.startsWith('/agent')
+    const isAgentApi = pathname.startsWith('/api/agent/')
+    const isPublicAgentPage =
+      pathname === '/agent/login' || pathname === '/agent/register'
+    const isBlockedAgent =
+      token?.platformRole === 'AGENT' &&
+      ['SUSPENDED', 'REJECTED', 'REVOKED'].includes(String(token.agentStatus))
+    const isPendingAgent =
+      token?.platformRole === 'AGENT' && token.agentStatus === 'PENDING'
+    const defaultAgentDestination = isPendingAgent
+      ? '/agent/profile'
+      : '/agent/dashboard'
 
     // Log requests in development
     if (process.env.NODE_ENV === 'development') {
@@ -40,22 +63,78 @@ export default withAuth(
       })
     }
 
-    // Add security headers
-    const response = NextResponse.next()
+    // Super admin: allow /admin/* and /api/admin/*, block everything else
+    if (isSuperAdmin) {
+      if (isAdminPage || isAdminApi) {
+        return applySecurityHeaders(NextResponse.next())
+      }
+      // Super admin hitting the tenant app — redirect to the admin portal
+      if (!pathname.startsWith('/auth/') && !pathname.startsWith('/api/auth/')) {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/admin', req.url))
+        )
+      }
+      return applySecurityHeaders(NextResponse.next())
+    }
 
-    // Prevent clickjacking
-    response.headers.set('X-Frame-Options', 'DENY')
+    if (isPublicAgentPage && token?.platformRole === 'AGENT' && !isBlockedAgent) {
+      return applySecurityHeaders(
+        NextResponse.redirect(new URL(defaultAgentDestination, req.url))
+      )
+    }
 
-    // Prevent MIME type sniffing
-    response.headers.set('X-Content-Type-Options', 'nosniff')
+    if (isAgentPage && !isPublicAgentPage) {
+      if (!token) {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/agent/login', req.url))
+        )
+      }
 
-    // Enable XSS protection
-    response.headers.set('X-XSS-Protection', '1; mode=block')
+      if (token.platformRole !== 'AGENT') {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/dashboard', req.url))
+        )
+      }
 
-    // Referrer policy
-    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+      if (isBlockedAgent) {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/agent/login', req.url))
+        )
+      }
 
-    return response
+      if (isPendingAgent && pathname !== '/agent/profile') {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/agent/profile', req.url))
+        )
+      }
+    }
+
+    if (isAgentApi) {
+      return applySecurityHeaders(NextResponse.next())
+    }
+
+    if (!isAgentPage && token?.platformRole === 'AGENT') {
+      if (pathname.startsWith('/api/')) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'Agent accounts cannot access tenant APIs' },
+            { status: 403 }
+          )
+        )
+      }
+
+      if (isBlockedAgent) {
+        return applySecurityHeaders(
+          NextResponse.redirect(new URL('/agent/login', req.url))
+        )
+      }
+
+      return applySecurityHeaders(
+        NextResponse.redirect(new URL(defaultAgentDestination, req.url))
+      )
+    }
+
+    return applySecurityHeaders(NextResponse.next())
   },
   {
     callbacks: {
@@ -69,15 +148,26 @@ export default withAuth(
         // Allow public routes (login, register, onboarding, etc.)
         if (
           pathname.startsWith('/auth/') ||
+          pathname.startsWith('/agent/login') ||
+          pathname.startsWith('/agent/register') ||
           pathname.startsWith('/onboarding') ||
-          pathname.startsWith('/api/tenants')
+          pathname.startsWith('/api/tenants') ||
+          pathname.startsWith('/api/agent/register')
         ) {
+          return true
+        }
+
+        if (pathname.startsWith('/agent') || pathname.startsWith('/api/agent/')) {
           return true
         }
 
         // Require authentication for all other routes
         if (!token) {
           return false
+        }
+
+        if (token.platformRole === 'AGENT' || token.platformRole === 'SUPER_ADMIN') {
+          return true
         }
 
         // Check if user has a tenant associated
@@ -117,6 +207,6 @@ export const config = {
      * - /auth/register (registration page)
      * - /api/auth/** (NextAuth API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|icons/|public/).*)',
   ],
 }

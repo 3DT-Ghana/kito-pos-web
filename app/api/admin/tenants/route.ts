@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 import { TenantStatus } from '@prisma/client'
+import { approvedSaleWhere } from '@/lib/approvals/sales'
 
 /**
  * GET /api/admin/tenants
@@ -68,7 +69,7 @@ export async function GET() {
           }),
           // Sales: count + total revenue
           prisma.sale.aggregate({
-            where: { tenantId: tenant.id },
+            where: approvedSaleWhere({ tenantId: tenant.id }),
             _count: { _all: true },
             _sum: { totalAmount: true, paidAmount: true },
           }),

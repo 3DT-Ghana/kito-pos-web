@@ -3,17 +3,25 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
+import { Badge } from '@/components/ui/Badge'
+import { Btn } from '@/components/ui/Btn'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { CustomerReturnWithDetails, SupplierReturnWithDetails } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { RotateCcw } from 'lucide-react'
+import {
+  RotateCcw, Search, X, ArrowDownLeft, ArrowUpRight,
+  ChevronRight,
+} from 'lucide-react'
 
 type Tab = 'customers' | 'suppliers'
 type ReturnKind = 'customer' | 'supplier'
 
-const RETURN_TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  CASH:     { label: '💵 Cash',     color: 'bg-green-100 text-green-800' },
-  CREDIT:   { label: '📋 Credit',   color: 'bg-blue-100 text-blue-800' },
-  EXCHANGE: { label: '🔄 Exchange', color: 'bg-purple-100 text-purple-800' },
+const RETURN_TYPE_BADGE: Record<string, { variant: 'green' | 'blue' | 'violet'; label: string }> = {
+  CASH:     { variant: 'green',  label: 'Cash'     },
+  CREDIT:   { variant: 'blue',   label: 'Credit'   },
+  EXCHANGE: { variant: 'violet', label: 'Exchange' },
 }
 
 export default function ReturnsPage() {
@@ -68,67 +76,82 @@ export default function ReturnsPage() {
   const totalCustomerAmount = customerReturns.reduce((s, r) => s + r.amount, 0)
   const totalSupplierAmount = supplierReturns.reduce((s, r) => s + r.amount, 0)
 
+  const switchTab = (t: Tab) => { setTab(t); setSearch('') }
+
   return (
     <AppLayout>
       <div className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Returns</h1>
-            <p className="text-sm text-gray-500 mt-0.5">
-              {customerReturns.length} customer · {supplierReturns.length} supplier
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setProcessKind('customer'); setShowProcessModal(true) }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition-colors shadow-sm text-sm"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Customer Return
-            </button>
-            <button
-              onClick={() => { setProcessKind('supplier'); setShowProcessModal(true) }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 transition-colors shadow-sm text-sm"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Supplier Return
-            </button>
-          </div>
-        </div>
+        <PageHeader
+          title="Returns"
+          subtitle={`${customerReturns.length} customer · ${supplierReturns.length} supplier`}
+          actions={
+            <>
+              <Btn
+                variant="secondary"
+                icon={ArrowUpRight}
+                size="sm"
+                onClick={() => { setProcessKind('supplier'); setShowProcessModal(true) }}
+              >
+                Supplier Return
+              </Btn>
+              <Btn
+                icon={ArrowDownLeft}
+                onClick={() => { setProcessKind('customer'); setShowProcessModal(true) }}
+              >
+                Customer Return
+              </Btn>
+            </>
+          }
+        />
 
-        {/* Summary Cards */}
+        {/* Summary stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Customer Returns</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{customerReturns.length}</p>
-            <p className="text-xs text-gray-400 mt-1">items returned by customers</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Customer Refunds</p>
-            <p className="text-xl font-bold text-red-500 mt-1">{formatCurrency(totalCustomerAmount)}</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Supplier Returns</p>
-            <p className="text-2xl font-bold text-gray-900 mt-1">{supplierReturns.length}</p>
-            <p className="text-xs text-gray-400 mt-1">items sent back to suppliers</p>
-          </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Supplier Credits</p>
-            <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(totalSupplierAmount)}</p>
-          </div>
+          <StatCard
+            label="Customer Returns"
+            value={customerReturns.length}
+            sub="items returned by customers"
+            icon={ArrowDownLeft}
+            accent="bg-red-50"
+            iconColor="text-red-500"
+          />
+          <StatCard
+            label="Customer Refunds"
+            value={formatCurrency(totalCustomerAmount)}
+            sub="total refunded to customers"
+            icon={RotateCcw}
+            accent="bg-red-50"
+            iconColor="text-red-400"
+            valueColor="text-red-600"
+          />
+          <StatCard
+            label="Supplier Returns"
+            value={supplierReturns.length}
+            sub="items sent back to suppliers"
+            icon={ArrowUpRight}
+            accent="bg-emerald-50"
+            iconColor="text-emerald-500"
+          />
+          <StatCard
+            label="Supplier Credits"
+            value={formatCurrency(totalSupplierAmount)}
+            sub="total received from suppliers"
+            icon={RotateCcw}
+            accent="bg-emerald-50"
+            iconColor="text-emerald-400"
+            valueColor="text-emerald-600"
+          />
         </div>
 
         {/* Tabs + Search */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 shrink-0">
             {([
-              ['customers', '👤 Customer Returns'],
-              ['suppliers', '🚚 Supplier Returns'],
+              ['customers', 'Customer Returns'],
+              ['suppliers', 'Supplier Returns'],
             ] as [Tab, string][]).map(([t, label]) => (
               <button
                 key={t}
-                onClick={() => { setTab(t); setSearch('') }}
+                onClick={() => switchTab(t)}
                 className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   tab === t
                     ? 'bg-white text-blue-700 shadow-sm'
@@ -140,30 +163,42 @@ export default function ReturnsPage() {
             ))}
           </div>
 
-          <div className="relative flex-1 min-w-0">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder={tab === 'customers' ? 'Search by item or customer…' : 'Search by item or supplier…'}
+              placeholder={
+                tab === 'customers'
+                  ? 'Search by item or customer…'
+                  : 'Search by item or supplier…'
+              }
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+            {error}
+          </div>
         )}
 
         {/* Content */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse h-28" />
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 animate-pulse h-28" />
             ))}
           </div>
         ) : tab === 'customers' ? (
@@ -183,7 +218,6 @@ export default function ReturnsPage() {
         )}
       </div>
 
-      {/* Process Return Modal */}
       {showProcessModal && (
         <ProcessReturnModal
           kind={processKind}
@@ -195,9 +229,245 @@ export default function ReturnsPage() {
   )
 }
 
-/* -------------------------------------------------------------------------- */
-/* Process Return Modal (used from Returns page directly)                     */
-/* -------------------------------------------------------------------------- */
+/* ── Customer Returns Table ─────────────────────────────────────────────────── */
+
+function CustomerReturnsTable({
+  returns,
+  total,
+  search,
+  onViewSale,
+}: {
+  returns: CustomerReturnWithDetails[]
+  total: number
+  search: string
+  onViewSale: (id: string) => void
+}) {
+  if (returns.length === 0) {
+    return (
+      <EmptyState
+        icon={RotateCcw}
+        title="No customer returns found"
+        description={search ? 'Try a different search' : 'Process a return from any sale receipt page'}
+      />
+    )
+  }
+
+  return (
+    <>
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {returns.map(r => {
+          const badge = RETURN_TYPE_BADGE[r.type] ?? { variant: 'slate' as const, label: r.type }
+          return (
+            <div
+              key={r.id}
+              onClick={() => onViewSale(r.saleId)}
+              className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{r.item.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {r.sale.customer?.name || 'Walk-in Customer'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">{formatDate(r.createdAt)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-gray-900">{formatCurrency(r.amount)}</p>
+                  <div className="mt-1">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <span>Qty: <strong>{r.quantity}</strong></span>
+                <span className="text-blue-600 font-semibold flex items-center gap-0.5">
+                  View sale <ChevronRight className="w-3 h-3" />
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50/80 border-b border-gray-100">
+            <tr>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sale ID</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {returns.map(r => {
+              const badge = RETURN_TYPE_BADGE[r.type] ?? { variant: 'slate' as const, label: r.type }
+              return (
+                <tr
+                  key={r.id}
+                  onClick={() => onViewSale(r.saleId)}
+                  className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                >
+                  <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(r.createdAt)}</td>
+                  <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{r.item.name}</td>
+                  <td className="px-5 py-3.5 text-sm text-gray-600">
+                    {r.sale.customer?.name || 'Walk-in Customer'}
+                  </td>
+                  <td className="px-5 py-3.5">
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
+                      #{r.saleId.slice(0, 8).toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-center font-semibold text-gray-700">{r.quantity}</td>
+                  <td className="px-5 py-3.5 text-center">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-bold text-gray-900">{formatCurrency(r.amount)}</td>
+                  <td className="px-5 py-3.5 text-center">
+                    <ChevronRight className="w-4 h-4 text-gray-300 mx-auto" />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot className="bg-gray-50/60 border-t border-gray-100">
+            <tr>
+              <td colSpan={7} className="px-5 py-3 text-xs text-gray-400 font-medium">
+                Showing {returns.length} of {total} customer returns
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
+  )
+}
+
+/* ── Supplier Returns Table ─────────────────────────────────────────────────── */
+
+function SupplierReturnsTable({
+  returns,
+  total,
+  search,
+  onViewPurchase,
+}: {
+  returns: SupplierReturnWithDetails[]
+  total: number
+  search: string
+  onViewPurchase: (id: string) => void
+}) {
+  if (returns.length === 0) {
+    return (
+      <EmptyState
+        icon={RotateCcw}
+        title="No supplier returns found"
+        description={search ? 'Try a different search' : 'Process a return from any purchase detail page'}
+      />
+    )
+  }
+
+  return (
+    <>
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {returns.map(r => {
+          const badge = RETURN_TYPE_BADGE[r.type] ?? { variant: 'slate' as const, label: r.type }
+          return (
+            <div
+              key={r.id}
+              onClick={() => onViewPurchase(r.purchaseId)}
+              className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-gray-900 truncate">{r.item.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{r.purchase.supplier.name}</p>
+                  <p className="text-xs text-gray-400 mt-1">{formatDate(r.createdAt)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-gray-900">{formatCurrency(r.amount)}</p>
+                  <div className="mt-1">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                <span>Qty: <strong>{r.quantity}</strong></span>
+                <span className="text-blue-600 font-semibold flex items-center gap-0.5">
+                  View purchase <ChevronRight className="w-3 h-3" />
+                </span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50/80 border-b border-gray-100">
+            <tr>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Supplier</th>
+              <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Purchase ID</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Qty</th>
+              <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+              <th className="px-5 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {returns.map(r => {
+              const badge = RETURN_TYPE_BADGE[r.type] ?? { variant: 'slate' as const, label: r.type }
+              return (
+                <tr
+                  key={r.id}
+                  onClick={() => onViewPurchase(r.purchaseId)}
+                  className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                >
+                  <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(r.createdAt)}</td>
+                  <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{r.item.name}</td>
+                  <td className="px-5 py-3.5 text-sm text-gray-600">{r.purchase.supplier.name}</td>
+                  <td className="px-5 py-3.5">
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
+                      #{r.purchaseId.slice(0, 8).toUpperCase()}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3.5 text-sm text-center font-semibold text-gray-700">{r.quantity}</td>
+                  <td className="px-5 py-3.5 text-center">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </td>
+                  <td className="px-5 py-3.5 text-right font-bold text-gray-900">{formatCurrency(r.amount)}</td>
+                  <td className="px-5 py-3.5 text-center">
+                    <ChevronRight className="w-4 h-4 text-gray-300 mx-auto" />
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot className="bg-gray-50/60 border-t border-gray-100">
+            <tr>
+              <td colSpan={7} className="px-5 py-3 text-xs text-gray-400 font-medium">
+                Showing {returns.length} of {total} supplier returns
+              </td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </>
+  )
+}
+
+/* ── Process Return Modal ───────────────────────────────────────────────────── */
 
 interface SaleOption {
   id: string
@@ -277,7 +547,7 @@ function ProcessReturnModal({
     if (quantity <= 0) { setSubmitError('Quantity must be at least 1'); return }
     if (isNaN(amountNum) || amountNum < 0) { setSubmitError('Enter a valid amount'); return }
     if (selectedItem && quantity > selectedItem.qty) {
-      setSubmitError(`Max: ${selectedItem.qty}`)
+      setSubmitError(`Max quantity: ${selectedItem.qty}`)
       return
     }
 
@@ -303,31 +573,36 @@ function ProcessReturnModal({
   }
 
   const title = kind === 'customer' ? 'Process Customer Return' : 'Process Supplier Return'
+  const accentColor = kind === 'customer' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-indigo-600 hover:bg-indigo-700'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl sm:rounded-t-2xl z-10">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+            <h3 className="text-base font-bold text-gray-900">{title}</h3>
             {step === 'form' && (
-              <button onClick={() => { setStep('lookup'); setSale(null); setPurchase(null) }}
-                className="text-xs text-blue-600 hover:underline mt-0.5">
+              <button
+                onClick={() => { setStep('lookup'); setSale(null); setPurchase(null) }}
+                className="text-xs text-blue-600 hover:underline mt-0.5"
+              >
                 ← Change {kind === 'customer' ? 'sale' : 'purchase'}
               </button>
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg">
-            <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button
+            onClick={onClose}
+            className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         {step === 'lookup' ? (
           <div className="p-5 space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-500">
               Enter the {kind === 'customer' ? 'Sale' : 'Purchase'} ID to look up the original transaction.
             </p>
             <div>
@@ -340,38 +615,52 @@ function ProcessReturnModal({
                 onChange={e => setLookupId(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleLookup()}
                 placeholder="Paste the full ID here…"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-sm font-mono"
+                autoFocus
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm font-mono bg-gray-50"
               />
             </div>
             {lookupError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
-                ⚠ {lookupError}
+                {lookupError}
               </div>
             )}
             <div className="flex gap-3 pt-1">
-              <button onClick={onClose}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+              >
                 Cancel
               </button>
-              <button onClick={handleLookup} disabled={isLooking}
-                className="flex-1 py-3 bg-orange-600 text-white font-bold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors">
-                {isLooking ? 'Looking up…' : 'Find'}
+              <button
+                onClick={handleLookup}
+                disabled={isLooking}
+                className={`flex-1 py-2.5 ${accentColor} text-white font-bold rounded-xl disabled:opacity-50 transition-colors text-sm`}
+              >
+                {isLooking ? 'Looking up…' : 'Find Transaction'}
               </button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            {/* Context pill */}
-            <div className="bg-gray-50 rounded-xl p-3 text-sm">
+            {/* Context banner */}
+            <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm border border-gray-100">
               {kind === 'customer' ? (
                 <p className="font-medium text-gray-700">
-                  Sale <span className="font-mono text-xs">#{sale!.id.slice(0, 8).toUpperCase()}</span>
-                  {' · '}{sale!.customer?.name || 'Walk-in'}
+                  Sale{' '}
+                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5 rounded-md">
+                    #{sale!.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  {' · '}
+                  <span className="font-semibold">{sale!.customer?.name || 'Walk-in'}</span>
                 </p>
               ) : (
                 <p className="font-medium text-gray-700">
-                  Purchase <span className="font-mono text-xs">#{purchase!.id.slice(0, 8).toUpperCase()}</span>
-                  {' · '}{purchase!.supplier.name}
+                  Purchase{' '}
+                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5 rounded-md">
+                    #{purchase!.id.slice(0, 8).toUpperCase()}
+                  </span>
+                  {' · '}
+                  <span className="font-semibold">{purchase!.supplier.name}</span>
                 </p>
               )}
             </div>
@@ -382,7 +671,7 @@ function ProcessReturnModal({
               <select
                 value={selectedItemId}
                 onChange={e => { setSelectedItemId(e.target.value); setQuantity(1); setAmount('') }}
-                className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-sm"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm bg-gray-50"
               >
                 {items.map(i => (
                   <option key={i.id} value={i.id}>
@@ -392,19 +681,37 @@ function ProcessReturnModal({
               </select>
             </div>
 
-            {/* Qty */}
+            {/* Quantity stepper */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Quantity {selectedItem && <span className="text-xs font-normal text-gray-400 ml-1">max {selectedItem.qty}</span>}
+                Quantity
+                {selectedItem && (
+                  <span className="text-xs font-normal text-gray-400 ml-1.5">max {selectedItem.qty}</span>
+                )}
               </label>
-              <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
-                <button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 font-bold text-lg border-r border-gray-200">−</button>
-                <input type="number" min={1} max={selectedItem?.qty} value={quantity}
+              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  className="px-4 py-2.5 text-gray-600 hover:bg-gray-50 font-bold text-lg border-r border-gray-200 transition-colors"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min={1}
+                  max={selectedItem?.qty}
+                  value={quantity}
                   onChange={e => { setQuantity(parseInt(e.target.value) || 1); setAmount('') }}
-                  className="flex-1 text-center font-bold text-gray-900 focus:outline-none py-2.5 text-base" />
-                <button type="button" onClick={() => setQuantity(q => q + 1)}
-                  className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 font-bold text-lg border-l border-gray-200">+</button>
+                  className="flex-1 text-center font-bold text-gray-900 focus:outline-none py-2.5 text-base"
+                />
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => selectedItem ? Math.min(selectedItem.qty, q + 1) : q + 1)}
+                  className="px-4 py-2.5 text-gray-600 hover:bg-gray-50 font-bold text-lg border-l border-gray-200 transition-colors"
+                >
+                  +
+                </button>
               </div>
             </div>
 
@@ -413,15 +720,19 @@ function ProcessReturnModal({
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Return Type</label>
               <div className="grid grid-cols-3 gap-2">
                 {(['CASH', 'CREDIT', 'EXCHANGE'] as const).map(t => (
-                  <button key={t} type="button" onClick={() => setReturnType(t)}
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setReturnType(t)}
                     className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-colors ${
                       returnType === t
-                        ? t === 'CASH' ? 'bg-green-600 text-white border-green-600'
+                        ? t === 'CASH'     ? 'bg-emerald-600 text-white border-emerald-600'
                           : t === 'CREDIT' ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-violet-600 text-white border-violet-600'
                         : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                    }`}>
-                    {t === 'CASH' ? '💵 Cash' : t === 'CREDIT' ? '📋 Credit' : '🔄 Exchange'}
+                    }`}
+                  >
+                    {t === 'CASH' ? 'Cash' : t === 'CREDIT' ? 'Credit' : 'Exchange'}
                   </button>
                 ))}
               </div>
@@ -431,13 +742,21 @@ function ProcessReturnModal({
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Amount (GH₵)</label>
               <div className="relative">
-                <input type="number" step="0.01" min="0" value={amount}
-                  placeholder={autoAmount}
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={amount}
+                  placeholder={autoAmount || '0.00'}
                   onChange={e => setAmount(e.target.value)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-lg font-bold" />
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-lg font-bold bg-gray-50"
+                />
                 {autoAmount && !amount && (
-                  <button type="button" onClick={() => setAmount(autoAmount)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-orange-600 font-semibold hover:underline">
+                  <button
+                    type="button"
+                    onClick={() => setAmount(autoAmount)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-600 font-semibold hover:underline"
+                  >
                     Use {formatCurrency(parseFloat(autoAmount))}
                   </button>
                 )}
@@ -445,16 +764,24 @@ function ProcessReturnModal({
             </div>
 
             {submitError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">⚠ {submitError}</div>
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+                {submitError}
+              </div>
             )}
 
             <div className="flex gap-3 pt-1">
-              <button type="button" onClick={onClose}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+              >
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting}
-                className="flex-1 py-3 bg-orange-600 text-white font-bold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`flex-1 py-2.5 ${accentColor} text-white font-bold rounded-xl disabled:opacity-50 transition-colors text-sm`}
+              >
                 {isSubmitting ? 'Processing…' : 'Confirm Return'}
               </button>
             </div>
@@ -462,247 +789,5 @@ function ProcessReturnModal({
         )}
       </div>
     </div>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/* Customer Returns Table                                                      */
-/* -------------------------------------------------------------------------- */
-
-function CustomerReturnsTable({
-  returns,
-  total,
-  search,
-  onViewSale,
-}: {
-  returns: CustomerReturnWithDetails[]
-  total: number
-  search: string
-  onViewSale: (id: string) => void
-}) {
-  if (returns.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-16">
-        <span className="text-5xl mb-3">↩️</span>
-        <p className="text-lg font-semibold text-gray-700">No customer returns found</p>
-        <p className="text-sm text-gray-500 mt-1">
-          {search ? 'Try a different search' : 'Process a return from any sale receipt page'}
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <>
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-3">
-        {returns.map(r => {
-          const type = RETURN_TYPE_LABELS[r.type] ?? { label: r.type, color: 'bg-gray-100 text-gray-700' }
-          return (
-            <div
-              key={r.id}
-              onClick={() => onViewSale(r.saleId)}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer active:bg-gray-50"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-bold text-gray-900">{r.item.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {r.sale.customer?.name || 'Walk-in Customer'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">{formatDate(r.createdAt)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(r.amount)}</p>
-                  <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold ${type.color}`}>
-                    {type.label}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                <span>Qty: {r.quantity}</span>
-                <span className="text-blue-600 font-semibold">View sale →</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b-2 border-gray-100">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Item</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Customer</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Sale ID</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Qty</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Type</th>
-              <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase">Amount</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {returns.map(r => {
-              const type = RETURN_TYPE_LABELS[r.type] ?? { label: r.type, color: 'bg-gray-100 text-gray-700' }
-              return (
-                <tr key={r.id} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-700">{formatDate(r.createdAt)}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{r.item.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">
-                    {r.sale.customer?.name || 'Walk-in Customer'}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                      #{r.saleId.slice(0, 8).toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-center text-gray-700">{r.quantity}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${type.color}`}>
-                      {type.label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
-                    {formatCurrency(r.amount)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => onViewSale(r.saleId)}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      View Sale
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        <div className="px-6 py-3 bg-gray-50 border-t text-sm text-gray-500 font-medium">
-          Showing {returns.length} of {total} customer returns
-        </div>
-      </div>
-    </>
-  )
-}
-
-/* -------------------------------------------------------------------------- */
-/* Supplier Returns Table                                                      */
-/* -------------------------------------------------------------------------- */
-
-function SupplierReturnsTable({
-  returns,
-  total,
-  search,
-  onViewPurchase,
-}: {
-  returns: SupplierReturnWithDetails[]
-  total: number
-  search: string
-  onViewPurchase: (id: string) => void
-}) {
-  if (returns.length === 0) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col items-center justify-center py-16">
-        <span className="text-5xl mb-3">📦</span>
-        <p className="text-lg font-semibold text-gray-700">No supplier returns found</p>
-        <p className="text-sm text-gray-500 mt-1">
-          {search ? 'Try a different search' : 'Process a return from any purchase detail page'}
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <>
-      {/* Mobile Cards */}
-      <div className="md:hidden space-y-3">
-        {returns.map(r => {
-          const type = RETURN_TYPE_LABELS[r.type] ?? { label: r.type, color: 'bg-gray-100 text-gray-700' }
-          return (
-            <div
-              key={r.id}
-              onClick={() => onViewPurchase(r.purchaseId)}
-              className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 cursor-pointer active:bg-gray-50"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-bold text-gray-900">{r.item.name}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{r.purchase.supplier.name}</p>
-                  <p className="text-xs text-gray-400 mt-1">{formatDate(r.createdAt)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(r.amount)}</p>
-                  <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold ${type.color}`}>
-                    {type.label}
-                  </span>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                <span>Qty: {r.quantity}</span>
-                <span className="text-blue-600 font-semibold">View purchase →</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b-2 border-gray-100">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Date</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Item</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Supplier</th>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Purchase ID</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Qty</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Type</th>
-              <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase">Amount</th>
-              <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {returns.map(r => {
-              const type = RETURN_TYPE_LABELS[r.type] ?? { label: r.type, color: 'bg-gray-100 text-gray-700' }
-              return (
-                <tr key={r.id} className="hover:bg-blue-50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-700">{formatDate(r.createdAt)}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{r.item.name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{r.purchase.supplier.name}</td>
-                  <td className="px-6 py-4">
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                      #{r.purchaseId.slice(0, 8).toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-center text-gray-700">{r.quantity}</td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${type.color}`}>
-                      {type.label}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-bold text-gray-900 text-right">
-                    {formatCurrency(r.amount)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <button
-                      onClick={() => onViewPurchase(r.purchaseId)}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline"
-                    >
-                      View Purchase
-                    </button>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-        <div className="px-6 py-3 bg-gray-50 border-t text-sm text-gray-500 font-medium">
-          Showing {returns.length} of {total} supplier returns
-        </div>
-      </div>
-    </>
   )
 }

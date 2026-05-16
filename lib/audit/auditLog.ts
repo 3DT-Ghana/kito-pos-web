@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 
 /**
@@ -38,6 +39,8 @@ export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
         userId: entry.userId,
         action: `${entry.action}_${entry.entity}`,
         entity: entry.entity,
+        entityId: entry.entityId,
+        details: entry.details as Prisma.InputJsonValue | undefined,
       },
     })
   } catch (err) {
@@ -57,6 +60,8 @@ export async function createAuditLogs(entries: AuditLogEntry[]): Promise<void> {
         userId: entry.userId,
         action: `${entry.action}_${entry.entity}`,
         entity: entry.entity,
+        entityId: entry.entityId,
+        details: entry.details as Prisma.InputJsonValue | undefined,
       })),
     })
   } catch (err) {

@@ -20,6 +20,10 @@ export default async function DashboardPage() {
 
   const { user } = session
 
+  if (!user.tenantId) {
+    redirect('/agent/dashboard')
+  }
+
   // Cashiers go straight to POS
   if (user.role === 'CASHIER') {
     redirect('/pos')

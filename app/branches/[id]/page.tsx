@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency } from '@/lib/utils/format'
+import { useBranch } from '@/lib/branch/BranchContext'
+import { useUser } from '@/hooks/useUser'
 
 interface BranchUser {
   id: string
@@ -28,6 +30,7 @@ interface BranchStats {
   purchases: { count: number; totalAmount: number }
   expenses: { count: number; totalAmount: number }
   inventory: { itemCount: number; lowStockCount: number }
+  transfers: { outCount: number; inCount: number; pendingCount: number }
 }
 
 const PERIODS = [
@@ -40,6 +43,8 @@ const PERIODS = [
 export default function BranchDetailPage() {
   const router = useRouter()
   const params = useParams()
+  const { refreshBranches } = useBranch()
+  const { isOwner, isLoading: isUserLoading } = useUser()
   const branchId = params.id as string
 
   const [branch, setBranch] = useState<Branch | null>(null)
@@ -52,8 +57,55 @@ export default function BranchDetailPage() {
   const [saveError, setSaveError] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
 
-  useEffect(() => { fetchBranch() }, [branchId])
-  useEffect(() => { if (branchId) fetchStats() }, [branchId, period])
+  useEffect(() => {
+    if (!isUserLoading && !isOwner) {
+      router.push('/dashboard')
+      return
+    }
+
+    if (isOwner) {
+      let isActive = true
+
+      const loadBranch = async () => {
+        try {
+          const res = await fetch(`/api/branches/${branchId}`)
+          if (!res.ok) throw new Error()
+          const data = await res.json()
+          if (!isActive) return
+          setBranch(data)
+          setFormData({ name: data.name, address: data.address || '', phone: data.phone || '' })
+        } finally {
+          if (isActive) {
+            setIsLoading(false)
+          }
+        }
+      }
+
+      void loadBranch()
+
+      return () => {
+        isActive = false
+      }
+    }
+  }, [branchId, isOwner, isUserLoading, router])
+
+  useEffect(() => {
+    if (isOwner && branchId) {
+      let isActive = true
+
+      const loadStats = async () => {
+        const res = await fetch(`/api/branches/${branchId}/stats?period=${period}`)
+        if (!res.ok || !isActive) return
+        setStats(await res.json())
+      }
+
+      void loadStats()
+
+      return () => {
+        isActive = false
+      }
+    }
+  }, [branchId, period, isOwner])
 
   const fetchBranch = async () => {
     try {
@@ -65,11 +117,6 @@ export default function BranchDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const fetchStats = async () => {
-    const res = await fetch(`/api/branches/${branchId}/stats?period=${period}`)
-    if (res.ok) setStats(await res.json())
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -89,6 +136,7 @@ export default function BranchDetailPage() {
       }
       setSaveSuccess(true)
       setIsEditing(false)
+      await refreshBranches()
       fetchBranch()
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : 'Failed to update')
@@ -97,7 +145,7 @@ export default function BranchDetailPage() {
     }
   }
 
-  if (isLoading) {
+  if (isUserLoading || !isOwner || isLoading) {
     return (
       <AppLayout>
         <div className="max-w-3xl mx-auto space-y-4">
@@ -255,9 +303,9 @@ export default function BranchDetailPage() {
           </div>
         )}
 
-        {/* Inventory summary */}
+        {/* Inventory and transfer summary */}
         {stats && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Branch Items</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{stats.inventory.itemCount}</p>
@@ -269,6 +317,23 @@ export default function BranchDetailPage() {
                 {stats.inventory.lowStockCount}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">items need restocking</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Transfers Out</p>
+              <p className="text-xl font-bold text-blue-600 mt-1">{stats.transfers.outCount}</p>
+              <p className="text-xs text-gray-400 mt-0.5">sent to other branches</p>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Transfers In</p>
+              <p className="text-xl font-bold text-green-600 mt-1">{stats.transfers.inCount}</p>
+              <p className="text-xs text-gray-400 mt-0.5">received from other branches</p>
+            </div>
+            <div className={`rounded-xl border-2 p-4 ${stats.transfers.pendingCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}>
+              <p className="text-xs font-semibold text-gray-500 uppercase">Pending Transfers</p>
+              <p className={`text-xl font-bold mt-1 ${stats.transfers.pendingCount > 0 ? 'text-amber-700' : 'text-gray-900'}`}>
+                {stats.transfers.pendingCount}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">awaiting dispatch or receipt</p>
             </div>
           </div>
         )}

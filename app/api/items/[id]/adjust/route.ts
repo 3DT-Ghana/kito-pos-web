@@ -1,17 +1,22 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
-import { prisma } from '@/lib/db/prisma'
+import { requireBranchAccess } from '@/lib/branch/server'
+import {
+  processStockAdjustment,
+  StockAdjustmentError,
+} from '@/lib/adjustments/stock'
 
 /**
  * POST /api/items/[id]/adjust
- * Adjust item quantity (add, remove, or set absolute)
+ * Adjust item quantity (add, remove, or set absolute).
+ * Atomically updates item stock and writes a StockAdjustment audit record.
  * Requires: update_items permission
  *
  * Body:
- *   type: 'add' | 'remove' | 'set'
- *   quantity: number  (amount to add/remove, or new absolute value for 'set')
- *   reason: string    (optional note for the adjustment)
+ *   type:     'add' | 'remove' | 'set'
+ *   quantity: number
+ *   category: string   (predefined reason category key)
+ *   reason:   string   (required note)
  */
 
 interface RouteParams {
@@ -20,93 +25,52 @@ interface RouteParams {
 
 export async function POST(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'update_items'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'update_items')
     if (!authorized) return permError!
 
     const { id } = await params
     const body = await req.json()
-
-    const { type, quantity, reason } = body
-
-    // Validate
-    if (!['add', 'remove', 'set'].includes(type)) {
-      return NextResponse.json(
-        { error: 'type must be one of: add, remove, set' },
-        { status: 400 }
-      )
-    }
-
-    const qty = Number(quantity)
-    if (isNaN(qty) || qty < 0) {
-      return NextResponse.json(
-        { error: 'quantity must be a non-negative number' },
-        { status: 400 }
-      )
-    }
-
-    if (type !== 'set' && qty === 0) {
-      return NextResponse.json(
-        { error: 'quantity must be greater than 0 for add/remove adjustments' },
-        { status: 400 }
-      )
-    }
-
-    // Fetch item
-    const item = await prisma.item.findFirst({
-      where: { id, tenantId: tenantId! },
+    const result = await processStockAdjustment(context!, {
+      itemId: id,
+      type: body.type,
+      quantity: Number(body.quantity),
+      category: body.category,
+      reason: typeof body.reason === 'string' ? body.reason : '',
     })
 
-    if (!item) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    if (result.status === 'pending') {
+      return NextResponse.json(
+        {
+          requiresApproval: true,
+          adjustmentId: result.adjustmentId,
+          message: 'This stock adjustment requires manager approval before it takes effect.',
+        },
+        { status: 202 }
+      )
     }
-
-    // Calculate new quantity
-    let newQuantity: number
-    if (type === 'add') {
-      newQuantity = item.quantity + qty
-    } else if (type === 'remove') {
-      newQuantity = item.quantity - qty
-      if (newQuantity < 0) {
-        return NextResponse.json(
-          {
-            error: `Cannot remove ${qty} units — only ${item.quantity} in stock`,
-            currentQuantity: item.quantity,
-          },
-          { status: 400 }
-        )
-      }
-    } else {
-      // set
-      newQuantity = qty
-    }
-
-    const updated = await prisma.item.update({
-      where: { id },
-      data: { quantity: newQuantity },
-      include: { manufacturer: { select: { name: true } } },
-    })
 
     return NextResponse.json({
-      ...updated,
+      ...result.updatedItem,
       adjustment: {
-        type,
-        previousQuantity: item.quantity,
-        newQuantity,
-        change: newQuantity - item.quantity,
-        reason: reason || null,
+        type: body.type,
+        category: body.category || 'other',
+        previousQuantity: result.previousQuantity,
+        newQuantity: result.newQuantity,
+        change: result.newQuantity - result.previousQuantity,
+        reason: String(body.reason).trim(),
       },
     })
   } catch (err) {
     console.error('Failed to adjust quantity:', err)
+    const message =
+      err instanceof Error ? err.message : 'Failed to adjust quantity'
+    const status = err instanceof StockAdjustmentError ? err.status : 500
     return NextResponse.json(
-      { error: 'Failed to adjust quantity' },
-      { status: 500 }
+      { error: message },
+      { status }
     )
   }
 }

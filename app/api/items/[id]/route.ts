@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import { TaxCalculationType } from '@prisma/client'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { approvedSaleWhere } from '@/lib/approvals/sales'
+import { normalizeItemType } from '@/lib/items/type'
+import { hasProductTaxSettingPayload, syncProductTaxSetting } from '@/lib/tax/products'
+import { itemTaxSettingInclude } from '@/lib/tax/server'
 
 /**
  * Item Detail API Routes
@@ -21,21 +26,22 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { id } = await params
 
     const item = await prisma.item.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
         manufacturer: true,
         category: { select: { id: true, name: true, color: true, icon: true } },
+        ...itemTaxSettingInclude,
         saleItems: {
           take: 10,
+          where: {
+            sale: approvedSaleWhere(),
+          },
           orderBy: { sale: { createdAt: 'desc' } },
           include: {
             sale: {
@@ -84,14 +90,11 @@ export async function GET(req: Request, { params }: RouteParams) {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'update_items'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'update_items')
     if (!authorized) return permError!
 
     const { id } = await params
@@ -99,7 +102,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Check item exists and belongs to tenant
     const existing = await prisma.item.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
     })
 
     if (!existing) {
@@ -117,7 +120,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       const manufacturer = await prisma.manufacturer.findFirst({
         where: {
           id: body.manufacturerId,
-          tenantId,
+          tenantId: context!.tenantId,
         },
       })
 
@@ -131,11 +134,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Check for duplicate name (excluding current item)
     if (body.name && body.name !== existing.name) {
+      const duplicateName = body.name.trim()
+      const duplicateManufacturerId = body.manufacturerId ?? existing.manufacturerId
       const duplicate = await prisma.item.findFirst({
         where: {
-          tenantId,
+          tenantId: context!.tenantId,
+          manufacturerId: duplicateManufacturerId,
+          ...(context!.branchesEnabled ? { branchId: existing.branchId ?? null } : {}),
           name: {
-            equals: body.name.trim(),
+            equals: duplicateName,
             mode: 'insensitive' as const,
           },
           id: { not: id },
@@ -144,34 +151,61 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
       if (duplicate) {
         return NextResponse.json(
-          { error: 'An item with this name already exists' },
+          { error: 'An item with this name already exists for this manufacturer in the same branch' },
           { status: 409 }
         )
       }
     }
 
     // Update item
-    const item = await prisma.item.update({
-      where: { id },
-      data: {
-        ...(body.name && { name: body.name.trim() }),
-        ...(body.manufacturerId && { manufacturerId: body.manufacturerId }),
-        ...(body.quantity !== undefined && { quantity: parseFloat(body.quantity) }),
-        ...(body.costPrice && { costPrice: parseFloat(body.costPrice) }),
-        ...(body.sellingPrice && { sellingPrice: parseFloat(body.sellingPrice) }),
-        ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
-        ...(body.piecesPerUnit !== undefined && { piecesPerUnit: parseInt(String(body.piecesPerUnit)) || 1 }),
-        ...(body.retailPrice !== undefined && { retailPrice: body.retailPrice !== null ? parseFloat(body.retailPrice) : null }),
-        ...(body.wholesalePrice !== undefined && { wholesalePrice: body.wholesalePrice !== null ? parseFloat(body.wholesalePrice) : null }),
-        ...(body.promoPrice !== undefined && { promoPrice: body.promoPrice !== null ? parseFloat(body.promoPrice) : null }),
-        ...(body.barcode !== undefined && { barcode: body.barcode ? String(body.barcode).trim() : null }),
-        ...(body.expiryDate !== undefined && { expiryDate: body.expiryDate ? new Date(body.expiryDate) : null }),
-        ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
-      },
-      include: {
-        manufacturer: true,
-        category: { select: { id: true, name: true, color: true, icon: true } },
-      },
+    const item = await prisma.$transaction(async (tx) => {
+      await tx.item.update({
+        where: { id },
+        data: {
+          ...(body.name && { name: body.name.trim() }),
+          ...(body.manufacturerId && { manufacturerId: body.manufacturerId }),
+          ...(body.quantity !== undefined && { quantity: parseFloat(body.quantity) }),
+          ...(body.costPrice !== undefined && { costPrice: parseFloat(body.costPrice) }),
+          ...(body.sellingPrice !== undefined && { sellingPrice: parseFloat(body.sellingPrice) }),
+          ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
+          ...(body.piecesPerUnit !== undefined && { piecesPerUnit: parseInt(String(body.piecesPerUnit)) || 1 }),
+          ...(body.retailPrice !== undefined && { retailPrice: body.retailPrice !== null ? parseFloat(body.retailPrice) : null }),
+          ...(body.wholesalePrice !== undefined && { wholesalePrice: body.wholesalePrice !== null ? parseFloat(body.wholesalePrice) : null }),
+          ...(body.promoPrice !== undefined && { promoPrice: body.promoPrice !== null ? parseFloat(body.promoPrice) : null }),
+          ...(body.barcode !== undefined && { barcode: body.barcode ? String(body.barcode).trim() : null }),
+          ...(body.expiryDate !== undefined && { expiryDate: body.expiryDate ? new Date(body.expiryDate) : null }),
+          ...(body.categoryId !== undefined && { categoryId: body.categoryId || null }),
+          // Accounting fields
+          ...(body.itemType !== undefined && { itemType: body.itemType }),
+          ...(body.incomeAccountId  !== undefined && { incomeAccountId:  body.incomeAccountId  || null }),
+          ...(body.cogsAccountId    !== undefined && { cogsAccountId:    body.cogsAccountId    || null }),
+          ...(body.expenseAccountId !== undefined && { expenseAccountId: body.expenseAccountId || null }),
+        },
+      })
+
+      if (hasProductTaxSettingPayload(body as Record<string, unknown>)) {
+        await syncProductTaxSetting({
+          tx,
+          tenantId: context!.tenantId,
+          productId: id,
+          input: {
+            isTaxable: Boolean(body.isTaxable),
+            taxRateId: body.taxRateId || null,
+            taxRateIds: Array.isArray(body.taxRateIds) ? body.taxRateIds : null,
+            taxCalculationType: body.taxCalculationType ?? null,
+            useTenantDefaultTaxes: body.useTenantDefaultTaxes !== false,
+          },
+        })
+      }
+
+      return tx.item.findUniqueOrThrow({
+        where: { id },
+        include: {
+          manufacturer: true,
+          category: { select: { id: true, name: true, color: true, icon: true } },
+          ...itemTaxSettingInclude,
+        },
+      })
     })
 
     return NextResponse.json(item)
@@ -192,21 +226,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'delete_items'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'delete_items')
     if (!authorized) return permError!
 
     const { id } = await params
 
     // Check item exists and belongs to tenant
     const item = await prisma.item.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
         _count: {
           select: {
@@ -278,8 +309,27 @@ function validateItemData(data: any): string | null {
     }
   }
 
-  if (data.costPrice && data.sellingPrice && parseFloat(data.sellingPrice) < parseFloat(data.costPrice)) {
+  if (data.itemType !== undefined && normalizeItemType(data.itemType) !== data.itemType) {
+    return 'Invalid item type'
+  }
+
+  if (data.costPrice !== undefined && data.sellingPrice !== undefined && parseFloat(data.sellingPrice) < parseFloat(data.costPrice)) {
     return 'Selling price should not be less than cost price'
+  }
+
+  if (
+    data.taxCalculationType !== undefined &&
+    !Object.values(TaxCalculationType).includes(data.taxCalculationType)
+  ) {
+    return 'Invalid tax calculation type'
+  }
+
+  if (
+    data.taxRateIds !== undefined &&
+    (!Array.isArray(data.taxRateIds) ||
+      data.taxRateIds.some((taxRateId: unknown) => typeof taxRateId !== 'string'))
+  ) {
+    return 'Tax rate selections must be valid IDs'
   }
 
   return null

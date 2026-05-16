@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import { randomUUID } from 'crypto'
+import { ItemType, TaxCalculationType } from '@prisma/client'
 import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import {
+  calculateLineTaxes,
+  resolveItemTaxProfile,
+} from '@/lib/tax/engine'
+import {
+  getTenantTaxConfiguration,
+  itemTaxSettingInclude,
+} from '@/lib/tax/server'
 
 /**
  * Sale Detail API Routes
@@ -21,20 +31,19 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { id } = await params
 
     const sale = await prisma.sale.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
         customer: true,
+        taxLines: true,
         items: {
           include: {
+            taxLines: true,
             item: {
               include: {
                 manufacturer: true,
@@ -75,10 +84,10 @@ export async function GET(req: Request, { params }: RouteParams) {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: roleError } = requireOwner(user!.role)
+    const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
     const { id } = await params
@@ -89,35 +98,177 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'At least one item is required' }, { status: 400 })
     }
 
-    const totalAmount = items.reduce(
-      (sum: number, i: { quantity: number; price: number }) => sum + i.quantity * i.price,
-      0
-    )
-    const paid = Math.min(parseFloat(String(paidAmount)) || 0, totalAmount)
-
     // Fetch current sale
     const sale = await prisma.sale.findFirst({
-      where: { id, tenantId: tenantId! },
-      include: { items: true },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      include: {
+        items: {
+          include: {
+            item: {
+              select: {
+                itemType: true,
+              },
+            },
+          },
+        },
+      },
     })
     if (!sale) return NextResponse.json({ error: 'Sale not found' }, { status: 404 })
 
+    const saleJournal = await prisma.journalEntry.findFirst({
+      where: { tenantId: context!.tenantId, saleId: id },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { entryNumber: true, status: true },
+    })
+    if (saleJournal) {
+      return NextResponse.json(
+        {
+          error: `This sale already has accounting history (${saleJournal.entryNumber}, ${saleJournal.status}). Posted sales must be corrected with reversing entries and replacement transactions instead of editing the source document.`,
+        },
+        { status: 409 }
+      )
+    }
+
+    if (customerId) {
+      const customer = await prisma.customer.findFirst({
+        where: { id: customerId, tenantId: context!.tenantId },
+        select: { id: true },
+      })
+      if (!customer) {
+        return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+      }
+    }
+
     const oldCreditAmount = sale.totalAmount - sale.paidAmount
+    const itemIds = Array.from(
+      new Set(
+        items
+          .map((item: { itemId?: string }) => item.itemId)
+          .filter((itemId): itemId is string => Boolean(itemId))
+      )
+    )
+
+    const itemRecords = await prisma.item.findMany({
+      where: {
+        tenantId: context!.tenantId,
+        id: { in: itemIds },
+        ...(context!.branchesEnabled ? { branchId: sale.branchId ?? null } : {}),
+      },
+      include: itemTaxSettingInclude,
+    })
+    const itemMap = new Map(itemRecords.map((item) => [item.id, item]))
+
+    for (const requestedItemId of itemIds) {
+      if (!itemMap.has(requestedItemId)) {
+        return NextResponse.json(
+          { error: `Item not found: ${requestedItemId}` },
+          { status: 404 }
+        )
+      }
+    }
+
+    const { taxSetting, activeRates, defaultRates } = await getTenantTaxConfiguration(
+      prisma,
+      context!.tenantId,
+      sale.createdAt
+    )
+
+    let subtotalAmount = 0
+    let totalTaxAmount = 0
+    let totalAmount = 0
+    const computedItems = items.map(
+      (line: {
+        itemId: string
+        quantity: number
+        price: number
+        discountAmount?: number
+        isTaxable?: boolean
+        taxRateIds?: string[]
+        taxCalculationType?: TaxCalculationType
+      }) => {
+        const itemRecord = itemMap.get(line.itemId)
+        if (!itemRecord) {
+          throw new Error(`Item not found: ${line.itemId}`)
+        }
+
+        if (
+          line.taxCalculationType !== undefined &&
+          !Object.values(TaxCalculationType).includes(line.taxCalculationType)
+        ) {
+          throw new Error('Invalid tax calculation type')
+        }
+
+        const quantity = Number(line.quantity)
+        const price = Number(line.price)
+        const discountAmount = Number(line.discountAmount ?? 0)
+        const taxProfile = resolveItemTaxProfile({
+          tenantTaxSetting: taxSetting,
+          activeRates,
+          defaultRates,
+          item: itemRecord,
+          override: {
+            isTaxable: line.isTaxable,
+            taxRateIds: Array.isArray(line.taxRateIds) ? line.taxRateIds : undefined,
+            taxCalculationType: line.taxCalculationType,
+          },
+          at: sale.createdAt,
+        })
+        const taxComputation = calculateLineTaxes({
+          unitPrice: price,
+          quantity,
+          discountAmount,
+          profile: taxProfile,
+        })
+
+        subtotalAmount += taxComputation.taxableAmount
+        totalTaxAmount += taxComputation.taxAmount
+        totalAmount += taxComputation.totalAmount
+
+        return {
+          id: randomUUID(),
+          itemId: line.itemId,
+          quantity,
+          price,
+          discountAmount,
+          itemType: itemRecord.itemType,
+          taxComputation,
+          data: {
+            id: randomUUID(),
+            itemId: line.itemId,
+            quantity,
+            price,
+            discountAmount,
+            isTaxable: taxComputation.isTaxable,
+            taxCalculationType: taxComputation.calculationType,
+            lineSubtotalAmount: taxComputation.taxableAmount,
+            lineTaxAmount: taxComputation.taxAmount,
+            lineTotalAmount: taxComputation.totalAmount,
+          },
+        }
+      }
+    )
+
+    subtotalAmount = Number(subtotalAmount.toFixed(2))
+    totalTaxAmount = Number(totalTaxAmount.toFixed(2))
+    totalAmount = Number(totalAmount.toFixed(2))
+    const paid = Math.min(parseFloat(String(paidAmount)) || 0, totalAmount)
 
     // Validate new stock (items that aren't already in old sale get their existing qty checked)
     for (const newItem of items) {
       const oldSaleItem = sale.items.find((si) => si.itemId === newItem.itemId)
       const oldQty = oldSaleItem?.quantity ?? 0
-      const stockItem = await prisma.item.findFirst({
-        where: { id: newItem.itemId, tenantId: tenantId! },
-      })
+      const stockItem = itemMap.get(newItem.itemId)
       if (!stockItem) {
         return NextResponse.json({ error: `Item not found: ${newItem.itemId}` }, { status: 404 })
       }
+      if (stockItem.itemType !== ItemType.INVENTORY) {
+        continue
+      }
+      const requestedQuantity = Number(newItem.quantity)
       const availableAfterRestore = stockItem.quantity + oldQty
-      if (availableAfterRestore < newItem.quantity) {
+      if (availableAfterRestore < requestedQuantity) {
         return NextResponse.json(
-          { error: `Insufficient stock for "${stockItem.name}". Available: ${availableAfterRestore}, requested: ${newItem.quantity}` },
+          { error: `Insufficient stock for "${stockItem.name}". Available: ${availableAfterRestore}, requested: ${requestedQuantity}` },
           { status: 400 }
         )
       }
@@ -128,6 +279,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     await prisma.$transaction(async (tx) => {
       // 1. Restore old stock
       for (const si of sale.items) {
+        if (si.item.itemType !== ItemType.INVENTORY) continue
         await tx.item.update({
           where: { id: si.itemId },
           data: { quantity: { increment: si.quantity } },
@@ -145,19 +297,41 @@ export async function PUT(req: Request, { params }: RouteParams) {
       // 3. Replace sale items
       await tx.saleItem.deleteMany({ where: { saleId: id } })
       await tx.saleItem.createMany({
-        data: items.map((i: { itemId: string; quantity: number; price: number }) => ({
+        data: computedItems.map((item) => ({
           saleId: id,
-          itemId: i.itemId,
-          quantity: i.quantity,
-          price: i.price,
+          ...item.data,
         })),
       })
 
       // 4. Deduct new stock
-      for (const i of items) {
+      for (const item of computedItems) {
+        if (item.itemType !== ItemType.INVENTORY) continue
         await tx.item.update({
-          where: { id: i.itemId },
-          data: { quantity: { decrement: i.quantity } },
+          where: { id: item.itemId },
+          data: { quantity: { decrement: item.quantity } },
+        })
+      }
+
+      const transactionTaxLines = computedItems.flatMap((item) =>
+        item.taxComputation.taxLines.map((taxLine) => ({
+          tenantId: context!.tenantId,
+          transactionType: 'SALE' as const,
+          transactionId: id,
+          transactionLineId: item.data.id,
+          saleId: id,
+          saleItemId: item.data.id,
+          taxRateId: taxLine.taxRateId,
+          taxName: taxLine.taxName,
+          taxRatePercentage: taxLine.taxRatePercentage,
+          taxableAmount: taxLine.taxableAmount,
+          taxAmount: taxLine.taxAmount,
+          calculationType: taxLine.calculationType,
+        }))
+      )
+
+      if (transactionTaxLines.length > 0) {
+        await tx.transactionTaxLine.createMany({
+          data: transactionTaxLines,
         })
       }
 
@@ -174,7 +348,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
         where: { id },
         data: {
           customerId: customerId || null,
-          paymentType: paymentType || 'CASH',
+          paymentType: newCreditAmount > 0 ? 'CREDIT' : (paymentType || 'CASH'),
+          subtotalAmount,
+          taxAmount: totalTaxAmount,
           totalAmount,
           paidAmount: paid,
         },
@@ -182,10 +358,16 @@ export async function PUT(req: Request, { params }: RouteParams) {
     })
 
     const updated = await prisma.sale.findFirst({
-      where: { id },
+      where: { id, tenantId: context!.tenantId },
       include: {
         customer: true,
-        items: { include: { item: { include: { manufacturer: true } } } },
+        taxLines: true,
+        items: {
+          include: {
+            taxLines: true,
+            item: { include: { manufacturer: true } },
+          },
+        },
       },
     })
 
@@ -209,26 +391,48 @@ export async function PUT(req: Request, { params }: RouteParams) {
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Only OWNERs can void sales
-    const { authorized, error: roleError } = requireOwner(user!.role)
+    const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
     const { id } = await params
 
     // Fetch sale with all details
     const sale = await prisma.sale.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
-        items: true,
+        items: {
+          include: {
+            item: {
+              select: {
+                itemType: true,
+              },
+            },
+          },
+        },
         customer: true,
       },
     })
 
     if (!sale) {
       return NextResponse.json({ error: 'Sale not found' }, { status: 404 })
+    }
+
+    const saleJournal = await prisma.journalEntry.findFirst({
+      where: { tenantId: context!.tenantId, saleId: id },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { entryNumber: true, status: true },
+    })
+    if (saleJournal) {
+      return NextResponse.json(
+        {
+          error: `This sale already has accounting history (${saleJournal.entryNumber}, ${saleJournal.status}). Posted sales must be reversed instead of deleted.`,
+        },
+        { status: 409 }
+      )
     }
 
     const creditAmount = sale.totalAmount - sale.paidAmount
@@ -242,6 +446,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
       // 2. Restore item stock
       for (const saleItem of sale.items) {
+        if (saleItem.item.itemType !== ItemType.INVENTORY) continue
         await tx.item.update({
           where: { id: saleItem.itemId },
           data: {

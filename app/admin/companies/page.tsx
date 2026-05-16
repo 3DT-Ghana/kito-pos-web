@@ -1,0 +1,506 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { AdminLayout } from '@/components/layout/AdminLayout'
+import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { Building2, Users, TrendingUp, DollarSign } from 'lucide-react'
+
+type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
+
+interface TenantUser {
+  id: string
+  name: string
+  email: string
+  role: string
+  createdAt: string
+}
+
+interface TenantRecord {
+  id: string
+  name: string
+  phone: string | null
+  status: TenantStatus
+  createdAt: string
+  agentId: string | null
+  userCount: number
+  users: TenantUser[]
+  itemCount: number
+  saleCount: number
+  totalRevenue: number
+  totalCollected: number
+  purchaseCount: number
+  totalPurchased: number
+  customerCount: number
+  supplierCount: number
+  features: {
+    pos: boolean
+    quotations: boolean
+    purchaseOrders: boolean
+    expiryTracking: boolean
+    branches: boolean
+    creditSales: boolean
+    expenses: boolean
+    till: boolean
+    sms: boolean
+  }
+}
+
+interface AgentStub {
+  id: string
+  agentCode: string
+  fullName: string
+}
+
+interface Summary {
+  totalTenants: number
+  byStatus: { TRIAL: number; ACTIVE: number; SUSPENDED: number }
+  totalUsers: number
+  totalItems: number
+  totalSales: number
+  totalRevenue: number
+}
+
+const STATUS_STYLES: Record<TenantStatus, string> = {
+  TRIAL:     'bg-amber-100 text-amber-800',
+  ACTIVE:    'bg-emerald-100 text-emerald-800',
+  SUSPENDED: 'bg-red-100 text-red-800',
+}
+
+const STATUS_OPTIONS: TenantStatus[] = ['TRIAL', 'ACTIVE', 'SUSPENDED']
+
+const FEATURE_LABELS: Record<string, string> = {
+  pos:            'POS Terminal',
+  quotations:     'Quotations',
+  purchaseOrders: 'Purchase Orders',
+  expiryTracking: 'Expiry Tracking',
+  branches:       'Branches',
+  creditSales:    'Credit Sales',
+  expenses:       'Expenses',
+  till:           'Till / Cash Register',
+  sms:            'SMS Notifications',
+}
+
+export default function AdminCompaniesPage() {
+  const [tenants, setTenants] = useState<TenantRecord[]>([])
+  const [agentMap, setAgentMap] = useState<Record<string, AgentStub>>({})
+  const [summary, setSummary] = useState<Summary | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | TenantStatus>('all')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  useEffect(() => { fetchData() }, [])
+
+  async function fetchData() {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const [tenantsRes, agentsRes] = await Promise.all([
+        fetch('/api/admin/tenants'),
+        fetch('/api/admin/agents'),
+      ])
+      if (tenantsRes.status === 403) throw new Error('Access denied — super-admin only')
+      if (!tenantsRes.ok) throw new Error('Failed to load data')
+
+      const tenantsData = await tenantsRes.json()
+      setTenants(tenantsData.tenants)
+      setSummary(tenantsData.summary)
+
+      if (agentsRes.ok) {
+        const agentsData: AgentStub[] = await agentsRes.json()
+        const map: Record<string, AgentStub> = {}
+        for (const a of agentsData) map[a.id] = a
+        setAgentMap(map)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  async function updateStatus(tenantId: string, status: TenantStatus) {
+    setUpdatingId(tenantId)
+    try {
+      const res = await fetch('/api/admin/tenants', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, status }),
+      })
+      if (!res.ok) throw new Error('Update failed')
+      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, status } : t))
+      if (summary) {
+        const old = tenants.find(t => t.id === tenantId)?.status
+        if (old && old !== status) {
+          setSummary(prev => prev ? {
+            ...prev,
+            byStatus: {
+              ...prev.byStatus,
+              [old]: prev.byStatus[old] - 1,
+              [status]: prev.byStatus[status] + 1,
+            },
+          } : prev)
+        }
+      }
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  const maxRevenue = Math.max(...tenants.map(t => t.totalRevenue), 1)
+
+  const filtered = tenants.filter(t => {
+    const q = search.toLowerCase()
+    const matchSearch = !q
+      || t.name.toLowerCase().includes(q)
+      || (t.phone || '').includes(q)
+      || t.users.some(u => u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
+      || (t.agentId && (agentMap[t.agentId]?.fullName ?? '').toLowerCase().includes(q))
+    const matchStatus = statusFilter === 'all' || t.status === statusFilter
+    return matchSearch && matchStatus
+  })
+
+  return (
+    <AdminLayout>
+      <div className="space-y-6">
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex-1">
+            <h1 className="text-2xl font-bold text-gray-900">All Companies</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage onboarded tenants and their account status</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/admin/reports"
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold rounded-xl hover:bg-indigo-100 transition-colors text-sm"
+            >
+              <TrendingUp className="w-4 h-4" />
+              Revenue Report
+            </Link>
+            <button
+              onClick={fetchData}
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl font-medium text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Summary Cards */}
+        {summary && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <SummaryCard label="Total Companies" value={summary.totalTenants}                icon={<Building2 className="w-5 h-5" />} color="indigo" />
+            <SummaryCard label="Active"          value={summary.byStatus.ACTIVE}             icon={<Building2 className="w-5 h-5" />} color="emerald" />
+            <SummaryCard label="Total Users"     value={summary.totalUsers}                  icon={<Users className="w-5 h-5" />}    color="purple" />
+            <SummaryCard label="Total Revenue"   value={formatCurrency(summary.totalRevenue)} icon={<DollarSign className="w-5 h-5" />} color="green" isText />
+          </div>
+        )}
+
+        {/* Status + search filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex gap-2 flex-wrap">
+            {(['all', 'TRIAL', 'ACTIVE', 'SUSPENDED'] as const).map(s => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                  statusFilter === s
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                }`}
+              >
+                {s === 'all' ? 'All' : s}
+                {s !== 'all' && summary && (
+                  <span className="ml-1.5 text-xs opacity-70">
+                    ({summary.byStatus[s]})
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by company, owner email, phone or agent name…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Tenant list */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-200 p-5 animate-pulse h-28" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center justify-center py-16">
+            <Building2 className="w-12 h-12 text-gray-200 mb-3" />
+            <p className="text-lg font-semibold text-gray-700">No companies found</p>
+            <p className="text-sm text-gray-400 mt-1">{search ? 'Try a different search' : 'No tenants registered yet'}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map(tenant => {
+              const isExpanded = expandedId === tenant.id
+              const owner = tenant.users.find(u => u.role === 'OWNER')
+              const profit = tenant.totalCollected - tenant.totalPurchased
+              const featCount = Object.values(tenant.features).filter(Boolean).length
+              const agent = tenant.agentId ? agentMap[tenant.agentId] : null
+              const revenuePct = maxRevenue > 0 ? (tenant.totalRevenue / maxRevenue) * 100 : 0
+
+              return (
+                <div key={tenant.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                  <div
+                    className="p-4 sm:p-5 cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedId(isExpanded ? null : tenant.id)}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-11 h-11 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm">
+                          {tenant.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="font-bold text-gray-900 text-base truncate">{tenant.name}</h3>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_STYLES[tenant.status]}`}>
+                              {tenant.status}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {owner?.email || '—'}
+                            {tenant.phone && <span className="ml-2 text-gray-400">· {tenant.phone}</span>}
+                          </p>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <p className="text-xs text-gray-400">Joined {formatDate(tenant.createdAt)}</p>
+                            {agent ? (
+                              <span className="text-xs text-indigo-600 font-medium">
+                                via {agent.fullName} ({agent.agentCode})
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-300 italic">self-signup</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+                        <StatPill label="users"     value={tenant.userCount} />
+                        <StatPill label="items"     value={tenant.itemCount} />
+                        <StatPill label="sales"     value={tenant.saleCount} />
+                        <StatPill label="purchases" value={tenant.purchaseCount} />
+                        <StatPill label="customers" value={tenant.customerCount} />
+                        <StatPill label="features"  value={featCount} />
+                        <div className="text-right hidden sm:block min-w-[80px]">
+                          <p className="text-xs text-gray-400">Revenue</p>
+                          <p className="text-sm font-bold text-green-700">{formatCurrency(tenant.totalRevenue)}</p>
+                          {/* Mini revenue bar */}
+                          <div className="mt-1 h-1 rounded-full bg-gray-100 w-20">
+                            <div
+                              className="h-1 rounded-full bg-green-500 transition-all"
+                              style={{ width: `${revenuePct}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <svg
+                        className={`w-5 h-5 text-gray-400 shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 bg-gray-50/60 px-4 sm:px-5 py-5 space-y-5">
+
+                      {/* Financial overview */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Financial Overview</h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <FinCard label="Total Revenue"   value={formatCurrency(tenant.totalRevenue)}   color="text-gray-900" />
+                          <FinCard label="Collected"       value={formatCurrency(tenant.totalCollected)} color="text-emerald-700" />
+                          <FinCard label="Total Purchases" value={formatCurrency(tenant.totalPurchased)} color="text-amber-700" />
+                          <FinCard label="Est. Profit"     value={formatCurrency(profit)}                color={profit >= 0 ? 'text-blue-700' : 'text-red-600'} />
+                        </div>
+                      </div>
+
+                      {/* Onboarding agent */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Onboarding</h4>
+                        {agent ? (
+                          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
+                            <div className="w-6 h-6 rounded-md bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                              {agent.fullName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-semibold text-indigo-800">{agent.fullName}</span>
+                            <span className="text-xs text-indigo-500">{agent.agentCode}</span>
+                            <Link
+                              href={`/admin/agents/${tenant.agentId}`}
+                              onClick={e => e.stopPropagation()}
+                              className="text-xs text-indigo-600 hover:underline ml-1"
+                            >
+                              View agent →
+                            </Link>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400 italic">Self-signup — no agent</p>
+                        )}
+                      </div>
+
+                      {/* Enabled features */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Enabled Features</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {(Object.entries(tenant.features) as [string, boolean][]).map(([key, on]) => (
+                            <span key={key} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                              on
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                : 'bg-gray-100 text-gray-400 border-gray-200 line-through'
+                            }`}>
+                              {FEATURE_LABELS[key] ?? key}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Users */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                          Users ({tenant.userCount})
+                        </h4>
+                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                          <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                              <tr>
+                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
+                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Joined</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                              {tenant.users.map(u => (
+                                <tr key={u.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2.5 font-medium text-gray-900">{u.name}</td>
+                                  <td className="px-4 py-2.5 text-gray-500 text-xs font-mono">{u.email}</td>
+                                  <td className="px-4 py-2.5">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                      u.role === 'OWNER'          ? 'bg-purple-100 text-purple-800'
+                                      : u.role === 'STORE_MANAGER'  ? 'bg-blue-100 text-blue-800'
+                                      : u.role === 'BRANCH_MANAGER' ? 'bg-cyan-100 text-cyan-800'
+                                      : u.role === 'CASHIER'        ? 'bg-green-100 text-green-800'
+                                      : 'bg-gray-100 text-gray-700'
+                                    }`}>
+                                      {u.role.replace(/_/g, ' ')}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2.5 text-gray-400 text-xs">{formatDate(u.createdAt)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Account status */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Account Status</h4>
+                        <div className="flex gap-2 flex-wrap items-center">
+                          {STATUS_OPTIONS.map(s => (
+                            <button
+                              key={s}
+                              disabled={tenant.status === s || updatingId === tenant.id}
+                              onClick={e => { e.stopPropagation(); updateStatus(tenant.id, s) }}
+                              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors disabled:cursor-not-allowed ${
+                                tenant.status === s
+                                  ? s === 'ACTIVE'    ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : s === 'SUSPENDED' ? 'bg-red-600 text-white border-red-600'
+                                  :                     'bg-amber-500 text-white border-amber-500'
+                                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 disabled:opacity-50'
+                              }`}
+                            >
+                              {updatingId === tenant.id ? '…' : s}
+                            </button>
+                          ))}
+                          <p className="text-xs text-gray-400 ml-1">
+                            Current: <strong className="text-gray-600">{tenant.status}</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            <p className="text-center text-xs text-gray-400 pt-1">
+              Showing {filtered.length} of {tenants.length} companies
+            </p>
+          </div>
+        )}
+      </div>
+    </AdminLayout>
+  )
+}
+
+function SummaryCard({ label, value, icon, color, isText }: {
+  label: string; value: number | string; icon: React.ReactNode; color: string; isText?: boolean
+}) {
+  const colorMap: Record<string, { bg: string; icon: string; val: string }> = {
+    indigo:  { bg: 'bg-indigo-50',  icon: 'text-indigo-600',  val: 'text-indigo-700' },
+    emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', val: 'text-emerald-700' },
+    purple:  { bg: 'bg-purple-50',  icon: 'text-purple-600',  val: 'text-purple-700' },
+    green:   { bg: 'bg-green-50',   icon: 'text-green-600',   val: 'text-green-700' },
+  }
+  const c = colorMap[color] ?? colorMap.indigo
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+      <div className={`w-8 h-8 rounded-lg ${c.bg} ${c.icon} flex items-center justify-center mb-2`}>
+        {icon}
+      </div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`mt-1 font-bold ${c.val} ${isText ? 'text-base' : 'text-2xl'}`}>{value}</p>
+    </div>
+  )
+}
+
+function StatPill({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2.5 py-1.5">
+      <span className="text-xs font-bold text-gray-700">{value}</span>
+      <span className="text-xs text-gray-400">{label}</span>
+    </div>
+  )
+}
+
+function FinCard({ label, value, color }: { label: string; value: string; color: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+      <p className="text-xs text-gray-400 font-semibold">{label}</p>
+      <p className={`text-base font-bold mt-0.5 ${color}`}>{value}</p>
+    </div>
+  )
+}

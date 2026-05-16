@@ -12,6 +12,7 @@ import {
 const ROLE_LABELS: Record<string, string> = {
   OWNER:            'Owner',
   STORE_MANAGER:    'Store Manager',
+  BRANCH_MANAGER:   'Branch Manager',
   CASHIER:          'Cashier',
   INVENTORY_MANAGER:'Inventory Manager',
   ACCOUNTANT:       'Accountant',
@@ -104,7 +105,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
         </div>
       </div>
       <p className="text-sm text-gray-500 mb-5">
-        Owner always has full access and cannot be restricted. Changes take effect on the user's next action.
+        Owner always has full access and cannot be restricted. Changes take effect on the user&apos;s next action.
       </p>
 
       {/* Role tabs */}

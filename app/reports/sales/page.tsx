@@ -6,6 +6,7 @@ import { SalesTable } from '@/components/tables/SalesTable'
 import { SaleWithDetails } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 /**
  * Sales Reports Page
@@ -14,6 +15,7 @@ import { ExportButton } from '@/components/ExportButton'
  */
 
 export default function SalesReportsPage() {
+  const { currentBranchId } = useBranch()
   const [sales, setSales] = useState<SaleWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [startDate, setStartDate] = useState('')
@@ -21,7 +23,7 @@ export default function SalesReportsPage() {
 
   useEffect(() => {
     fetchSalesReport()
-  }, [startDate, endDate])
+  }, [startDate, endDate, currentBranchId])
 
   const fetchSalesReport = async () => {
     try {

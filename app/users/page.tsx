@@ -1,23 +1,37 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useUser } from '@/hooks/useUser'
 
 /**
  * Users & Permissions Page — PETROS Business Management Mini
- * OWNER only: manage team accounts, assign granular roles
+ * Tenant owners and branch managers: manage team accounts, assign granular roles
  */
 
-type RoleKey = 'OWNER' | 'STORE_MANAGER' | 'CASHIER' | 'INVENTORY_MANAGER' | 'ACCOUNTANT' | 'STAFF'
+type RoleKey = 'OWNER' | 'STORE_MANAGER' | 'BRANCH_MANAGER' | 'CASHIER' | 'INVENTORY_MANAGER' | 'ACCOUNTANT' | 'STAFF'
 
 interface User {
   id: string
   name: string
   email: string
   role: RoleKey
+  branchId: string | null
+  branch?: { id: string; name: string } | null
   createdAt: string
+}
+
+interface BranchOption {
+  id: string
+  name: string
+  isDefault: boolean
+}
+
+interface UsersPageMeta {
+  scope: 'tenant' | 'branch'
+  managedBranchId: string | null
+  allowedRoles: RoleKey[]
 }
 
 const ROLE_INFO: Record<RoleKey, {
@@ -38,11 +52,19 @@ const ROLE_INFO: Record<RoleKey, {
   },
   STORE_MANAGER: {
     label: 'Store Manager',
-    shortDesc: 'All operations, no user/settings management',
+    shortDesc: 'Company-wide operational oversight across branches',
     color: 'bg-indigo-50 border-indigo-200',
     badgeColor: 'bg-indigo-100 text-indigo-800',
     avatarColor: 'from-indigo-500 to-indigo-700',
     icon: '🏪',
+  },
+  BRANCH_MANAGER: {
+    label: 'Branch Manager',
+    shortDesc: 'Runs one branch, manages branch staff and transactions',
+    color: 'bg-cyan-50 border-cyan-200',
+    badgeColor: 'bg-cyan-100 text-cyan-800',
+    avatarColor: 'from-cyan-500 to-cyan-700',
+    icon: '🏬',
   },
   CASHIER: {
     label: 'Cashier',
@@ -120,6 +142,16 @@ const PERMISSIONS_MAP: Record<RoleKey, string[]> = {
     'create_sale', 'create_purchase', 'process_returns',
     'view_basic_reports', 'view_items', 'view_customers', 'view_suppliers',
   ],
+  BRANCH_MANAGER: [
+    'manage_users',
+    'view_all_reports', 'view_profit_margins',
+    'void_sales', 'void_purchases', 'record_payments', 'adjust_balances',
+    'create_items', 'update_items', 'delete_items', 'adjust_stock', 'manage_manufacturers',
+    'create_customers', 'update_customers', 'delete_customers',
+    'create_suppliers', 'update_suppliers', 'delete_suppliers',
+    'create_sale', 'create_purchase', 'process_returns',
+    'view_basic_reports', 'view_items', 'view_customers', 'view_suppliers',
+  ],
   CASHIER: [
     'create_sale', 'record_payments',
     'create_customers', 'update_customers',
@@ -164,9 +196,15 @@ const RECOMMENDED_ROLES: { role: RoleKey; title: string; when: string; warning?:
     warning: 'Cannot create sales or purchases directly.',
   },
   {
+    role: 'BRANCH_MANAGER',
+    title: 'For branch leaders',
+    when: 'Trusted staff responsible for one branch, including branch transfers, reports, and branch team supervision.',
+    warning: 'Must be assigned to a branch. This role does not manage company settings or other branches.',
+  },
+  {
     role: 'STORE_MANAGER',
     title: 'For trusted senior staff',
-    when: 'Senior employees who run day-to-day operations fully but should not add users or change system settings.',
+    when: 'Company-level operations leads who need oversight across all branches without owning company settings.',
   },
   {
     role: 'STAFF',
@@ -175,15 +213,21 @@ const RECOMMENDED_ROLES: { role: RoleKey; title: string; when: string; warning?:
   },
 ]
 
-const ALL_ROLES: RoleKey[] = ['OWNER', 'STORE_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
-const ASSIGNABLE_ROLES: RoleKey[] = ['STORE_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
+const ALL_ROLES: RoleKey[] = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
+const BRANCH_MANAGER_ALLOWED_ROLES: RoleKey[] = ['CASHIER', 'INVENTORY_MANAGER', 'STAFF']
+
+function getDefaultRole(allowedRoles: RoleKey[]) {
+  return allowedRoles.includes('STAFF') ? 'STAFF' : allowedRoles[0] ?? 'STAFF'
+}
 
 type Tab = 'team' | 'matrix' | 'guide'
 
 export default function UsersPage() {
   const router = useRouter()
-  const { user: currentUser, isOwner, isLoading } = useUser()
+  const { user: currentUser, isOwner, canManageUsers, isLoading } = useUser()
   const [users, setUsers] = useState<User[]>([])
+  const [branches, setBranches] = useState<BranchOption[]>([])
+  const [managementMeta, setManagementMeta] = useState<UsersPageMeta | null>(null)
   const [loadingUsers, setLoadingUsers] = useState(true)
   const [tab, setTab] = useState<Tab>('team')
   const [showAddForm, setShowAddForm] = useState(false)
@@ -196,43 +240,97 @@ export default function UsersPage() {
     email: '',
     password: '',
     role: 'STAFF' as RoleKey,
+    branchId: '',
   })
 
-  useEffect(() => {
-    if (!isLoading && !isOwner) {
-      router.push('/dashboard')
-      return
-    }
-    fetchUsers()
-  }, [isOwner, isLoading])
+  const availableRoles = managementMeta?.allowedRoles?.length
+    ? managementMeta.allowedRoles
+    : (isOwner ? ALL_ROLES : BRANCH_MANAGER_ALLOWED_ROLES)
+  const isBranchScoped = managementMeta?.scope === 'branch'
+  const managedBranch = managementMeta?.managedBranchId
+    ? branches.find((branch) => branch.id === managementMeta.managedBranchId) ?? null
+    : null
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/users')
-      if (!res.ok) throw new Error('Failed')
-      const data = await res.json()
-      setUsers(data)
+      const [usersRes, branchesRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/branches'),
+      ])
+      if (!usersRes.ok) throw new Error('Failed')
+
+      const usersData = await usersRes.json()
+      const nextUsers = Array.isArray(usersData) ? usersData : (usersData.users || [])
+      const nextMeta = Array.isArray(usersData) ? null : (usersData.meta || null)
+      const nextAllowedRoles = nextMeta?.allowedRoles?.length
+        ? nextMeta.allowedRoles
+        : (isOwner ? ALL_ROLES : BRANCH_MANAGER_ALLOWED_ROLES)
+      setUsers(nextUsers)
+      setManagementMeta(nextMeta)
+      setForm((current) => ({
+        ...current,
+        role: nextAllowedRoles.includes(current.role) ? current.role : getDefaultRole(nextAllowedRoles),
+        branchId: nextMeta?.scope === 'branch' ? (nextMeta.managedBranchId || '') : current.branchId,
+      }))
+
+      if (branchesRes.ok) {
+        const branchData = await branchesRes.json()
+        setBranches(branchData.branches || [])
+      }
     } catch {
       setError('Failed to load users')
     } finally {
       setLoadingUsers(false)
     }
-  }
+  }, [isOwner])
+
+  useEffect(() => {
+    if (isLoading) {
+      return
+    }
+
+    if (!canManageUsers) {
+      router.push('/dashboard')
+      return
+    }
+
+    fetchUsers()
+  }, [canManageUsers, fetchUsers, isLoading, router])
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setSuccess('')
+
+    if (!availableRoles.includes(form.role)) {
+      setError('Select a valid role for your access level')
+      return
+    }
+
+    if (!isBranchScoped && form.role === 'BRANCH_MANAGER' && !form.branchId) {
+      setError('Branch managers must be assigned to a branch')
+      return
+    }
+
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          branchId: form.branchId || null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error || 'Failed to add user'); return }
       setSuccess(`User "${form.name}" added successfully!`)
-      setForm({ name: '', email: '', password: '', role: 'STAFF' })
+      setForm({
+        name: '',
+        email: '',
+        password: '',
+        role: getDefaultRole(availableRoles),
+        branchId: isBranchScoped ? (managementMeta?.managedBranchId || '') : '',
+      })
       setShowAddForm(false)
       fetchUsers()
     } catch {
@@ -255,22 +353,27 @@ export default function UsersPage() {
     }
   }
 
-  const handleChangeRole = async (userId: string, newRole: RoleKey) => {
+  const handleUpdateUser = async (
+    userId: string,
+    updates: { role?: RoleKey; branchId?: string | null },
+    successMessage: string
+  ) => {
     try {
       const res = await fetch(`/api/users/${userId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify(updates),
       })
-      if (!res.ok) throw new Error('Failed')
-      setSuccess('Role updated successfully')
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setSuccess(successMessage)
       fetchUsers()
-    } catch {
-      setError('Failed to update role')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update user')
     }
   }
 
-  if (isLoading || !isOwner) {
+  if (isLoading || !canManageUsers) {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
@@ -286,8 +389,12 @@ export default function UsersPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Users & Permissions</h1>
-            <p className="text-gray-500 mt-1">Manage team access with granular role-based control</p>
+            <h1 className="text-xl font-bold text-gray-900">Users & Permissions</h1>
+            <p className="text-gray-500 mt-1">
+              {isBranchScoped
+                ? `Manage staff access for ${managedBranch?.name || 'your branch'}`
+                : 'Manage team access with granular role-based control'}
+            </p>
           </div>
           <button
             onClick={() => { setShowAddForm(true); setError(''); setSuccess('') }}
@@ -297,6 +404,12 @@ export default function UsersPage() {
             Add Team Member
           </button>
         </div>
+
+        {isBranchScoped && managedBranch && (
+          <div className="bg-cyan-50 border border-cyan-200 text-cyan-800 px-4 py-3 rounded-xl text-sm">
+            Branch manager scope: you can manage users assigned to <span className="font-semibold">{managedBranch.name}</span> only.
+          </div>
+        )}
 
         {/* Alerts */}
         {error && (
@@ -362,7 +475,7 @@ export default function UsersPage() {
                     onChange={e => setForm({ ...form, role: e.target.value as RoleKey })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base bg-white"
                   >
-                    {ALL_ROLES.map(r => (
+                    {availableRoles.map(r => (
                       <option key={r} value={r}>
                         {ROLE_INFO[r].icon} {ROLE_INFO[r].label} — {ROLE_INFO[r].shortDesc}
                       </option>
@@ -374,6 +487,37 @@ export default function UsersPage() {
                     </p>
                   )}
                 </div>
+                {branches.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Assigned Branch</label>
+                    {isBranchScoped ? (
+                      <div className="px-4 py-3 border-2 border-cyan-200 bg-cyan-50 rounded-xl text-sm font-semibold text-cyan-900">
+                        {managedBranch?.name || 'Your assigned branch'}
+                      </div>
+                    ) : (
+                      <>
+                        <select
+                          value={form.branchId}
+                          onChange={e => setForm({ ...form, branchId: e.target.value })}
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base bg-white"
+                          required={form.role === 'BRANCH_MANAGER'}
+                        >
+                          <option value="">
+                            {form.role === 'BRANCH_MANAGER' ? 'Select branch for branch manager' : 'No branch restriction'}
+                          </option>
+                          {branches.map(branch => (
+                            <option key={branch.id} value={branch.id}>
+                              {branch.name}{branch.isDefault ? ' (Main)' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-xs text-gray-500">
+                          Assigned users are locked to that branch across inventory and transaction screens.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="submit" className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors">
@@ -404,7 +548,7 @@ export default function UsersPage() {
 
         {/* TAB: Team Members */}
         {tab === 'team' && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Team Members ({users.length})</h2>
             </div>
@@ -441,6 +585,16 @@ export default function UsersPage() {
                             </span>
                           </div>
                           <p className="text-sm text-gray-500 mt-0.5">{u.email}</p>
+                          {u.branch && (
+                            <p className="text-xs text-blue-700 mt-1 font-medium">
+                              Branch: {u.branch.name}
+                            </p>
+                          )}
+                          {!u.branchId && branches.length > 0 && (
+                            <p className="text-xs text-gray-400 mt-1">
+                              Branch: Unrestricted
+                            </p>
+                          )}
                           <p className="text-xs text-gray-400 mt-0.5">
                             Joined {new Date(u.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </p>
@@ -451,13 +605,40 @@ export default function UsersPage() {
                         <div className="flex items-center gap-2">
                           <select
                             value={u.role}
-                            onChange={e => handleChangeRole(u.id, e.target.value as RoleKey)}
+                            onChange={e => {
+                              const nextRole = e.target.value as RoleKey
+                              if (nextRole === 'BRANCH_MANAGER' && !u.branchId) {
+                                setError('Assign a branch first before promoting a user to Branch Manager')
+                                return
+                              }
+                              handleUpdateUser(u.id, { role: nextRole }, 'Role updated successfully')
+                            }}
                             className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
                           >
-                            {ALL_ROLES.map(r => (
+                            {availableRoles.map(r => (
                               <option key={r} value={r}>{ROLE_INFO[r].label}</option>
                             ))}
                           </select>
+                          {branches.length > 0 && !isBranchScoped && (
+                            <select
+                              value={u.branchId ?? ''}
+                              onChange={e =>
+                                handleUpdateUser(
+                                  u.id,
+                                  { branchId: e.target.value || null },
+                                  'Branch assignment updated successfully'
+                                )
+                              }
+                              className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
+                            >
+                              <option value="">{u.role === 'BRANCH_MANAGER' ? 'Select branch' : 'All / Unrestricted'}</option>
+                              {branches.map(branch => (
+                                <option key={branch.id} value={branch.id}>
+                                  {branch.name}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                           <button
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             disabled={deletingId === u.id}
@@ -477,7 +658,7 @@ export default function UsersPage() {
 
         {/* TAB: Permissions Matrix */}
         {tab === 'matrix' && (
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Permissions Matrix</h2>
               <p className="text-sm text-gray-500 mt-0.5">What each role can do across the system</p>
@@ -573,14 +754,14 @@ export default function UsersPage() {
             </div>
 
             {/* Mismanagement prevention tips */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
+            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-6 space-y-4">
               <h2 className="text-lg font-bold text-gray-900">Preventing Mismanagement</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
-                  { icon: '🚫', title: 'Void & Delete Controls', tip: 'Only Owners and Store Managers can void sales/purchases or delete records. Assign these roles carefully.' },
-                  { icon: '💰', title: 'Financial Visibility', tip: 'Restrict profit margins to Owners, Store Managers and Accountants only. Cashiers do not see margins.' },
+                  { icon: '🚫', title: 'Void & Delete Controls', tip: 'Only Owners, Store Managers and Branch Managers should be trusted with voids, deletes and correction-heavy actions.' },
+                  { icon: '💰', title: 'Financial Visibility', tip: 'Profit margins should stay with Owners, Store Managers, Branch Managers and Accountants only. Cashiers do not see margins.' },
                   { icon: '📋', title: 'Separate Roles by Job', tip: 'Give Cashiers the Cashier role, not Staff. More specific roles mean less accidental access to sensitive actions.' },
-                  { icon: '👥', title: 'Limit Owner Accounts', tip: 'Keep the number of Owner accounts to a minimum. Use Store Manager for trusted senior staff instead.' },
+                  { icon: '👥', title: 'Limit Owner Accounts', tip: 'Keep Owner accounts to a minimum. Use Store Manager for company-wide leads and Branch Manager for location-specific leaders.' },
                 ].map(({ icon, title, tip }) => (
                   <div key={title} className="flex gap-3 p-4 bg-gray-50 rounded-xl">
                     <span className="text-2xl shrink-0">{icon}</span>

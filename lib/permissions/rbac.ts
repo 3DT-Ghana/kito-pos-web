@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 export type Role =
   | 'OWNER'
   | 'STORE_MANAGER'
+  | 'BRANCH_MANAGER'
   | 'CASHIER'
   | 'INVENTORY_MANAGER'
   | 'ACCOUNTANT'
@@ -14,6 +15,7 @@ export type Role =
 export const Role = {
   OWNER: 'OWNER' as const,
   STORE_MANAGER: 'STORE_MANAGER' as const,
+  BRANCH_MANAGER: 'BRANCH_MANAGER' as const,
   CASHIER: 'CASHIER' as const,
   INVENTORY_MANAGER: 'INVENTORY_MANAGER' as const,
   ACCOUNTANT: 'ACCOUNTANT' as const,
@@ -27,7 +29,8 @@ export const Role = {
  *
  * Role Hierarchy (highest to lowest):
  * - OWNER:             Full access to all features and settings
- * - STORE_MANAGER:     Everything except user management & system settings
+ * - STORE_MANAGER:     Company-wide operational oversight across all branches
+ * - BRANCH_MANAGER:    Full operational control for one branch, including branch staff
  * - CASHIER:           Sales & customer payments only
  * - INVENTORY_MANAGER: Stock/items/purchases management
  * - ACCOUNTANT:        Financial reports, payments & balances (read-heavy)
@@ -92,6 +95,23 @@ export const PERMISSIONS = {
     'view_purchase_orders',
     'delete_purchase_order',
 
+    // Accounting
+    'view_chart_of_accounts',
+    'manage_chart_of_accounts',
+    'view_journal',
+    'post_manual_journal',
+    'view_accounting_reports',
+    'record_transfers',
+
+    // Payroll
+    'view_payroll',
+    'manage_employees',
+    'run_payroll',
+    'approve_payroll',
+
+    // Approvals
+    'approve_transactions',
+
     // View
     'view_basic_reports',
     'view_items',
@@ -146,6 +166,97 @@ export const PERMISSIONS = {
     'create_purchase_order',
     'view_purchase_orders',
     'delete_purchase_order',
+
+    // Accounting
+    'view_chart_of_accounts',
+    'manage_chart_of_accounts',
+    'view_journal',
+    'post_manual_journal',
+    'view_accounting_reports',
+    'record_transfers',
+
+    // Payroll
+    'view_payroll',
+    'manage_employees',
+    'run_payroll',
+    'approve_payroll',
+
+    // Approvals
+    'approve_transactions',
+
+    // View
+    'view_basic_reports',
+    'view_items',
+    'view_customers',
+    'view_suppliers',
+  ],
+
+  BRANCH_MANAGER: [
+    // Branch team management
+    'manage_users',
+    'create_users',
+    'delete_users',
+    'update_user_roles',
+
+    // Financial (branch-scoped through branch access)
+    'view_all_reports',
+    'view_profit_margins',
+    'void_sales',
+    'void_purchases',
+    'record_payments',
+    'adjust_balances',
+
+    // Inventory
+    'create_items',
+    'update_items',
+    'delete_items',
+    'adjust_stock',
+    'manage_manufacturers',
+
+    // Customers & Suppliers
+    'create_customers',
+    'update_customers',
+    'delete_customers',
+    'create_suppliers',
+    'update_suppliers',
+    'delete_suppliers',
+
+    // Sales & Purchases
+    'create_sale',
+    'create_purchase',
+    'process_returns',
+
+    // Expenses
+    'create_expenses',
+    'view_expenses',
+    'delete_expenses',
+
+    // Till
+    'manage_till',
+
+    // Quotations
+    'create_quotation',
+    'view_quotations',
+    'delete_quotation',
+
+    // Purchase Orders
+    'create_purchase_order',
+    'view_purchase_orders',
+    'delete_purchase_order',
+
+    // Accounting
+    'view_chart_of_accounts',
+    'view_journal',
+    'view_accounting_reports',
+    'record_transfers',
+
+    // Payroll
+    'view_payroll',
+    'manage_employees',
+    'run_payroll',
+
+    // Approvals
+    'approve_transactions',
 
     // View
     'view_basic_reports',
@@ -211,6 +322,22 @@ export const PERMISSIONS = {
     // Expenses (view only)
     'view_expenses',
 
+    // Accounting
+    'view_chart_of_accounts',
+    'view_journal',
+    'post_manual_journal',
+    'view_accounting_reports',
+    'record_transfers',
+
+    // Payroll
+    'view_payroll',
+    'manage_employees',
+    'run_payroll',
+    'approve_payroll',
+
+    // Approvals
+    'approve_transactions',
+
     // View
     'view_basic_reports',
     'view_items',
@@ -259,10 +386,39 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   { label: 'Till',               permissions: ['manage_till'] as Permission[] },
   { label: 'Quotations',         permissions: ['view_quotations','create_quotation','delete_quotation'] as Permission[] },
   { label: 'Purchase Orders',    permissions: ['view_purchase_orders','create_purchase_order','delete_purchase_order'] as Permission[] },
+  { label: 'Accounting',         permissions: ['view_chart_of_accounts','manage_chart_of_accounts','view_journal','post_manual_journal','view_accounting_reports','record_transfers'] as Permission[] },
+  { label: 'Payroll',            permissions: ['view_payroll','manage_employees','run_payroll','approve_payroll'] as Permission[] },
+  { label: 'Approvals',          permissions: ['approve_transactions'] as Permission[] },
 ]
 
 // Type for the rolePermissions JSON column stored in the DB
 export type RolePermissionsMap = Partial<Record<Role, string[]>>
+
+type PermissionSubject =
+  | Role
+  | { role: Role; rolePermissions?: RolePermissionsMap | null }
+  | { user: { role: Role }; rolePermissions?: RolePermissionsMap | null }
+
+function resolvePermissionSubject(
+  subject: PermissionSubject,
+  overrides?: RolePermissionsMap | null
+) {
+  if (typeof subject === 'string') {
+    return { role: subject, overrides }
+  }
+
+  if ('user' in subject) {
+    return {
+      role: subject.user.role,
+      overrides: subject.rolePermissions ?? overrides,
+    }
+  }
+
+  return {
+    role: subject.role,
+    overrides: subject.rolePermissions ?? overrides,
+  }
+}
 
 // Returns effective permissions for a role, applying DB overrides when present.
 // OWNER always has all permissions and cannot be restricted.
@@ -273,19 +429,21 @@ export function resolveRolePermissions(role: Role, overrides: RolePermissionsMap
   return [...(PERMISSIONS[role] as readonly string[])]
 }
 
-export function hasPermission(role: Role, permission: Permission, overrides?: RolePermissionsMap | null): boolean {
-  if (overrides !== undefined) {
-    return resolveRolePermissions(role, overrides).includes(permission)
+export function hasPermission(subject: PermissionSubject, permission: Permission, overrides?: RolePermissionsMap | null): boolean {
+  const resolved = resolvePermissionSubject(subject, overrides)
+
+  if (resolved.overrides !== undefined) {
+    return resolveRolePermissions(resolved.role, resolved.overrides).includes(permission)
   }
-  return (PERMISSIONS[role] as readonly string[])?.includes(permission) ?? false
+  return (PERMISSIONS[resolved.role] as readonly string[])?.includes(permission) ?? false
 }
 
-export function hasAnyPermission(role: Role, permissions: Permission[]): boolean {
-  return permissions.some(permission => hasPermission(role, permission))
+export function hasAnyPermission(subject: PermissionSubject, permissions: Permission[], overrides?: RolePermissionsMap | null): boolean {
+  return permissions.some(permission => hasPermission(subject, permission, overrides))
 }
 
-export function hasAllPermissions(role: Role, permissions: Permission[]): boolean {
-  return permissions.every(permission => hasPermission(role, permission))
+export function hasAllPermissions(subject: PermissionSubject, permissions: Permission[], overrides?: RolePermissionsMap | null): boolean {
+  return permissions.every(permission => hasPermission(subject, permission, overrides))
 }
 
 export interface RoleCheckResult {
@@ -323,17 +481,20 @@ export function requireOwnerOrManager(userRole: Role): RoleCheckResult {
 }
 
 export function requirePermission(
-  userRole: Role,
-  permission: Permission
+  subject: PermissionSubject,
+  permission: Permission,
+  overrides?: RolePermissionsMap | null
 ): RoleCheckResult {
-  if (!hasPermission(userRole, permission)) {
+  const resolved = resolvePermissionSubject(subject, overrides)
+
+  if (!hasPermission(resolved.role, permission, resolved.overrides)) {
     return {
       authorized: false,
       error: NextResponse.json(
         {
           error: 'Forbidden',
           message: `This action requires the '${permission}' permission`,
-          yourRole: userRole,
+          yourRole: resolved.role,
         },
         { status: 403 }
       ),
@@ -344,21 +505,58 @@ export function requirePermission(
 
 export function requireOwnerOrPermission(
   userRole: Role,
-  permission: Permission
+  permission: Permission,
+  overrides?: RolePermissionsMap | null
 ): RoleCheckResult {
   if (userRole === Role.OWNER) {
     return { authorized: true, error: null }
   }
-  return requirePermission(userRole, permission)
+  return requirePermission(userRole, permission, overrides)
 }
 
 export function getPermissionsForRole(role: Role): readonly Permission[] {
   return PERMISSIONS[role] ?? []
 }
 
+export const COMPANY_ADMIN_ROLES = [
+  Role.OWNER,
+  Role.STORE_MANAGER,
+] as const
+
+export const BRANCH_MANAGER_MANAGED_ROLES = [
+  Role.CASHIER,
+  Role.INVENTORY_MANAGER,
+  Role.STAFF,
+] as const
+
+export function canViewAllBranchesForRole(role: Role) {
+  return COMPANY_ADMIN_ROLES.includes(role as typeof COMPANY_ADMIN_ROLES[number])
+}
+
+export function canManageUsersForRole(role: Role) {
+  return role === Role.OWNER || role === Role.BRANCH_MANAGER
+}
+
+export function getManageableRolesForRole(role: Role): readonly Role[] {
+  if (role === Role.OWNER) {
+    return ALL_ROLES
+  }
+
+  if (role === Role.BRANCH_MANAGER) {
+    return BRANCH_MANAGER_MANAGED_ROLES
+  }
+
+  return []
+}
+
+export function canManageTargetUserRole(actorRole: Role, targetRole: Role) {
+  return getManageableRolesForRole(actorRole).includes(targetRole)
+}
+
 export const ALL_ROLES = [
   Role.OWNER,
   Role.STORE_MANAGER,
+  Role.BRANCH_MANAGER,
   Role.CASHIER,
   Role.INVENTORY_MANAGER,
   Role.ACCOUNTANT,

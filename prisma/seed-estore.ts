@@ -12,6 +12,7 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 const TENANT_ID = 'd6587df2-0d6c-483c-987d-515786d7aa66'
+const DEFAULT_BRANCH_ID = 'cd022e9c-1e00-42f2-9aa8-dfe56d2eda2e' // Accra (default branch)
 
 async function main() {
   console.log('🌱 Seeding E Store...\n')
@@ -53,7 +54,7 @@ async function main() {
   console.log('📦 Creating items...')
 
   await prisma.item.createMany({
-    data: [
+    data: ([
 
       // ── Beverages — Coca-Cola ────────────────────────────
       { tenantId: TENANT_ID, manufacturerId: cocaCola.id, barcode: '5000112637922', name: 'Coca-Cola 33cl Can',        costPrice: 4.50,  sellingPrice: 6.00,  quantity: 144 },
@@ -171,7 +172,7 @@ async function main() {
       { tenantId: TENANT_ID, manufacturerId: fmcgMisc.id, barcode: '9780003000010', name: 'Pampers Diapers S (30 pcs)',   costPrice: 95.00, sellingPrice: 125.00,quantity: 24  },
       { tenantId: TENANT_ID, manufacturerId: fmcgMisc.id, barcode: '9780003000027', name: 'Pampers Diapers M (28 pcs)',   costPrice: 98.00, sellingPrice: 128.00,quantity: 24  },
       { tenantId: TENANT_ID, manufacturerId: fmcgMisc.id, barcode: '9780003000034', name: 'Pampers Diapers L (26 pcs)',   costPrice: 100.00,sellingPrice: 130.00,quantity: 2   },
-    ],
+    ] as const).map(item => ({ ...item, branchId: DEFAULT_BRANCH_ID })),
   })
 
   console.log('   ✓ 80 items created (including 8 low-stock items)\n')

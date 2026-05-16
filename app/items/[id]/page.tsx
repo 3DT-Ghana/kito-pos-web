@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ItemForm } from '@/components/forms/ItemForm'
 import { ItemFormData } from '@/types/form'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { useUser } from '@/hooks/useUser'
+import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
+import { formatTaxLabel } from '@/lib/tax/summary'
 
 /**
  * Item Detail Page
@@ -31,13 +33,10 @@ export default function ItemDetailPage() {
   const [enablePromoPrice, setEnablePromoPrice] = useState(false)
   const [enableExpiryTracking, setEnableExpiryTracking] = useState(false)
   const [enablePosTerminal, setEnablePosTerminal] = useState(false)
+  const [enableAccounting, setEnableAccounting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
-
-  useEffect(() => {
-    Promise.all([fetchItem(), fetchManufacturers()])
-  }, [itemId])
 
   useEffect(() => {
     if (!user?.tenantId) return
@@ -50,11 +49,12 @@ export default function ItemDetailPage() {
         if (data?.enablePromoPrice) setEnablePromoPrice(true)
         if (data?.enableExpiryTracking) setEnableExpiryTracking(true)
         if (data?.enablePosTerminal) setEnablePosTerminal(true)
+        if (data?.enableAccounting) setEnableAccounting(true)
       })
       .catch(() => {})
   }, [user?.tenantId])
 
-  const fetchItem = async () => {
+  const fetchItem = useCallback(async () => {
     try {
       const res = await fetch(`/api/items/${itemId}`)
       if (!res.ok) throw new Error('Failed to fetch item')
@@ -65,9 +65,9 @@ export default function ItemDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [itemId])
 
-  const fetchManufacturers = async () => {
+  const fetchManufacturers = useCallback(async () => {
     try {
       const [mfRes, catRes] = await Promise.all([
         fetch('/api/manufacturers'),
@@ -79,7 +79,11 @@ export default function ItemDetailPage() {
       }
       if (catRes.ok) setCategories(await catRes.json())
     } catch {}
-  }
+  }, [])
+
+  useEffect(() => {
+    Promise.all([fetchItem(), fetchManufacturers()])
+  }, [fetchItem, fetchManufacturers])
 
   const handleSubmit = async (data: ItemFormData) => {
     try {
@@ -133,7 +137,21 @@ export default function ItemDetailPage() {
     )
   }
 
-  const stockStatus = item.quantity === 0
+  const itemType = normalizeItemType(item.itemType)
+  const isInventoryItem = isInventoryItemType(item.itemType)
+  const productTaxSetting = item.productTaxSetting
+  const configuredTaxRates = productTaxSetting?.taxRates?.map(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (link: any) => link.taxRate
+  ) ?? []
+  const productTaxRates = configuredTaxRates.length > 0
+    ? configuredTaxRates
+    : productTaxSetting?.taxRate
+      ? [productTaxSetting.taxRate]
+      : []
+  const stockStatus = !isInventoryItem
+    ? { label: itemTypeLabel(itemType), cls: itemType === 'SERVICE' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700' }
+    : item.quantity === 0
     ? { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' }
     : item.quantity <= 10
     ? { label: 'Low Stock', cls: 'bg-orange-100 text-orange-700' }
@@ -181,12 +199,14 @@ export default function ItemDetailPage() {
           </div>
           {!isEditing && (
             <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => router.push(`/items/${itemId}/adjust`)}
-                className="px-3 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700"
-              >
-                ± Adjust Stock
-              </button>
+              {isInventoryItem && (
+                <button
+                  onClick={() => router.push(`/items/${itemId}/adjust`)}
+                  className="px-3 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700"
+                >
+                  ± Adjust Stock
+                </button>
+              )}
               <button
                 onClick={() => setIsEditing(true)}
                 className="px-3 py-2 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50"
@@ -206,16 +226,22 @@ export default function ItemDetailPage() {
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className={`rounded-xl p-4 border-2 ${
-            item.quantity === 0 ? 'bg-red-50 border-red-200'
+            !isInventoryItem ? 'bg-slate-50 border-slate-200'
+            : item.quantity === 0 ? 'bg-red-50 border-red-200'
             : item.quantity <= 10 ? 'bg-orange-50 border-orange-200'
             : 'bg-green-50 border-green-200'
           }`}>
-            <p className="text-xs font-semibold text-gray-500 uppercase">In Stock</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase">
+              {isInventoryItem ? 'In Stock' : 'Stock Tracking'}
+            </p>
             <p className={`text-2xl font-bold mt-1 ${
-              item.quantity === 0 ? 'text-red-600'
+              !isInventoryItem ? 'text-slate-700'
+              : item.quantity === 0 ? 'text-red-600'
               : item.quantity <= 10 ? 'text-orange-600'
               : 'text-green-700'
-            }`}>{item.quantity}</p>
+            }`}>
+              {isInventoryItem ? item.quantity : 'Off'}
+            </p>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Cost Price</p>
@@ -226,8 +252,12 @@ export default function ItemDetailPage() {
             <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(item.sellingPrice)}</p>
           </div>
           <div className="bg-white rounded-xl p-4 border border-gray-200">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Stock Value</p>
-            <p className="text-xl font-bold text-indigo-600 mt-1">{formatCurrency(item.quantity * item.costPrice)}</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase">
+              {isInventoryItem ? 'Stock Value' : 'Catalog Type'}
+            </p>
+            <p className="text-xl font-bold text-indigo-600 mt-1">
+              {isInventoryItem ? formatCurrency(item.quantity * item.costPrice) : itemTypeLabel(itemType)}
+            </p>
           </div>
           {item.expiryDate && (() => {
             const exp = new Date(item.expiryDate)
@@ -246,6 +276,70 @@ export default function ItemDetailPage() {
           })()}
         </div>
 
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-base font-bold text-emerald-950">Tax Setup</h2>
+              <p className="mt-1 text-sm text-emerald-900/80">
+                {productTaxSetting?.isTaxable
+                  ? 'This item is taxable and will use the tax configuration below on new transactions.'
+                  : 'This item is currently marked as non-taxable.'}
+              </p>
+            </div>
+            <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm">
+              {productTaxSetting?.taxCalculationType === 'INCLUSIVE'
+                ? 'Tax Inclusive'
+                : productTaxSetting?.taxCalculationType === 'ADD_TO_PRICE'
+                  ? 'Tax Added to Price'
+                  : 'Uses Tenant Default Calculation'}
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Taxable</p>
+              <p className="mt-1 text-lg font-bold text-gray-900">
+                {productTaxSetting?.isTaxable ? 'Yes' : 'No'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Tax Source</p>
+              <p className="mt-1 text-lg font-bold text-gray-900">
+                {productTaxSetting?.useTenantDefaultTaxes !== false
+                  ? 'Tenant Defaults'
+                  : 'Item-Specific'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+              <p className="text-xs font-semibold uppercase text-emerald-700">Configured Taxes</p>
+              <p className="mt-1 text-lg font-bold text-gray-900">{productTaxRates.length}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {productTaxRates.length > 0 ? (
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              productTaxRates.map((rate: any) => (
+                <span
+                  key={rate.id}
+                  className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900"
+                >
+                  {formatTaxLabel({
+                    taxName: rate.name,
+                    taxRatePercentage: rate.ratePercentage,
+                  })}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-emerald-900/80">
+                {productTaxSetting?.useTenantDefaultTaxes !== false
+                  ? 'This item will use whichever active taxes are marked as tenant defaults.'
+                  : 'No item-specific taxes selected yet.'}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Edit form */}
         {isEditing ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-6">
@@ -262,8 +356,21 @@ export default function ItemDetailPage() {
                 retailPrice: item.retailPrice,
                 wholesalePrice: item.wholesalePrice,
                 promoPrice: item.promoPrice,
+                barcode: item.barcode ?? '',
                 expiryDate: item.expiryDate ? new Date(item.expiryDate).toISOString().split('T')[0] : '',
                 categoryId: item.categoryId ?? '',
+                itemType,
+                incomeAccountId: item.incomeAccountId ?? '',
+                cogsAccountId: item.cogsAccountId ?? '',
+                expenseAccountId: item.expenseAccountId ?? '',
+                isTaxable: item.productTaxSetting?.isTaxable ?? false,
+                useTenantDefaultTaxes: item.productTaxSetting?.useTenantDefaultTaxes ?? true,
+                taxRateId: item.productTaxSetting?.taxRateId ?? '',
+                taxRateIds: item.productTaxSetting?.taxRates?.map(
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  (link: any) => link.taxRateId
+                ) ?? [],
+                taxCalculationType: item.productTaxSetting?.taxCalculationType ?? undefined,
               }}
               manufacturers={manufacturers}
               categories={categories}
@@ -275,6 +382,7 @@ export default function ItemDetailPage() {
               enablePromoPrice={enablePromoPrice}
               enableExpiryTracking={enableExpiryTracking}
               enablePosTerminal={enablePosTerminal}
+              enableAccounting={enableAccounting}
             />
           </div>
         ) : (

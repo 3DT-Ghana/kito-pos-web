@@ -27,6 +27,10 @@ export default async function SaleDetailPage({ params }: PageProps) {
   const { id } = await params
   const { user } = session
 
+  if (!user.tenantId) {
+    redirect('/agent/dashboard')
+  }
+
   // Fetch sale with all details
   const sale = await prisma.sale.findFirst({
     where: {
@@ -40,8 +44,10 @@ export default async function SaleDetailPage({ params }: PageProps) {
           name: true,
         },
       },
+      taxLines: true,
       items: {
         include: {
+          taxLines: true,
           item: {
             include: {
               manufacturer: {

@@ -8,9 +8,17 @@ import { useBranch } from '@/lib/branch/BranchContext'
  * Owners can select "All Branches" (null) for a consolidated view.
  */
 export function BranchSelector() {
-  const { branches, currentBranchId, setBranchId, isLoading } = useBranch()
+  const {
+    branches,
+    branchesEnabled,
+    currentBranchId,
+    setBranchId,
+    isLoading,
+    canViewAllBranches,
+    isBranchLocked,
+  } = useBranch()
 
-  if (isLoading || branches.length < 2) return null
+  if (!branchesEnabled || isLoading || branches.length < 2) return null
 
   return (
     <div className="flex items-center gap-1.5">
@@ -19,9 +27,10 @@ export function BranchSelector() {
         <select
           value={currentBranchId ?? '__all__'}
           onChange={e => setBranchId(e.target.value === '__all__' ? null : e.target.value)}
-          className="appearance-none pl-3 pr-7 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+          disabled={isBranchLocked}
+          className="appearance-none pl-3 pr-7 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
         >
-          <option value="__all__">All Branches</option>
+          {canViewAllBranches && <option value="__all__">All Branches</option>}
           {branches.map(b => (
             <option key={b.id} value={b.id}>
               {b.name}{b.isDefault ? ' (Main)' : ''}
@@ -35,6 +44,11 @@ export function BranchSelector() {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </div>
+      {isBranchLocked && (
+        <span className="hidden lg:inline-flex text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
+          Assigned
+        </span>
+      )}
     </div>
   )
 }

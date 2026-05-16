@@ -1,47 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AppLayout } from '@/components/layout/AppLayout'
+import Link from 'next/link'
+import { AdminLayout } from '@/components/layout/AdminLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-
-type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
-
-interface TenantUser {
-  id: string
-  name: string
-  email: string
-  role: string
-  createdAt: string
-}
-
-interface TenantRecord {
-  id: string
-  name: string
-  phone: string | null
-  status: TenantStatus
-  createdAt: string
-  userCount: number
-  users: TenantUser[]
-  itemCount: number
-  saleCount: number
-  totalRevenue: number
-  totalCollected: number
-  purchaseCount: number
-  totalPurchased: number
-  customerCount: number
-  supplierCount: number
-  features: {
-    pos: boolean
-    quotations: boolean
-    purchaseOrders: boolean
-    expiryTracking: boolean
-    branches: boolean
-    creditSales: boolean
-    expenses: boolean
-    till: boolean
-    sms: boolean
-  }
-}
+import {
+  Building2, Users, Clock, CheckCircle, XCircle,
+  TrendingUp, ShieldAlert, ArrowRight,
+} from 'lucide-react'
 
 interface Summary {
   totalTenants: number
@@ -52,96 +18,138 @@ interface Summary {
   totalRevenue: number
 }
 
-const STATUS_STYLES: Record<TenantStatus, string> = {
-  TRIAL:     'bg-amber-100 text-amber-800',
-  ACTIVE:    'bg-green-100 text-green-800',
-  SUSPENDED: 'bg-red-100 text-red-800',
+interface AgentSummary {
+  total: number
+  pending: number
+  approved: number
+  suspended: number
 }
 
-const STATUS_OPTIONS: TenantStatus[] = ['TRIAL', 'ACTIVE', 'SUSPENDED']
+interface ApplicationSummary {
+  total: number
+  pending: number
+  approved: number
+  rejected: number
+}
 
-export default function AdminTenantsPage() {
-  const [tenants, setTenants] = useState<TenantRecord[]>([])
-  const [summary, setSummary] = useState<Summary | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+interface RecentApplication {
+  id: string
+  businessName: string
+  ownerFullName: string
+  status: string
+  createdAt: string
+  agent: { fullName: string; agentCode: string }
+}
+
+interface RecentAgent {
+  id: string
+  fullName: string
+  agentCode: string
+  territory: string | null
+  status: string
+  createdAt: string
+  _count: { onboardedBusinesses: number }
+}
+
+interface DashboardData {
+  tenantSummary: Summary
+  agentSummary: AgentSummary
+  applicationSummary: ApplicationSummary
+  recentApplications: RecentApplication[]
+  recentAgents: RecentAgent[]
+}
+
+const STATUS_BADGE: Record<string, string> = {
+  PENDING:   'bg-amber-100 text-amber-700',
+  APPROVED:  'bg-emerald-100 text-emerald-700',
+  REJECTED:  'bg-red-100 text-red-700',
+  SUSPENDED: 'bg-gray-100 text-gray-600',
+  TRIAL:     'bg-amber-100 text-amber-700',
+  ACTIVE:    'bg-emerald-100 text-emerald-700',
+}
+
+function badge(status: string) {
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+      {status.charAt(0) + status.slice(1).toLowerCase()}
+    </span>
+  )
+}
+
+export default function AdminDashboardPage() {
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | TenantStatus>('all')
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [updatingId, setUpdatingId] = useState<string | null>(null)
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => { load() }, [])
 
-  const fetchData = async () => {
-    setIsLoading(true)
+  async function load() {
+    setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/admin/tenants')
-      if (res.status === 403) throw new Error('Access denied — super-admin only')
-      if (!res.ok) throw new Error('Failed to load data')
-      const data = await res.json()
-      setTenants(data.tenants)
-      setSummary(data.summary)
+      const [tenantsRes, agentsRes, appsRes] = await Promise.all([
+        fetch('/api/admin/tenants'),
+        fetch('/api/admin/agents'),
+        fetch('/api/admin/applications'),
+      ])
+
+      if (tenantsRes.status === 403) throw new Error('Access denied — super-admin only')
+      if (!tenantsRes.ok || !agentsRes.ok || !appsRes.ok) throw new Error('Failed to load dashboard data')
+
+      const [tenantsData, agentsData, appsData] = await Promise.all([
+        tenantsRes.json(),
+        agentsRes.json(),
+        appsRes.json(),
+      ])
+
+      const agents: RecentAgent[] = Array.isArray(agentsData) ? agentsData : []
+      const apps: RecentApplication[] = Array.isArray(appsData) ? appsData : []
+
+      const agentSummary: AgentSummary = {
+        total:     agents.length,
+        pending:   agents.filter(a => a.status === 'PENDING').length,
+        approved:  agents.filter(a => a.status === 'APPROVED').length,
+        suspended: agents.filter(a => a.status === 'SUSPENDED').length,
+      }
+
+      const applicationSummary: ApplicationSummary = {
+        total:    apps.length,
+        pending:  apps.filter(a => a.status === 'PENDING').length,
+        approved: apps.filter(a => a.status === 'APPROVED').length,
+        rejected: apps.filter(a => a.status === 'REJECTED').length,
+      }
+
+      setData({
+        tenantSummary: tenantsData.summary,
+        agentSummary,
+        applicationSummary,
+        recentApplications: apps
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 6),
+        recentAgents: agents
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed')
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
-
-  const updateStatus = async (tenantId: string, status: TenantStatus) => {
-    setUpdatingId(tenantId)
-    try {
-      const res = await fetch('/api/admin/tenants', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId, status }),
-      })
-      if (!res.ok) throw new Error('Update failed')
-      setTenants(prev => prev.map(t => t.id === tenantId ? { ...t, status } : t))
-      if (summary) {
-        const old = tenants.find(t => t.id === tenantId)?.status
-        if (old && old !== status) {
-          setSummary(prev => prev ? {
-            ...prev,
-            byStatus: {
-              ...prev.byStatus,
-              [old]: prev.byStatus[old] - 1,
-              [status]: prev.byStatus[status] + 1,
-            }
-          } : prev)
-        }
-      }
-    } catch {
-      // silent — table still reflects old state
-    } finally {
-      setUpdatingId(null)
-    }
-  }
-
-  const filtered = tenants.filter(t => {
-    const q = search.toLowerCase()
-    const matchSearch = !q
-      || t.name.toLowerCase().includes(q)
-      || (t.phone || '').includes(q)
-      || t.users.some(u => u.email.toLowerCase().includes(q) || u.name.toLowerCase().includes(q))
-    const matchStatus = statusFilter === 'all' || t.status === statusFilter
-    return matchSearch && matchStatus
-  })
 
   return (
-    <AppLayout>
-      <div className="space-y-6">
+    <AdminLayout>
+      <div className="space-y-7">
 
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Platform Admin</h1>
-            <p className="text-sm text-gray-500 mt-0.5">All onboarded companies and their usage stats</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Platform Overview</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Real-time health of the PETROS platform</p>
           </div>
           <button
-            onClick={fetchData}
-            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm"
+            onClick={load}
+            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -150,296 +158,214 @@ export default function AdminTenantsPage() {
           </button>
         </div>
 
-        {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl font-medium">
-            🚫 {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl font-medium text-sm">
+            {error}
           </div>
         )}
 
-        {/* Platform Summary Cards */}
-        {summary && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <SummaryCard label="Total Companies" value={summary.totalTenants} icon="🏢" color="blue" />
-            <SummaryCard label="Trial"     value={summary.byStatus.TRIAL}     icon="⏳" color="amber" />
-            <SummaryCard label="Active"    value={summary.byStatus.ACTIVE}    icon="✅" color="green" />
-            <SummaryCard label="Suspended" value={summary.byStatus.SUSPENDED} icon="🚫" color="red" />
-            <SummaryCard label="Total Users"  value={summary.totalUsers}  icon="👥" color="purple" />
-            <SummaryCard label="Total Revenue" value={formatCurrency(summary.totalRevenue)} icon="💰" color="emerald" isText />
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex gap-2 flex-wrap">
-            {(['all', 'TRIAL', 'ACTIVE', 'SUSPENDED'] as const).map(s => (
-              <button key={s} onClick={() => setStatusFilter(s)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                  statusFilter === s
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
-                }`}>
-                {s === 'all' ? 'All' : s}
-              </button>
+        {loading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 h-24 animate-pulse" />
             ))}
           </div>
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search by company, owner email or phone…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
-            />
-          </div>
-        </div>
+        ) : data && (
+          <>
+            {/* ── Tenant KPIs ─────────────────────────────────────────────── */}
+            <section>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Companies</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <KpiCard icon={<Building2 className="w-5 h-5" />} label="Total" value={data.tenantSummary.totalTenants} color="indigo" href="/admin/companies" />
+                <KpiCard icon={<Clock className="w-5 h-5" />}     label="Trial"     value={data.tenantSummary.byStatus.TRIAL}     color="amber" href="/admin/companies" />
+                <KpiCard icon={<CheckCircle className="w-5 h-5" />} label="Active"  value={data.tenantSummary.byStatus.ACTIVE}    color="emerald" href="/admin/companies" />
+                <KpiCard icon={<XCircle className="w-5 h-5" />}   label="Suspended" value={data.tenantSummary.byStatus.SUSPENDED} color="red" href="/admin/companies" />
+                <KpiCard icon={<Users className="w-5 h-5" />}     label="Users"     value={data.tenantSummary.totalUsers}         color="purple" href="/admin/companies" />
+                <KpiCard icon={<TrendingUp className="w-5 h-5" />} label="Revenue" value={formatCurrency(data.tenantSummary.totalRevenue)} color="green" isText href="/admin/companies" />
+              </div>
+            </section>
 
-        {/* Tenants List */}
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1,2,3,4].map(i => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-5 animate-pulse h-28" />
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center justify-center py-16">
-            <span className="text-5xl mb-3">🏢</span>
-            <p className="text-lg font-semibold text-gray-700">No companies found</p>
-            <p className="text-sm text-gray-400 mt-1">{search ? 'Try a different search' : 'No tenants registered yet'}</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filtered.map(tenant => {
-              const isExpanded = expandedId === tenant.id
-              const owner = tenant.users.find(u => u.role === 'OWNER')
-              const profit = tenant.totalCollected - tenant.totalPurchased
-              const featCount = Object.values(tenant.features).filter(Boolean).length
+            {/* ── Agents & Applications ────────────────────────────────────── */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
-              return (
-                <div key={tenant.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                  {/* Row */}
-                  <div
-                    className="p-4 sm:p-5 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => setExpandedId(isExpanded ? null : tenant.id)}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                      {/* Left: identity */}
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {/* Avatar */}
-                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm">
-                          {tenant.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="font-bold text-gray-900 text-base truncate">{tenant.name}</h3>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_STYLES[tenant.status]}`}>
-                              {tenant.status}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-500 mt-0.5">
-                            {owner?.email || '—'}
-                            {tenant.phone && <span className="ml-2 text-gray-400">· {tenant.phone}</span>}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">Joined {formatDate(tenant.createdAt)}</p>
-                        </div>
-                      </div>
-
-                      {/* Stats pills */}
-                      <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
-                        <StatPill icon="👥" value={tenant.userCount} label="users" />
-                        <StatPill icon="📦" value={tenant.itemCount} label="items" />
-                        <StatPill icon="💰" value={tenant.saleCount} label="sales" />
-                        <StatPill icon="🛒" value={tenant.purchaseCount} label="purchases" />
-                        <StatPill icon="👤" value={tenant.customerCount} label="customers" />
-                        <StatPill icon="⚡" value={featCount} label="features" />
-                        <div className="text-right hidden sm:block">
-                          <p className="text-xs text-gray-400">Revenue</p>
-                          <p className="text-sm font-bold text-green-700">{formatCurrency(tenant.totalRevenue)}</p>
-                        </div>
-                      </div>
-
-                      {/* Expand chevron */}
-                      <svg
-                        className={`w-5 h-5 text-gray-400 shrink-0 transition-transform duration-150 ${isExpanded ? 'rotate-180' : ''}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div className="border-t border-gray-100 bg-gray-50 px-4 sm:px-5 py-5 space-y-5">
-
-                      {/* Financial summary */}
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Financial Overview</h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <FinCard label="Total Revenue"  value={formatCurrency(tenant.totalRevenue)}  color="text-gray-900" />
-                          <FinCard label="Collected"      value={formatCurrency(tenant.totalCollected)} color="text-green-700" />
-                          <FinCard label="Total Purchases" value={formatCurrency(tenant.totalPurchased)} color="text-amber-700" />
-                          <FinCard label="Est. Profit"    value={formatCurrency(profit)}               color={profit >= 0 ? 'text-blue-700' : 'text-red-600'} />
-                        </div>
-                      </div>
-
-                      {/* Features enabled */}
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Enabled Features</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {(Object.entries(tenant.features) as [string, boolean][]).map(([key, on]) => (
-                            <span key={key} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${
-                              on
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-gray-100 text-gray-400 border-gray-200 line-through'
-                            }`}>
-                              {FEATURE_LABELS[key] ?? key}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Users table */}
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">
-                          Users ({tenant.userCount})
-                        </h4>
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                          <table className="w-full text-sm">
-                            <thead className="bg-gray-50 border-b border-gray-200">
-                              <tr>
-                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-600 uppercase">Name</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-600 uppercase">Email</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-600 uppercase">Role</th>
-                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-600 uppercase">Joined</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                              {tenant.users.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-2.5 font-medium text-gray-900">{u.name}</td>
-                                  <td className="px-4 py-2.5 text-gray-600 text-xs font-mono">{u.email}</td>
-                                  <td className="px-4 py-2.5">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                                      u.role === 'OWNER' ? 'bg-purple-100 text-purple-800'
-                                      : u.role === 'STORE_MANAGER' ? 'bg-blue-100 text-blue-800'
-                                      : u.role === 'CASHIER' ? 'bg-green-100 text-green-800'
-                                      : 'bg-gray-100 text-gray-700'
-                                    }`}>
-                                      {u.role.replace(/_/g, ' ')}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-2.5 text-gray-500 text-xs">{formatDate(u.createdAt)}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Status control */}
-                      <div>
-                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Account Status</h4>
-                        <div className="flex gap-2 flex-wrap items-center">
-                          {STATUS_OPTIONS.map(s => (
-                            <button
-                              key={s}
-                              disabled={tenant.status === s || updatingId === tenant.id}
-                              onClick={() => updateStatus(tenant.id, s)}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors disabled:cursor-not-allowed ${
-                                tenant.status === s
-                                  ? s === 'ACTIVE'
-                                    ? 'bg-green-600 text-white border-green-600'
-                                    : s === 'SUSPENDED'
-                                    ? 'bg-red-600 text-white border-red-600'
-                                    : 'bg-amber-500 text-white border-amber-500'
-                                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400 disabled:opacity-50'
-                              }`}
-                            >
-                              {updatingId === tenant.id ? '…' : s}
-                            </button>
-                          ))}
-                          <p className="text-xs text-gray-400 ml-1">
-                            Current: <strong className="text-gray-600">{tenant.status}</strong>
-                          </p>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
+              {/* Agents */}
+              <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold text-gray-800">Sales Agents</h2>
+                  <Link href="/admin/agents" className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+                    View all <ArrowRight className="w-3 h-3" />
+                  </Link>
                 </div>
-              )
-            })}
+                <div className="grid grid-cols-2 gap-3">
+                  <MiniStat label="Total"     value={data.agentSummary.total}     color="text-gray-900" />
+                  <MiniStat label="Pending"   value={data.agentSummary.pending}   color="text-amber-700" alert={data.agentSummary.pending > 0} />
+                  <MiniStat label="Approved"  value={data.agentSummary.approved}  color="text-emerald-700" />
+                  <MiniStat label="Suspended" value={data.agentSummary.suspended} color="text-red-600" />
+                </div>
+                {data.agentSummary.pending > 0 && (
+                  <Link
+                    href="/admin/agents?status=PENDING"
+                    className="mt-4 flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 hover:bg-amber-100 transition-colors"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                    {data.agentSummary.pending} agent{data.agentSummary.pending !== 1 ? 's' : ''} awaiting approval
+                  </Link>
+                )}
+              </section>
 
-            <p className="text-center text-sm text-gray-400 pt-1">
-              Showing {filtered.length} of {tenants.length} companies
-            </p>
-          </div>
+              {/* Applications */}
+              <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-sm font-bold text-gray-800">Business Applications</h2>
+                  <Link href="/admin/applications" className="text-xs text-indigo-600 hover:underline flex items-center gap-1">
+                    View all <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <MiniStat label="Total"    value={data.applicationSummary.total}    color="text-gray-900" />
+                  <MiniStat label="Pending"  value={data.applicationSummary.pending}  color="text-amber-700" alert={data.applicationSummary.pending > 0} />
+                  <MiniStat label="Approved" value={data.applicationSummary.approved} color="text-emerald-700" />
+                  <MiniStat label="Rejected" value={data.applicationSummary.rejected} color="text-red-600" />
+                </div>
+                {data.applicationSummary.pending > 0 && (
+                  <Link
+                    href="/admin/applications?status=PENDING"
+                    className="mt-4 flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 hover:bg-amber-100 transition-colors"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
+                    {data.applicationSummary.pending} application{data.applicationSummary.pending !== 1 ? 's' : ''} awaiting review
+                  </Link>
+                )}
+              </section>
+            </div>
+
+            {/* ── Recent Activity ──────────────────────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+              {/* Recent Applications */}
+              <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-gray-800">Recent Applications</h2>
+                  <Link href="/admin/applications" className="text-xs text-indigo-600 hover:underline">View all</Link>
+                </div>
+                {data.recentApplications.length === 0 ? (
+                  <p className="px-5 py-8 text-sm text-gray-400 text-center">No applications yet</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {data.recentApplications.map(app => (
+                      <li key={app.id}>
+                        <Link
+                          href={`/admin/applications/${app.id}`}
+                          className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                            <Building2 className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{app.businessName}</p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {app.ownerFullName} · via {app.agent.fullName}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {badge(app.status)}
+                            <span className="text-xs text-gray-400">{formatDate(app.createdAt)}</span>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+              {/* Recent Agents */}
+              <section className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-gray-800">Recent Agents</h2>
+                  <Link href="/admin/agents" className="text-xs text-indigo-600 hover:underline">View all</Link>
+                </div>
+                {data.recentAgents.length === 0 ? (
+                  <p className="px-5 py-8 text-sm text-gray-400 text-center">No agents yet</p>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {data.recentAgents.map(agent => (
+                      <li key={agent.id}>
+                        <Link
+                          href={`/admin/agents/${agent.id}`}
+                          className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0 font-bold text-xs text-slate-600">
+                            {agent.fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{agent.fullName}</p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {agent.agentCode}{agent.territory ? ` · ${agent.territory}` : ''} · {agent._count.onboardedBusinesses} businesses
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {badge(agent.status)}
+                            <span className="text-xs text-gray-400">{formatDate(agent.createdAt)}</span>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
+            </div>
+          </>
         )}
       </div>
-    </AppLayout>
+    </AdminLayout>
   )
 }
 
-/* ── Sub-components ─────────────────────────────────────────────────────────── */
+/* ── Sub-components ──────────────────────────────────────────────────────────── */
 
-const FEATURE_LABELS: Record<string, string> = {
-  pos: 'POS Terminal',
-  quotations: 'Quotations',
-  purchaseOrders: 'Purchase Orders',
-  expiryTracking: 'Expiry Tracking',
-  branches: 'Branches',
-  creditSales: 'Credit Sales',
-  expenses: 'Expenses',
-  till: 'Till / Cash Register',
-  sms: 'SMS Notifications',
-}
-
-function SummaryCard({
-  label, value, icon, color, isText,
+function KpiCard({
+  icon, label, value, color, href, isText,
 }: {
+  icon: React.ReactNode
   label: string
   value: number | string
-  icon: string
   color: string
+  href: string
   isText?: boolean
 }) {
-  const colorMap: Record<string, string> = {
-    blue:    'text-blue-700',
-    amber:   'text-amber-700',
-    green:   'text-green-700',
-    red:     'text-red-600',
-    purple:  'text-purple-700',
-    emerald: 'text-emerald-700',
+  const colors: Record<string, { bg: string; icon: string; val: string }> = {
+    indigo:  { bg: 'bg-indigo-50',  icon: 'text-indigo-600',  val: 'text-indigo-700' },
+    amber:   { bg: 'bg-amber-50',   icon: 'text-amber-600',   val: 'text-amber-700' },
+    emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', val: 'text-emerald-700' },
+    red:     { bg: 'bg-red-50',     icon: 'text-red-500',     val: 'text-red-600' },
+    purple:  { bg: 'bg-purple-50',  icon: 'text-purple-600',  val: 'text-purple-700' },
+    green:   { bg: 'bg-green-50',   icon: 'text-green-600',   val: 'text-green-700' },
   }
+  const c = colors[color]
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <p className="text-xs font-semibold text-gray-500 uppercase">{label}</p>
-      <p className={`mt-1 font-bold ${colorMap[color]} ${isText ? 'text-base' : 'text-2xl'}`}>
-        <span className="mr-1">{icon}</span>{value}
-      </p>
-    </div>
+    <Link href={href} className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow block">
+      <div className={`w-8 h-8 rounded-lg ${c.bg} flex items-center justify-center ${c.icon} mb-2`}>
+        {icon}
+      </div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className={`font-bold mt-0.5 ${c.val} ${isText ? 'text-base' : 'text-2xl'}`}>{value}</p>
+    </Link>
   )
 }
 
-function StatPill({ icon, value, label }: { icon: string; value: number; label: string }) {
+function MiniStat({
+  label, value, color, alert,
+}: {
+  label: string
+  value: number
+  color: string
+  alert?: boolean
+}) {
   return (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2.5 py-1.5">
-      <span className="text-sm">{icon}</span>
-      <span className="text-xs font-bold text-gray-700">{value}</span>
-      <span className="text-xs text-gray-400">{label}</span>
-    </div>
-  )
-}
-
-function FinCard({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
-      <p className="text-xs text-gray-500 font-semibold">{label}</p>
-      <p className={`text-base font-bold mt-0.5 ${color}`}>{value}</p>
+    <div className={`rounded-lg px-3 py-2 ${alert ? 'bg-amber-50 border border-amber-200' : 'bg-gray-50'}`}>
+      <p className="text-xs text-gray-500 font-medium">{label}</p>
+      <p className={`text-xl font-bold ${color}`}>{value}</p>
     </div>
   )
 }

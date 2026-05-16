@@ -46,12 +46,12 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
 
     // Check permission
     const { authorized, error: permError } = requirePermission(
-      user!.role,
+      { role: user!.role, rolePermissions },
       'manage_manufacturers'
     )
     if (!authorized) return permError!

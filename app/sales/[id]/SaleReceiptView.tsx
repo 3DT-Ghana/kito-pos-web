@@ -5,11 +5,22 @@ import { useRouter } from 'next/navigation'
 import { ThermalReceipt, printReceipt } from '@/components/receipts/ThermalReceipt'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { Printer, Eye, EyeOff, Pencil, RotateCcw } from 'lucide-react'
+import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 
 interface SaleItem {
   id: string
   quantity: number
   price: number
+  lineSubtotalAmount: number
+  lineTaxAmount: number
+  lineTotalAmount: number
+  taxLines: {
+    taxRateId: string | null
+    taxName: string
+    taxRatePercentage: number
+    taxableAmount: number
+    taxAmount: number
+  }[]
   item: {
     id: string
     name: string
@@ -22,10 +33,19 @@ interface SaleItem {
 
 interface Sale {
   id: string
+  subtotalAmount: number
+  taxAmount: number
   totalAmount: number
   paidAmount: number
   paymentMethod: string
   createdAt: Date
+  taxLines: {
+    taxRateId: string | null
+    taxName: string
+    taxRatePercentage: number
+    taxableAmount: number
+    taxAmount: number
+  }[]
   customer: {
     id: string
     name: string
@@ -53,6 +73,7 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
 
   const creditAmount = sale.totalAmount - sale.paidAmount
   const changeAmount = sale.paidAmount > sale.totalAmount ? sale.paidAmount - sale.totalAmount : 0
+  const taxBreakdown = summariseTaxBreakdown(sale.taxLines ?? [])
 
   // Prepare receipt data
   const receiptData = {
@@ -70,10 +91,11 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
       manufacturer: saleItem.item.manufacturer ?? undefined,
       quantity: saleItem.quantity,
       price: saleItem.price,
-      total: saleItem.price * saleItem.quantity,
+      total: saleItem.lineTotalAmount ?? saleItem.price * saleItem.quantity,
     })),
-    subtotal: sale.totalAmount,
+    subtotal: sale.subtotalAmount ?? sale.totalAmount,
     discount: 0,
+    taxLines: taxBreakdown,
     total: sale.totalAmount,
     paidAmount: sale.paidAmount,
     change: changeAmount,
@@ -167,6 +189,12 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
             </p>
           </div>
           <div>
+            <span className="text-sm font-semibold text-gray-600">Subtotal:</span>
+            <p className="text-xl font-bold text-gray-900">
+              {formatCurrency(sale.subtotalAmount ?? sale.totalAmount)}
+            </p>
+          </div>
+          <div>
             <span className="text-sm font-semibold text-gray-600">Total Amount:</span>
             <p className="text-xl font-bold text-gray-900">
               {formatCurrency(sale.totalAmount)}
@@ -195,6 +223,26 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
             </div>
           )}
         </div>
+        {taxBreakdown.length > 0 && (
+          <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <p className="text-sm font-bold text-emerald-900 mb-3">Tax Breakdown</p>
+            <div className="space-y-2">
+              {taxBreakdown.map((taxLine) => (
+                <div
+                  key={`${taxLine.taxRateId ?? taxLine.taxName}-${taxLine.taxRatePercentage}`}
+                  className="flex items-center justify-between gap-3 text-sm"
+                >
+                  <span className="text-emerald-900">
+                    {formatTaxLabel(taxLine)}
+                  </span>
+                  <span className="font-bold text-emerald-950">
+                    {formatCurrency(taxLine.taxAmount)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Items Table */}
@@ -216,7 +264,13 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
                   Price
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
-                  Total
+                  Subtotal
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Tax
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-bold text-gray-700 uppercase tracking-wider">
+                  Line Total
                 </th>
               </tr>
             </thead>
@@ -240,7 +294,13 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
                     {formatCurrency(saleItem.price)}
                   </td>
                   <td className="px-6 py-4 text-right text-gray-900 font-bold">
-                    {formatCurrency(saleItem.price * saleItem.quantity)}
+                    {formatCurrency(saleItem.lineSubtotalAmount ?? saleItem.price * saleItem.quantity)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-emerald-700 font-semibold">
+                    {formatCurrency(saleItem.lineTaxAmount ?? 0)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-900 font-bold">
+                    {formatCurrency(saleItem.lineTotalAmount ?? saleItem.price * saleItem.quantity)}
                   </td>
                 </tr>
               ))}
@@ -307,7 +367,7 @@ function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalPr
 
   // Auto-fill amount when item or qty changes
   const autoAmount = selectedSaleItem
-    ? (selectedSaleItem.price * quantity).toFixed(2)
+    ? ((selectedSaleItem.lineTotalAmount / selectedSaleItem.quantity) * quantity).toFixed(2)
     : ''
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -372,7 +432,7 @@ function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalPr
             >
               {sale.items.map(si => (
                 <option key={si.item.id} value={si.item.id}>
-                  {si.item.name} (sold: {si.quantity} × {formatCurrency(si.price)})
+                  {si.item.name} (sold: {si.quantity} × {formatCurrency(si.price)} | total {formatCurrency(si.lineTotalAmount)})
                 </option>
               ))}
             </select>

@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import {
+  applyBranchScope,
+  isBranchFilterActive,
+  requireBranchAccess,
+} from '@/lib/branch/server'
+import { getScopedSupplierMetrics } from '@/lib/branch/scopedMetrics'
 
 /**
  * Supplier Detail API Routes
@@ -21,8 +26,8 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { id } = await params
 
@@ -31,7 +36,7 @@ export async function GET(req: Request, { params }: RouteParams) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const purchasesWhere: any = {}
+    const purchasesWhere: any = { supplierId: id, tenantId: context!.tenantId }
     if (startDate || endDate) {
       purchasesWhere.createdAt = {}
       if (startDate) purchasesWhere.createdAt.gte = new Date(startDate)
@@ -43,7 +48,10 @@ export async function GET(req: Request, { params }: RouteParams) {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const paymentsWhere: any = { supplierId: id, tenantId }
+    const paymentsWhere: any = applyBranchScope(
+      { supplierId: id, tenantId: context!.tenantId },
+      context!
+    )
     if (startDate || endDate) {
       paymentsWhere.createdAt = {}
       if (startDate) paymentsWhere.createdAt.gte = new Date(startDate)
@@ -54,46 +62,59 @@ export async function GET(req: Request, { params }: RouteParams) {
       }
     }
 
-    const [supplier, payments] = await Promise.all([
+    const [supplier, purchases, payments, metrics] = await Promise.all([
       prisma.supplier.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId: context!.tenantId },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          balance: true,
+        },
+      }),
+      prisma.purchase.findMany({
+        where: applyBranchScope(purchasesWhere, context!),
+        orderBy: { createdAt: 'desc' },
         include: {
-          purchases: {
-            where: purchasesWhere,
-            orderBy: { createdAt: 'desc' },
+          items: {
             include: {
-              items: {
-                include: {
-                  item: { select: { name: true, manufacturer: { select: { name: true } } } },
-                },
-              },
+              item: { select: { name: true, manufacturer: { select: { name: true } } } },
             },
           },
-          _count: { select: { purchases: true } },
         },
       }),
       prisma.supplierPayment.findMany({
         where: paymentsWhere,
         orderBy: { createdAt: 'desc' },
       }),
+      getScopedSupplierMetrics(context!, [id]),
     ])
 
     if (!supplier) {
       return NextResponse.json({ error: 'Supplier not found' }, { status: 404 })
     }
 
-    const totalPurchases = supplier.purchases.reduce((sum, p) => sum + p.totalAmount, 0)
-    const totalPaid = supplier.purchases.reduce((sum, p) => sum + p.paidAmount, 0)
+    const metric = metrics.get(id)
+    const scopedBalance = isBranchFilterActive(context!)
+      ? (metric?.balance ?? 0)
+      : supplier.balance
+    const totalPurchases = purchases.reduce((sum, p) => sum + p.totalAmount, 0)
+    const totalPaid = purchases.reduce((sum, p) => sum + p.paidAmount, 0)
     const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
 
     return NextResponse.json({
       ...supplier,
+      balance: scopedBalance,
+      purchases,
       payments,
+      _count: {
+        purchases: metric?.transactionCount ?? purchases.length,
+      },
       summary: {
         totalPurchases,
         totalPaid,
         totalPayments,
-        currentBalance: supplier.balance,
+        currentBalance: scopedBalance,
       },
     })
   } catch (err) {
@@ -113,14 +134,11 @@ export async function GET(req: Request, { params }: RouteParams) {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'update_suppliers'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'update_suppliers')
     if (!authorized) return permError!
 
     const { id } = await params
@@ -128,7 +146,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Check supplier exists and belongs to tenant
     const existing = await prisma.supplier.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: { id, tenantId: context!.tenantId },
     })
 
     if (!existing) {
@@ -158,7 +176,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     if (body.name || body.phone) {
       const duplicate = await prisma.supplier.findFirst({
         where: {
-          tenantId,
+          tenantId: context!.tenantId,
           OR: [
             ...(body.name
               ? [
@@ -222,21 +240,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'delete_suppliers'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'delete_suppliers')
     if (!authorized) return permError!
 
     const { id } = await params
 
     // Check supplier exists and belongs to tenant
     const supplier = await prisma.supplier.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: { id, tenantId: context!.tenantId },
       include: {
         _count: {
           select: { purchases: true },

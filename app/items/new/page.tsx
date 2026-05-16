@@ -24,6 +24,7 @@ export default function NewItemPage() {
   const [enablePromoPrice, setEnablePromoPrice] = useState(false)
   const [enableExpiryTracking, setEnableExpiryTracking] = useState(false)
   const [enablePosTerminal, setEnablePosTerminal] = useState(false)
+  const [enableAccounting, setEnableAccounting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function NewItemPage() {
       if (tenantData?.enablePromoPrice) setEnablePromoPrice(true)
       if (tenantData?.enableExpiryTracking) setEnableExpiryTracking(true)
       if (tenantData?.enablePosTerminal) setEnablePosTerminal(true)
+      if (tenantData?.enableAccounting) setEnableAccounting(true)
     }).catch(() => {
       alert('Failed to load data')
     }).finally(() => setIsLoading(false))
@@ -87,7 +89,7 @@ export default function NewItemPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">New Item</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Add a new item to inventory
+            Add a new inventory, non-inventory, or service item
           </p>
         </div>
 
@@ -104,6 +106,7 @@ export default function NewItemPage() {
             enablePromoPrice={enablePromoPrice}
             enableExpiryTracking={enableExpiryTracking}
             enablePosTerminal={enablePosTerminal}
+            enableAccounting={enableAccounting}
           />
         </div>
       </div>

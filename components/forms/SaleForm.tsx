@@ -5,14 +5,17 @@ import { useItems } from "@/hooks/useItems";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useUser } from "@/hooks/useUser";
 import { formatCurrency } from "@/lib/utils/format";
+import { isInventoryItemType, itemTypeLabel, normalizeItemType } from "@/lib/items/type";
 
 interface CartItem {
   itemId: string;
   name: string;
   manufacturer: string;
+  itemType: "INVENTORY" | "NON_INVENTORY" | "SERVICE";
   quantity: number;
   price: number;
   discountAmount: number;
+  lineDiscountType: "amount" | "percent";
   maxStock: number;
   unitName?: string;
   piecesPerUnit?: number;
@@ -35,6 +38,8 @@ interface SaleFormProps {
   onSubmit: (data: SaleFormData) => Promise<void>;
   onCancel?: () => void;
 }
+
+const UNLIMITED_SALE_QTY = 999999;
 
 // Reusable stepper button group
 function Stepper({
@@ -259,12 +264,15 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
     setCart((prev) => {
       const existing = prev.find((c) => c.itemId === item.id);
       if (existing) {
+        const maxQty = isInventoryItemType(existing.itemType)
+          ? existing.maxStock
+          : UNLIMITED_SALE_QTY;
         if (useUnitSystem && (item.piecesPerUnit ?? 1) > 1) {
           const newCartons = (existing.cartonsInput ?? 0) + 1;
           const ppu = item.piecesPerUnit ?? 1;
           const newQty = Math.min(
             newCartons + (existing.piecesInput ?? 0) / ppu,
-            existing.maxStock,
+            maxQty,
           );
           return prev.map((c) =>
             c.itemId === item.id
@@ -274,20 +282,25 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         }
         return prev.map((c) =>
           c.itemId === item.id
-            ? { ...c, quantity: Math.min(c.quantity + 1, c.maxStock) }
+            ? { ...c, quantity: Math.min(c.quantity + 1, maxQty) }
             : c,
         );
       }
+      const stockTracked = isInventoryItemType(item.itemType);
       return [
         ...prev,
         {
           itemId: item.id,
           name: item.name,
           manufacturer: item.manufacturer?.name || "Unknown",
+          itemType: normalizeItemType(item.itemType),
           quantity: 1,
           price: item.sellingPrice,
           discountAmount: 0,
-          maxStock: allowSaleOnZeroStock ? 99999 : item.quantity,
+          lineDiscountType: "percent" as const,
+          maxStock: stockTracked
+            ? (allowSaleOnZeroStock ? UNLIMITED_SALE_QTY : item.quantity)
+            : UNLIMITED_SALE_QTY,
           unitName: item.unitName,
           piecesPerUnit: item.piecesPerUnit,
           cartonsInput: 1,
@@ -309,9 +322,13 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       return;
     }
     setCart((prev) =>
-      prev.map((c) =>
-        c.itemId === itemId ? { ...c, quantity: Math.min(qty, c.maxStock) } : c,
-      ),
+      prev.map((c) => {
+        if (c.itemId !== itemId) return c;
+        const maxQty = isInventoryItemType(c.itemType)
+          ? c.maxStock
+          : UNLIMITED_SALE_QTY;
+        return { ...c, quantity: Math.min(qty, maxQty) };
+      }),
     );
   };
 
@@ -321,7 +338,10 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         if (c.itemId !== itemId) return c;
         const ppu = c.piecesPerUnit ?? 1;
         const pieces = c.piecesInput ?? 0;
-        const qty = Math.min(Math.max(0, cartons) + pieces / ppu, c.maxStock);
+        const maxQty = isInventoryItemType(c.itemType)
+          ? c.maxStock
+          : UNLIMITED_SALE_QTY;
+        const qty = Math.min(Math.max(0, cartons) + pieces / ppu, maxQty);
         return { ...c, cartonsInput: Math.max(0, cartons), quantity: qty };
       }),
     );
@@ -334,7 +354,10 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         const ppu = c.piecesPerUnit ?? 1;
         const cartons = c.cartonsInput ?? 0;
         const clampedPieces = Math.min(Math.max(0, pieces), ppu - 1);
-        const qty = Math.min(cartons + clampedPieces / ppu, c.maxStock);
+        const maxQty = isInventoryItemType(c.itemType)
+          ? c.maxStock
+          : UNLIMITED_SALE_QTY;
+        const qty = Math.min(cartons + clampedPieces / ppu, maxQty);
         return { ...c, piecesInput: clampedPieces, quantity: qty };
       }),
     );
@@ -350,8 +373,18 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
 
   const updateDiscount = (itemId: string, discount: number) => {
     setCart((prev) =>
+      prev.map((c) => {
+        if (c.itemId !== itemId) return c;
+        const max = c.lineDiscountType === "percent" ? 100 : c.price * c.quantity;
+        return { ...c, discountAmount: Math.max(0, Math.min(discount, max)) };
+      }),
+    );
+  };
+
+  const updateLineDiscountType = (itemId: string, type: "amount" | "percent") => {
+    setCart((prev) =>
       prev.map((c) =>
-        c.itemId === itemId ? { ...c, discountAmount: Math.max(0, discount) } : c,
+        c.itemId === itemId ? { ...c, lineDiscountType: type, discountAmount: 0 } : c,
       ),
     );
   };
@@ -382,7 +415,12 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   const hasPriceTiers =
     enableRetailPrice || enableWholesalePrice || enablePromoPrice;
 
-  const subtotal = cart.reduce((sum, c) => sum + Math.max(0, c.price * c.quantity - (c.discountAmount || 0)), 0);
+  const resolveLineDiscount = (c: CartItem): number => {
+    const gross = c.price * c.quantity;
+    if (c.lineDiscountType === "percent") return Math.min(100, c.discountAmount || 0) / 100 * gross;
+    return Math.min(c.discountAmount || 0, gross);
+  };
+  const subtotal = cart.reduce((sum, c) => sum + Math.max(0, c.price * c.quantity - resolveLineDiscount(c)), 0);
   const discountNum = parseFloat(discountValue) || 0;
   const discountAmount = enableDiscounts
     ? discountType === "percent"
@@ -412,7 +450,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         itemId: c.itemId,
         quantity: c.quantity,
         price: c.price,
-        discountAmount: c.discountAmount || 0,
+        discountAmount: resolveLineDiscount(c),
       })),
     };
     if (paymentType === "CASH") {
@@ -640,8 +678,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
             {filteredItems.map((item) => {
               const inCart = cart.find((c) => c.itemId === item.id);
-              const outOfStock = item.quantity === 0;
-              const canAdd = !outOfStock || allowSaleOnZeroStock;
+              const stockTracked = isInventoryItemType(item.itemType);
+              const outOfStock = stockTracked && item.quantity === 0;
+              const canAdd = !stockTracked || !outOfStock || allowSaleOnZeroStock;
               return (
                 <button
                   key={item.id}
@@ -658,18 +697,35 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     <p className="font-semibold text-gray-900 text-sm truncate">
                       {item.name}
                     </p>
-                    <p className="text-xs text-blue-600 font-medium">
-                      {item.manufacturer?.name || "Unknown"}
-                    </p>
+                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                      <p className="text-xs text-blue-600 font-medium">
+                        {item.manufacturer?.name || "Unknown"}
+                      </p>
+                      {!stockTracked && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                          {itemTypeLabel(item.itemType)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-gray-800 text-sm">
                       {formatCurrency(item.sellingPrice)}
                     </p>
                     <p
-                      className={`text-xs ${outOfStock ? "text-red-500" : item.quantity <= 10 ? "text-amber-600" : "text-gray-500"}`}
+                      className={`text-xs ${
+                        !stockTracked
+                          ? "text-slate-500"
+                          : outOfStock
+                            ? "text-red-500"
+                            : item.quantity <= 10
+                              ? "text-amber-600"
+                              : "text-gray-500"
+                      }`}
                     >
-                      {outOfStock
+                      {!stockTracked
+                        ? "No stock tracking"
+                        : outOfStock
                         ? allowSaleOnZeroStock ? "⚠ Out of stock" : "Out of stock"
                         : useUnitSystem && item.unitName
                           ? `${item.quantity} ${item.unitName}`
@@ -734,6 +790,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {cart.map((item) => {
+                const stockTracked = isInventoryItemType(item.itemType);
                 const isCartonMode =
                   useUnitSystem && (item.piecesPerUnit ?? 1) > 1;
                 const isWeightMode =
@@ -752,21 +809,19 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                       </p>
                       {isCartonMode && (
                         <p className="text-xs text-gray-400 mt-0.5">
-                          ={" "}
-                          {Math.round(
-                            item.quantity * (item.piecesPerUnit ?? 1),
-                          )}{" "}
-                          pcs · stock {item.maxStock} {item.unitName ?? "ctn"}
+                          {stockTracked
+                            ? `= ${Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock ${item.maxStock} ${item.unitName ?? "ctn"}`
+                            : "No stock tracking"}
                         </p>
                       )}
                       {isWeightMode && (
                         <p className="text-xs text-gray-400 mt-0.5">
-                          max {item.maxStock} {item.unitName}
+                          {stockTracked ? `max ${item.maxStock} ${item.unitName}` : "No stock tracking"}
                         </p>
                       )}
                       {!isCartonMode && !isWeightMode && (
                         <p className="text-xs text-gray-400 mt-0.5">
-                          max {item.maxStock}
+                          {stockTracked ? `max ${item.maxStock}` : "No stock tracking"}
                         </p>
                       )}
                     </td>
@@ -824,7 +879,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             <Stepper
                               value={item.quantity}
                               min={0}
-                              max={item.maxStock}
+                              max={stockTracked ? item.maxStock : undefined}
                               step={0.5}
                               onDecrement={() =>
                                 updateQty(
@@ -840,18 +895,22 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                               onIncrement={() =>
                                 updateQty(
                                   item.itemId,
-                                  Math.min(
-                                    parseFloat(
-                                      (item.quantity + 0.5).toFixed(3),
-                                    ),
-                                    item.maxStock,
-                                  ),
+                                  stockTracked
+                                    ? Math.min(
+                                        parseFloat(
+                                          (item.quantity + 0.5).toFixed(3),
+                                        ),
+                                        item.maxStock,
+                                      )
+                                    : parseFloat(
+                                        (item.quantity + 0.5).toFixed(3),
+                                      ),
                                 )
                               }
                               onChange={(v) =>
                                 updateQty(
                                   item.itemId,
-                                  Math.min(v, item.maxStock),
+                                  stockTracked ? Math.min(v, item.maxStock) : v,
                                 )
                               }
                               color="green"
@@ -864,7 +923,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           <Stepper
                             value={item.quantity}
                             min={1}
-                            max={item.maxStock}
+                            max={stockTracked ? item.maxStock : undefined}
                             onDecrement={() =>
                               updateQty(item.itemId, item.quantity - 1)
                             }
@@ -904,7 +963,18 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     {enableDiscounts && (
                       <td className="px-2 py-3 align-middle">
                         <div className="flex flex-col items-end gap-1">
-                          <span className="text-[10px] text-gray-400 uppercase font-semibold">Disc.</span>
+                          <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => updateLineDiscountType(item.itemId, "percent")}
+                              className={`px-2 py-0.5 text-xs font-bold transition-colors ${item.lineDiscountType === "percent" ? "bg-red-500 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                            >%</button>
+                            <button
+                              type="button"
+                              onClick={() => updateLineDiscountType(item.itemId, "amount")}
+                              className={`px-2 py-0.5 text-xs font-bold transition-colors ${item.lineDiscountType === "amount" ? "bg-red-500 text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}
+                            >₵</button>
+                          </div>
                           <input
                             type="number"
                             value={item.discountAmount || ''}
@@ -914,7 +984,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             placeholder="0"
                             step="0.01"
                             min="0"
-                            max={item.price * item.quantity}
+                            max={item.lineDiscountType === "percent" ? 100 : item.price * item.quantity}
                             className="w-20 px-2.5 py-1.5 border-2 border-red-100 rounded-lg text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600"
                           />
                         </div>
@@ -923,9 +993,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     {/* Subtotal */}
                     <td className="pl-2 pr-4 py-3 align-middle text-right">
                       <p className="text-sm font-bold text-gray-900 whitespace-nowrap">
-                        {formatCurrency(Math.max(0, item.price * item.quantity - (item.discountAmount || 0)))}
+                        {formatCurrency(Math.max(0, item.price * item.quantity - resolveLineDiscount(item)))}
                       </p>
-                      {(item.discountAmount || 0) > 0 && (
+                      {resolveLineDiscount(item) > 0 && (
                         <p className="text-xs text-red-500 line-through whitespace-nowrap">
                           {formatCurrency(item.price * item.quantity)}
                         </p>
@@ -950,6 +1020,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-gray-100">
             {cart.map((item) => {
+              const stockTracked = isInventoryItemType(item.itemType)
               const isCartonMode =
                 useUnitSystem && (item.piecesPerUnit ?? 1) > 1;
               const isWeightMode =
@@ -970,9 +1041,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-sm font-bold text-gray-900 block">
-                        {formatCurrency(Math.max(0, item.price * item.quantity - (item.discountAmount || 0)))}
+                        {formatCurrency(Math.max(0, item.price * item.quantity - resolveLineDiscount(item)))}
                       </span>
-                      {(item.discountAmount || 0) > 0 && (
+                      {resolveLineDiscount(item) > 0 && (
                         <span className="text-xs text-red-400 line-through block">
                           {formatCurrency(item.price * item.quantity)}
                         </span>
@@ -1048,11 +1119,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs text-gray-400">
-                          ={" "}
-                          {Math.round(
-                            item.quantity * (item.piecesPerUnit ?? 1),
-                          )}{" "}
-                          pcs · stock {item.maxStock}
+                          {stockTracked
+                            ? `= ${Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock ${item.maxStock}`
+                            : "No stock tracking"}
                         </p>
                         <div className="flex items-center gap-1">
                           <input
@@ -1092,7 +1161,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           <Stepper
                             value={item.quantity}
                             min={0}
-                            max={item.maxStock}
+                            max={stockTracked ? item.maxStock : undefined}
                             step={0.5}
                             onDecrement={() =>
                               updateQty(
@@ -1106,14 +1175,16 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             onIncrement={() =>
                               updateQty(
                                 item.itemId,
-                                Math.min(
-                                  parseFloat((item.quantity + 0.5).toFixed(3)),
-                                  item.maxStock,
-                                ),
+                                stockTracked
+                                  ? Math.min(
+                                      parseFloat((item.quantity + 0.5).toFixed(3)),
+                                      item.maxStock,
+                                    )
+                                  : parseFloat((item.quantity + 0.5).toFixed(3)),
                               )
                             }
                             onChange={(v) =>
-                              updateQty(item.itemId, Math.min(v, item.maxStock))
+                              updateQty(item.itemId, stockTracked ? Math.min(v, item.maxStock) : v)
                             }
                             color="green"
                           />
@@ -1138,7 +1209,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                         </div>
                       </div>
                       <p className="text-xs text-gray-400">
-                        max {item.maxStock} {item.unitName}
+                        {stockTracked ? `max ${item.maxStock} ${item.unitName}` : "No stock tracking"}
                       </p>
                     </>
                   ) : (
@@ -1155,7 +1226,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                         <Stepper
                           value={item.quantity}
                           min={1}
-                          max={item.maxStock}
+                          max={stockTracked ? item.maxStock : undefined}
                           onDecrement={() =>
                             updateQty(item.itemId, item.quantity - 1)
                           }
@@ -1164,9 +1235,11 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           }
                           onChange={(v) => updateQty(item.itemId, v)}
                         />
-                        <span className="text-xs text-gray-400 shrink-0">
-                          /{item.maxStock}
-                        </span>
+                        {stockTracked && (
+                          <span className="text-xs text-gray-400 shrink-0">
+                            /{item.maxStock}
+                          </span>
+                        )}
                         <input
                           type="number"
                           value={item.price}
@@ -1187,7 +1260,19 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                   {/* Per-line discount (mobile) */}
                   {enableDiscounts && (
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-red-500 font-semibold flex-1">Discount (GH₵)</span>
+                      <span className="text-xs text-red-500 font-semibold">Disc.</span>
+                      <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => updateLineDiscountType(item.itemId, "percent")}
+                          className={`px-2 py-1 text-xs font-bold transition-colors ${item.lineDiscountType === "percent" ? "bg-red-500 text-white" : "bg-white text-gray-500"}`}
+                        >%</button>
+                        <button
+                          type="button"
+                          onClick={() => updateLineDiscountType(item.itemId, "amount")}
+                          className={`px-2 py-1 text-xs font-bold transition-colors ${item.lineDiscountType === "amount" ? "bg-red-500 text-white" : "bg-white text-gray-500"}`}
+                        >₵</button>
+                      </div>
                       <input
                         type="number"
                         value={item.discountAmount || ''}
@@ -1195,8 +1280,8 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                         placeholder="0"
                         step="0.01"
                         min="0"
-                        max={item.price * item.quantity}
-                        className="w-24 px-2 py-1 border-2 border-red-100 rounded-lg text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        max={item.lineDiscountType === "percent" ? 100 : item.price * item.quantity}
+                        className="flex-1 px-2 py-1 border-2 border-red-100 rounded-lg text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
                   )}
@@ -1211,9 +1296,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
               {cart.length} item{cart.length !== 1 ? "s" : ""}
             </span>
             <div className="text-right">
-              {enableDiscounts && cart.some(c => (c.discountAmount || 0) > 0) && (
+              {enableDiscounts && cart.some(c => resolveLineDiscount(c) > 0) && (
                 <p className="text-xs text-red-500 font-medium">
-                  Line discounts: −{formatCurrency(cart.reduce((s, c) => s + (c.discountAmount || 0), 0))}
+                  Line discounts: −{formatCurrency(cart.reduce((s, c) => s + resolveLineDiscount(c), 0))}
                 </p>
               )}
               <span className="text-base font-bold text-gray-800">

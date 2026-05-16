@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 
 type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
 
@@ -12,11 +13,36 @@ interface Quotation {
   customerId: string | null
   customer: { id: string; name: string; phone: string | null } | null
   status: QuotationStatus
+  subtotalAmount: number
+  taxAmount: number
   totalAmount: number
   note: string | null
   validUntil: string | null
   createdAt: string
-  items: { id: string; itemId: string; itemName: string; quantity: number; price: number }[]
+  taxLines: {
+    taxRateId: string | null
+    taxName: string
+    taxRatePercentage: number
+    taxableAmount: number
+    taxAmount: number
+  }[]
+  items: {
+    id: string
+    itemId: string
+    itemName: string
+    quantity: number
+    price: number
+    lineSubtotalAmount: number
+    lineTaxAmount: number
+    lineTotalAmount: number
+    taxLines: {
+      taxRateId: string | null
+      taxName: string
+      taxRatePercentage: number
+      taxableAmount: number
+      taxAmount: number
+    }[]
+  }[]
 }
 
 const STATUS_COLORS: Record<QuotationStatus, string> = {
@@ -39,9 +65,7 @@ export default function QuotationDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [convertError, setConvertError] = useState('')
 
-  useEffect(() => { fetchQuotation() }, [id])
-
-  const fetchQuotation = async () => {
+  const fetchQuotation = useCallback(async () => {
     try {
       setIsLoading(true)
       const res = await fetch(`/api/quotations/${id}`)
@@ -53,7 +77,9 @@ export default function QuotationDetailPage() {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [id])
+
+  useEffect(() => { fetchQuotation() }, [fetchQuotation])
 
   const updateStatus = async (status: QuotationStatus) => {
     if (!quotation) return
@@ -114,6 +140,7 @@ export default function QuotationDetailPage() {
 
   const canConvert = quotation.status !== 'REJECTED' && quotation.status !== 'EXPIRED'
   const isExpiredNow = quotation.validUntil && new Date(quotation.validUntil) < new Date() && quotation.status === 'SENT'
+  const taxBreakdown = summariseTaxBreakdown(quotation.taxLines ?? [])
 
   return (
     <AppLayout>
@@ -232,6 +259,8 @@ export default function QuotationDetailPage() {
                 <th className="text-right py-2 text-xs font-bold text-gray-500 uppercase">Qty</th>
                 <th className="text-right py-2 text-xs font-bold text-gray-500 uppercase">Unit Price</th>
                 <th className="text-right py-2 text-xs font-bold text-gray-500 uppercase">Subtotal</th>
+                <th className="text-right py-2 text-xs font-bold text-gray-500 uppercase">Tax</th>
+                <th className="text-right py-2 text-xs font-bold text-gray-500 uppercase">Line Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -241,15 +270,33 @@ export default function QuotationDetailPage() {
                   <td className="py-3 font-semibold text-gray-900">{item.itemName}</td>
                   <td className="py-3 text-right text-gray-700">{item.quantity}</td>
                   <td className="py-3 text-right text-gray-700">{formatCurrency(item.price)}</td>
-                  <td className="py-3 text-right font-bold text-gray-900">{formatCurrency(item.price * item.quantity)}</td>
+                  <td className="py-3 text-right text-gray-700">{formatCurrency(item.lineSubtotalAmount ?? item.price * item.quantity)}</td>
+                  <td className="py-3 text-right text-emerald-700 font-semibold">{formatCurrency(item.lineTaxAmount ?? 0)}</td>
+                  <td className="py-3 text-right font-bold text-gray-900">{formatCurrency(item.lineTotalAmount ?? item.price * item.quantity)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t-2 border-gray-300">
-                <td colSpan={3} />
+                <td colSpan={4} />
+                <td className="py-3 text-right font-bold text-gray-700">Subtotal</td>
+                <td colSpan={2} className="py-3 text-right font-bold text-gray-900">{formatCurrency(quotation.subtotalAmount ?? quotation.totalAmount)}</td>
+              </tr>
+              {taxBreakdown.map((taxLine) => (
+                <tr key={`${taxLine.taxRateId ?? taxLine.taxName}-${taxLine.taxRatePercentage}`}>
+                  <td colSpan={4} />
+                  <td className="py-2 text-right font-semibold text-emerald-700">
+                    {formatTaxLabel(taxLine)}
+                  </td>
+                  <td colSpan={2} className="py-2 text-right font-semibold text-emerald-900">
+                    {formatCurrency(taxLine.taxAmount)}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={4} />
                 <td className="py-4 text-right font-bold text-gray-700 text-base">Total</td>
-                <td className="py-4 text-right font-bold text-gray-900 text-xl">{formatCurrency(quotation.totalAmount)}</td>
+                <td colSpan={2} className="py-4 text-right font-bold text-gray-900 text-xl">{formatCurrency(quotation.totalAmount)}</td>
               </tr>
             </tfoot>
           </table>

@@ -19,6 +19,17 @@ export const itemSchema = z.object({
   barcode: z.string().optional(),
   expiryDate: z.string().optional(),
   categoryId: z.string().optional(),
+  // Accounting fields
+  itemType: z.enum(['INVENTORY', 'NON_INVENTORY', 'SERVICE']).optional(),
+  incomeAccountId: z.string().optional(),
+  cogsAccountId: z.string().optional(),
+  expenseAccountId: z.string().optional(),
+  // Tax fields
+  isTaxable: z.boolean().optional(),
+  useTenantDefaultTaxes: z.boolean().optional(),
+  taxRateId: z.string().optional(),
+  taxRateIds: z.array(z.string()).optional(),
+  taxCalculationType: z.enum(['ADD_TO_PRICE', 'INCLUSIVE']).optional(),
 }).refine(data => data.sellingPrice >= data.costPrice, {
   message: 'Selling price should not be less than cost price',
   path: ['sellingPrice'],

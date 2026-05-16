@@ -6,6 +6,7 @@ import { DataTable, Column } from '@/components/tables/DataTable'
 import { PurchaseWithDetails } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 /**
  * Purchase Reports Page
@@ -14,6 +15,7 @@ import { ExportButton } from '@/components/ExportButton'
  */
 
 export default function PurchaseReportsPage() {
+  const { currentBranchId } = useBranch()
   const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [startDate, setStartDate] = useState('')
@@ -21,7 +23,7 @@ export default function PurchaseReportsPage() {
 
   useEffect(() => {
     fetchPurchasesReport()
-  }, [startDate, endDate])
+  }, [startDate, endDate, currentBranchId])
 
   const fetchPurchasesReport = async () => {
     try {

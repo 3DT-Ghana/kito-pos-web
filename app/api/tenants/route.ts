@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
-import { Role, TenantStatus } from '@prisma/client'
+import { TenantStatus } from '@prisma/client'
 import { sendMail } from '@/lib/email/mailer'
 import {
   onboardingNotificationHtml,
   onboardingNotificationText,
 } from '@/lib/email/templates/onboardingNotification'
+import {
+  createTenantWithOwner,
+  normalizeEmail,
+  OwnerEmailConflictError,
+} from '@/lib/tenant/onboarding'
 
 const ADMIN_NOTIFICATION_EMAIL = 'ee.wilson@outlook.com'
 
@@ -24,6 +29,9 @@ const ADMIN_NOTIFICATION_EMAIL = 'ee.wilson@outlook.com'
 export async function POST(req: Request) {
   try {
     const body = await req.json()
+    const normalizedEmail = normalizeEmail(String(body.email))
+    const businessName = String(body.businessName).trim()
+    const phone = body.phone ? String(body.phone).trim() : null
 
     // Validate required fields
     const validationError = validateSignupData(body)
@@ -33,7 +41,7 @@ export async function POST(req: Request) {
 
     // Check if email already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: body.email },
+      where: { email: normalizedEmail },
     })
 
     if (existingUser) {
@@ -48,31 +56,19 @@ export async function POST(req: Request) {
 
     // Create tenant and owner user atomically
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create tenant
-      const tenant = await tx.tenant.create({
-        data: {
-          name: body.businessName.trim(),
-          phone: body.phone ? body.phone.trim() : null,
-          status: TenantStatus.TRIAL, // Start with trial
-        },
+      return createTenantWithOwner(tx, {
+        businessName,
+        phone,
+        status: TenantStatus.TRIAL,
+        ownerName: body.name,
+        ownerEmail: normalizedEmail,
+        passwordHash: hashedPassword,
       })
-
-      // 2. Create owner user
-      const user = await tx.user.create({
-        data: {
-          tenantId: tenant.id,
-          name: body.name.trim(),
-          email: body.email.toLowerCase().trim(),
-          password: hashedPassword,
-          role: Role.OWNER,
-        },
-      })
-
-      return { tenant, user }
     })
 
     // Don't return password in response
-    const { password: _, ...userWithoutPassword } = result.user
+    const { password, ...userWithoutPassword } = result.owner
+    void password
 
     // Fire-and-forget admin notification email
     sendMail({
@@ -80,14 +76,14 @@ export async function POST(req: Request) {
       subject: `🏪 New Business Onboarded: ${result.tenant.name}`,
       html: onboardingNotificationHtml({
         businessName: result.tenant.name,
-        ownerName: result.user.name,
-        ownerEmail: result.user.email,
+        ownerName: result.owner.name,
+        ownerEmail: result.owner.email,
         createdAt: result.tenant.createdAt,
       }),
       text: onboardingNotificationText({
         businessName: result.tenant.name,
-        ownerName: result.user.name,
-        ownerEmail: result.user.email,
+        ownerName: result.owner.name,
+        ownerEmail: result.owner.email,
         createdAt: result.tenant.createdAt,
       }),
     })
@@ -101,6 +97,10 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (err) {
+    if (err instanceof OwnerEmailConflictError) {
+      return NextResponse.json({ error: 'Email already registered' }, { status: 409 })
+    }
+
     console.error('Failed to create tenant:', err)
     return NextResponse.json(
       { error: 'Failed to create account' },

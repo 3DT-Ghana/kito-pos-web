@@ -1,23 +1,53 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import { randomUUID } from 'node:crypto'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
+import { buildVisibleQuotationWhere } from '@/lib/quotations/server'
+import {
+  calculateLineTaxes,
+  resolveItemTaxProfile,
+} from '@/lib/tax/engine'
+import {
+  getTenantTaxConfiguration,
+  itemTaxSettingInclude,
+} from '@/lib/tax/server'
 
 /**
  * GET /api/quotations — list all quotations for tenant
  * POST /api/quotations — create quotation
  */
 
+interface QuotationRequestItem {
+  itemId: string
+  quantity: number | string
+  price?: number | string
+  discountAmount?: number | string
+  isTaxable?: boolean
+  taxRateIds?: string[]
+  taxCalculationType?: 'ADD_TO_PRICE' | 'INCLUSIVE'
+}
+
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
+
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enableQuotations'
+    )
+    if (featureError) return featureError
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = buildVisibleQuotationWhere(context!)
+    if (!where) {
+      return NextResponse.json({ quotations: [] })
+    }
     if (status) where.status = status
 
     const quotations = await prisma.quotation.findMany({
@@ -31,7 +61,7 @@ export async function GET(req: Request) {
     // Attach customer names manually (no direct relation on model — just customerId)
     const customerIds = [...new Set(quotations.map(q => q.customerId).filter(Boolean))] as string[]
     const customers = customerIds.length
-      ? await prisma.customer.findMany({ where: { id: { in: customerIds }, tenantId: tenantId! }, select: { id: true, name: true, phone: true } })
+      ? await prisma.customer.findMany({ where: { id: { in: customerIds }, tenantId: context!.tenantId }, select: { id: true, name: true, phone: true } })
       : []
     const customerMap = Object.fromEntries(customers.map(c => [c.id, c]))
 
@@ -49,11 +79,23 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_quotation')
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enableQuotations'
+    )
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'create_quotation')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before creating a quotation.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
 
@@ -62,38 +104,131 @@ export async function POST(req: Request) {
     }
 
     // Resolve item names from DB for snapshot
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itemIds = body.items.map((i: any) => i.itemId)
-    const dbItems = await prisma.item.findMany({ where: { id: { in: itemIds }, tenantId: tenantId! } })
+    const itemIds = body.items.map((item: QuotationRequestItem) => item.itemId)
+    const dbItems = await prisma.item.findMany({
+      where: {
+        id: { in: itemIds },
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled ? { branchId } : {}),
+      },
+      include: itemTaxSettingInclude,
+    })
     const itemMap = Object.fromEntries(dbItems.map(i => [i.id, i]))
 
     if (dbItems.length !== itemIds.length) {
       return NextResponse.json({ error: 'One or more items not found' }, { status: 404 })
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const itemsData = body.items.map((i: any) => ({
-      itemId: i.itemId,
-      itemName: itemMap[i.itemId]?.name ?? '',
-      quantity: parseFloat(i.quantity),
-      price: parseFloat(i.price) || itemMap[i.itemId]?.sellingPrice || 0,
-    }))
+    const { taxSetting, activeRates, defaultRates } = await getTenantTaxConfiguration(
+      prisma,
+      context!.tenantId
+    )
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const totalAmount = itemsData.reduce((s: number, i: any) => s + i.quantity * i.price, 0)
+    let subtotalAmount = 0
+    let taxAmount = 0
+
+    const itemsData = body.items.map((i: QuotationRequestItem) => {
+      const item = itemMap[i.itemId]
+      const quantity = parseFloat(i.quantity)
+      const price = parseFloat(i.price) || item?.sellingPrice || 0
+      const discountAmount = Math.max(
+        0,
+        parseFloat(String(i.discountAmount ?? 0)) || 0
+      )
+
+      const taxProfile = resolveItemTaxProfile({
+        tenantTaxSetting: taxSetting,
+        activeRates,
+        defaultRates,
+        item,
+        override: {
+          isTaxable: i.isTaxable,
+          taxRateIds: Array.isArray(i.taxRateIds) ? i.taxRateIds : undefined,
+          taxCalculationType: i.taxCalculationType,
+        },
+      })
+      const taxComputation = calculateLineTaxes({
+        unitPrice: price,
+        quantity,
+        discountAmount,
+        profile: taxProfile,
+      })
+
+      subtotalAmount += taxComputation.taxableAmount
+      taxAmount += taxComputation.taxAmount
+
+      return {
+        id: randomUUID(),
+        itemId: i.itemId,
+        itemName: item?.name ?? '',
+        quantity,
+        price,
+        discountAmount,
+        isTaxable: taxComputation.isTaxable,
+        taxCalculationType: taxComputation.calculationType,
+        lineSubtotalAmount: taxComputation.taxableAmount,
+        lineTaxAmount: taxComputation.taxAmount,
+        lineTotalAmount: taxComputation.totalAmount,
+        taxLines: taxComputation.taxLines,
+      }
+    })
+
+    subtotalAmount = Number(subtotalAmount.toFixed(2))
+    taxAmount = Number(taxAmount.toFixed(2))
+    const totalAmount = Number((subtotalAmount + taxAmount).toFixed(2))
 
     const quotation = await prisma.quotation.create({
       data: {
-        tenantId: tenantId!,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
         customerId: body.customerId || null,
         status: 'DRAFT',
+        subtotalAmount,
+        taxAmount,
         totalAmount,
         note: body.note || null,
         validUntil: body.validUntil ? new Date(body.validUntil) : null,
-        items: { create: itemsData },
+        items: {
+          create: itemsData.map((item) => ({
+            id: item.id,
+            itemId: item.itemId,
+            itemName: item.itemName,
+            quantity: item.quantity,
+            price: item.price,
+            discountAmount: item.discountAmount,
+            isTaxable: item.isTaxable,
+            taxCalculationType: item.taxCalculationType,
+            lineSubtotalAmount: item.lineSubtotalAmount,
+            lineTaxAmount: item.lineTaxAmount,
+            lineTotalAmount: item.lineTotalAmount,
+          })),
+        },
       },
       include: { items: true },
     })
+
+    const transactionTaxLines = itemsData.flatMap((item) =>
+      item.taxLines.map((taxLine) => ({
+        tenantId: context!.tenantId,
+        transactionType: 'QUOTATION' as const,
+        transactionId: quotation.id,
+        transactionLineId: item.id,
+        quotationId: quotation.id,
+        quotationItemId: item.id,
+        taxRateId: taxLine.taxRateId,
+        taxName: taxLine.taxName,
+        taxRatePercentage: taxLine.taxRatePercentage,
+        taxableAmount: taxLine.taxableAmount,
+        taxAmount: taxLine.taxAmount,
+        calculationType: taxLine.calculationType,
+      }))
+    )
+
+    if (transactionTaxLines.length > 0) {
+      await prisma.transactionTaxLine.createMany({
+        data: transactionTaxLines,
+      })
+    }
 
     return NextResponse.json(quotation, { status: 201 })
   } catch (err) {

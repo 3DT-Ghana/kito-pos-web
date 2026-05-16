@@ -3,6 +3,7 @@ import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { TenantStatus } from '@prisma/client'
+import { seedDefaultAccounts } from '@/lib/accounting/seedAccounts'
 
 /**
  * Tenant Management API
@@ -21,7 +22,7 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
+    const { error, tenantId } = await requireTenant()
     if (error) return error!
 
     const { id } = await params
@@ -144,10 +145,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.enableCreditSales !== undefined && { enableCreditSales: Boolean(body.enableCreditSales) }),
         ...(body.enableExpenses !== undefined && { enableExpenses: Boolean(body.enableExpenses) }),
         ...(body.enableTill !== undefined && { enableTill: Boolean(body.enableTill) }),
+        ...(body.enableBarcodeGenerator !== undefined && { enableBarcodeGenerator: Boolean(body.enableBarcodeGenerator) }),
         // Sales behaviour
         ...(body.allowSaleOnZeroStock !== undefined && { allowSaleOnZeroStock: Boolean(body.allowSaleOnZeroStock) }),
+        ...(body.enableAccounting !== undefined && { enableAccounting: Boolean(body.enableAccounting) }),
+        ...(body.enablePayroll !== undefined && { enablePayroll: Boolean(body.enablePayroll) }),
       },
     })
+
+    // Seed Chart of Accounts when accounting is first enabled
+    if (body.enableAccounting === true) {
+      await seedDefaultAccounts(id)
+    }
 
     return NextResponse.json(tenant)
   } catch (err) {

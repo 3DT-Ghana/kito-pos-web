@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import { ItemType, TaxCalculationType } from '@prisma/client'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { applyBranchScope, requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
+import { normalizeItemType } from '@/lib/items/type'
+import { syncProductTaxSetting, hasProductTaxSettingPayload } from '@/lib/tax/products'
+import { itemTaxSettingInclude } from '@/lib/tax/server'
 
 /**
  * Items API Routes
@@ -17,8 +21,8 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
@@ -30,7 +34,7 @@ export async function GET(req: Request) {
     // Return distinct unit names used by tenant's items
     if (unitNamesOnly) {
       const rows = await prisma.item.findMany({
-        where: { tenantId: tenantId!, unitName: { not: null } },
+        where: applyBranchScope({ tenantId: context!.tenantId, unitName: { not: null } }, context!),
         select: { unitName: true },
         distinct: ['unitName'],
         orderBy: { unitName: 'asc' },
@@ -40,7 +44,7 @@ export async function GET(req: Request) {
 
     // Build where clause
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (search) {
       where.name = {
@@ -58,6 +62,7 @@ export async function GET(req: Request) {
     }
 
     if (lowStock) {
+      where.itemType = ItemType.INVENTORY
       where.quantity = {
         lte: 10, // Low stock threshold
       }
@@ -68,6 +73,7 @@ export async function GET(req: Request) {
       include: {
         manufacturer: { select: { id: true, name: true } },
         category: { select: { id: true, name: true, color: true, icon: true } },
+        ...itemTaxSettingInclude,
       },
       orderBy: { name: 'asc' },
     })
@@ -89,15 +95,18 @@ export async function GET(req: Request) {
  */
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Check permission
-    const { authorized, error: permError } = requirePermission(
-      user!.role,
-      'create_items'
-    )
+    const { authorized, error: permError } = requirePermission(context!, 'create_items')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before creating inventory items.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
 
@@ -111,7 +120,7 @@ export async function POST(req: Request) {
     const manufacturer = await prisma.manufacturer.findFirst({
       where: {
         id: body.manufacturerId,
-        tenantId,
+        tenantId: context!.tenantId,
       },
     })
 
@@ -125,8 +134,9 @@ export async function POST(req: Request) {
     // Check for duplicate: same name + same manufacturer within tenant
     const existing = await prisma.item.findFirst({
       where: {
-        tenantId,
+        tenantId: context!.tenantId,
         manufacturerId: body.manufacturerId,
+        ...(context!.branchesEnabled ? { branchId } : {}),
         name: {
           equals: body.name.trim(),
           mode: 'insensitive' as const,
@@ -142,27 +152,55 @@ export async function POST(req: Request) {
     }
 
     // Create item
-    const item = await prisma.item.create({
-      data: {
-        tenantId,
-        manufacturerId: body.manufacturerId,
-        name: body.name.trim(),
-        quantity: parseFloat(body.quantity) || 0,
-        costPrice: parseFloat(body.costPrice),
-        sellingPrice: parseFloat(body.sellingPrice),
-        ...(body.categoryId ? { categoryId: body.categoryId } : {}),
-        ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
-        ...(body.piecesPerUnit !== undefined && { piecesPerUnit: parseInt(String(body.piecesPerUnit)) || 1 }),
-        ...(body.retailPrice !== undefined && { retailPrice: body.retailPrice !== null ? parseFloat(body.retailPrice) : null }),
-        ...(body.wholesalePrice !== undefined && { wholesalePrice: body.wholesalePrice !== null ? parseFloat(body.wholesalePrice) : null }),
-        ...(body.promoPrice !== undefined && { promoPrice: body.promoPrice !== null ? parseFloat(body.promoPrice) : null }),
-        ...(body.barcode !== undefined && { barcode: body.barcode ? String(body.barcode).trim() : null }),
-        ...(body.expiryDate ? { expiryDate: new Date(body.expiryDate) } : {}),
-      },
-      include: {
-        manufacturer: { select: { id: true, name: true } },
-        category: { select: { id: true, name: true, color: true, icon: true } },
-      },
+    const item = await prisma.$transaction(async (tx) => {
+      const createdItem = await tx.item.create({
+        data: {
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
+          manufacturerId: body.manufacturerId,
+          name: body.name.trim(),
+          quantity: parseFloat(body.quantity) || 0,
+          costPrice: parseFloat(body.costPrice),
+          sellingPrice: parseFloat(body.sellingPrice),
+          ...(body.categoryId ? { categoryId: body.categoryId } : {}),
+          ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
+          ...(body.piecesPerUnit !== undefined && { piecesPerUnit: parseInt(String(body.piecesPerUnit)) || 1 }),
+          ...(body.retailPrice !== undefined && { retailPrice: body.retailPrice !== null ? parseFloat(body.retailPrice) : null }),
+          ...(body.wholesalePrice !== undefined && { wholesalePrice: body.wholesalePrice !== null ? parseFloat(body.wholesalePrice) : null }),
+          ...(body.promoPrice !== undefined && { promoPrice: body.promoPrice !== null ? parseFloat(body.promoPrice) : null }),
+          ...(body.barcode !== undefined && { barcode: body.barcode ? String(body.barcode).trim() : null }),
+          ...(body.expiryDate ? { expiryDate: new Date(body.expiryDate) } : {}),
+          // Accounting fields
+          ...(body.itemType && { itemType: body.itemType }),
+          ...(body.incomeAccountId  ? { incomeAccountId:  body.incomeAccountId  } : {}),
+          ...(body.cogsAccountId    ? { cogsAccountId:    body.cogsAccountId    } : {}),
+          ...(body.expenseAccountId ? { expenseAccountId: body.expenseAccountId } : {}),
+        },
+      })
+
+      if (hasProductTaxSettingPayload(body as Record<string, unknown>)) {
+        await syncProductTaxSetting({
+          tx,
+          tenantId: context!.tenantId,
+          productId: createdItem.id,
+          input: {
+            isTaxable: Boolean(body.isTaxable),
+            taxRateId: body.taxRateId || null,
+            taxRateIds: Array.isArray(body.taxRateIds) ? body.taxRateIds : null,
+            taxCalculationType: body.taxCalculationType ?? null,
+            useTenantDefaultTaxes: body.useTenantDefaultTaxes !== false,
+          },
+        })
+      }
+
+      return tx.item.findUniqueOrThrow({
+        where: { id: createdItem.id },
+        include: {
+          manufacturer: { select: { id: true, name: true } },
+          category: { select: { id: true, name: true, color: true, icon: true } },
+          ...itemTaxSettingInclude,
+        },
+      })
     })
 
     return NextResponse.json(item, { status: 201 })
@@ -192,16 +230,35 @@ function validateItemData(data: any): string | null {
     return 'Quantity must be a non-negative number'
   }
 
-  if (!data.costPrice || isNaN(parseFloat(data.costPrice)) || parseFloat(data.costPrice) < 0) {
-    return 'Cost price must be a positive number'
+  if (data.costPrice === undefined || data.costPrice === null || isNaN(parseFloat(data.costPrice)) || parseFloat(data.costPrice) < 0) {
+    return 'Cost price must be a non-negative number'
   }
 
-  if (!data.sellingPrice || isNaN(parseFloat(data.sellingPrice)) || parseFloat(data.sellingPrice) < 0) {
-    return 'Selling price must be a positive number'
+  if (data.sellingPrice === undefined || data.sellingPrice === null || isNaN(parseFloat(data.sellingPrice)) || parseFloat(data.sellingPrice) < 0) {
+    return 'Selling price must be a non-negative number'
   }
 
   if (parseFloat(data.sellingPrice) < parseFloat(data.costPrice)) {
     return 'Selling price should not be less than cost price'
+  }
+
+  if (data.itemType !== undefined && normalizeItemType(data.itemType) !== data.itemType) {
+    return 'Invalid item type'
+  }
+
+  if (
+    data.taxCalculationType !== undefined &&
+    !Object.values(TaxCalculationType).includes(data.taxCalculationType)
+  ) {
+    return 'Invalid tax calculation type'
+  }
+
+  if (
+    data.taxRateIds !== undefined &&
+    (!Array.isArray(data.taxRateIds) ||
+      data.taxRateIds.some((taxRateId: unknown) => typeof taxRateId !== 'string'))
+  ) {
+    return 'Tax rate selections must be valid IDs'
   }
 
   return null

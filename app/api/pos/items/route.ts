@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
+import { ItemType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
 
 /**
  * GET /api/pos/items
@@ -13,8 +14,8 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET(req: Request) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const q = searchParams.get('q')?.trim() ?? ''
@@ -22,9 +23,13 @@ export async function GET(req: Request) {
     const categoryId = searchParams.get('categoryId')?.trim() ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 200)
 
-    const where = {
-      tenantId: tenantId!,
-      quantity: { gt: 0 },
+    const where = applyBranchScope({
+      tenantId: context!.tenantId,
+      OR: [
+        { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
+        { itemType: ItemType.NON_INVENTORY },
+        { itemType: ItemType.SERVICE },
+      ],
       ...(manufacturerId ? { manufacturerId } : {}),
       ...(categoryId ? { categoryId } : {}),
       ...(q
@@ -35,7 +40,7 @@ export async function GET(req: Request) {
             ],
           }
         : {}),
-    }
+    }, context!)
 
     const items = await prisma.item.findMany({
       where,
@@ -43,6 +48,7 @@ export async function GET(req: Request) {
         id: true,
         name: true,
         barcode: true,
+        itemType: true,
         sellingPrice: true,
         retailPrice: true,
         wholesalePrice: true,
@@ -50,6 +56,7 @@ export async function GET(req: Request) {
         quantity: true,
         unitName: true,
         piecesPerUnit: true,
+        branchId: true,
         manufacturer: { select: { id: true, name: true } },
         category: { select: { id: true, name: true, color: true, icon: true } },
       },
@@ -60,8 +67,19 @@ export async function GET(req: Request) {
     // Return categories that have in-stock items for the POS tab bar
     const categories = await prisma.category.findMany({
       where: {
-        tenantId: tenantId!,
-        items: { some: { quantity: { gt: 0 } } },
+        tenantId: context!.tenantId,
+        items: {
+          some: applyBranchScope(
+            {
+              OR: [
+                { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
+                { itemType: ItemType.NON_INVENTORY },
+                { itemType: ItemType.SERVICE },
+              ],
+            },
+            context!
+          ),
+        },
       },
       select: { id: true, name: true, color: true, icon: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],

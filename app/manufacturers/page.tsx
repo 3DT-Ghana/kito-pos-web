@@ -3,25 +3,27 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { DataTable, Column } from '@/components/tables/DataTable'
-import { Manufacturer } from '@/types'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
+import { Badge } from '@/components/ui/Badge'
+import { Btn } from '@/components/ui/Btn'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { Factory, Search, X, Plus, Package } from 'lucide-react'
 
-/**
- * Manufacturers List Page
- *
- * Displays all manufacturers
- */
+interface Manufacturer {
+  id: string
+  name: string
+  _count?: { items: number }
+}
 
 export default function ManufacturersPage() {
   const router = useRouter()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [manufacturers, setManufacturers] = useState<any[]>([])
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    fetchManufacturers()
-  }, [])
+  useEffect(() => { fetchManufacturers() }, [])
 
   const fetchManufacturers = async () => {
     try {
@@ -37,63 +39,116 @@ export default function ManufacturersPage() {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const columns: Column<any>[] = [
-    {
-      key: 'name',
-      label: 'Manufacturer Name',
-      sortable: true,
-    },
-    {
-      key: '_count',
-      label: 'Total Items',
-      sortable: true,
-      render: (manufacturer) => (
-        <span className="text-gray-600">{manufacturer._count?.items || 0}</span>
-      ),
-      className: 'text-center',
-    },
-  ]
+  const filtered = manufacturers.filter(m =>
+    !search || m.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const totalItems = manufacturers.reduce((s, m) => s + (m._count?.items || 0), 0)
 
   return (
     <AppLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Manufacturers</h1>
-            <p className="text-sm text-gray-500 mt-1">
-              Manage product manufacturers
-            </p>
-          </div>
-          <button
-            onClick={() => router.push('/manufacturers/new')}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 flex items-center space-x-2"
-          >
-            <span>+</span>
-            <span>New Manufacturer</span>
-          </button>
-        </div>
+      <div className="space-y-5">
+        <PageHeader
+          title="Manufacturers"
+          subtitle="Manage product manufacturers"
+          actions={<Btn icon={Plus} href="/manufacturers/new">New Manufacturer</Btn>}
+        />
 
-        {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            {error}
-          </div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
         )}
 
-        {/* Loading State */}
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <div className="text-gray-500">Loading manufacturers...</div>
-          </div>
-        ) : (
-          <DataTable
-            data={manufacturers}
-            columns={columns}
-            searchPlaceholder="Search manufacturers..."
-            emptyMessage="No manufacturers found"
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Total Manufacturers"
+            value={manufacturers.length}
+            icon={Factory}
+            accent="bg-blue-50"
+            iconColor="text-blue-600"
           />
+          <StatCard
+            label="Products Covered"
+            value={totalItems}
+            icon={Package}
+            accent="bg-emerald-50"
+            iconColor="text-emerald-600"
+          />
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search manufacturers..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={Factory}
+            title="No manufacturers found"
+            description={search ? 'Try a different search term' : 'Add your first manufacturer'}
+            action={!search && (
+              <Btn icon={Plus} href="/manufacturers/new" size="sm">Add Manufacturer</Btn>
+            )}
+          />
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50/80 border-b border-gray-100">
+                <tr>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Manufacturer</th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
+                  <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map(m => (
+                  <tr
+                    key={m.id}
+                    onClick={() => router.push(`/manufacturers/${m.id}`)}
+                    className="hover:bg-blue-50/40 cursor-pointer transition-colors"
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+                          <Factory className="w-4 h-4 text-blue-600" strokeWidth={1.75} />
+                        </div>
+                        <span className="font-semibold text-gray-900 text-sm">{m.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <Badge variant={m._count?.items ? 'blue' : 'gray'}>
+                        {m._count?.items || 0} items
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <button className="text-xs text-blue-600 font-semibold hover:underline">
+                        View →
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100 text-xs text-gray-400 font-medium">
+              {filtered.length} of {manufacturers.length} manufacturers
+            </div>
+          </div>
         )}
       </div>
     </AppLayout>

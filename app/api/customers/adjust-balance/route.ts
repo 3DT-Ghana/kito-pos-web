@@ -17,10 +17,13 @@ import { prisma } from '@/lib/db/prisma'
 
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'update_customers')
+    const { authorized, error: permError } = requirePermission(
+      { role: user!.role, rolePermissions },
+      'update_customers'
+    )
     if (!authorized) return permError!
 
     const body = await req.json()

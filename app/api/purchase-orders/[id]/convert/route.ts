@@ -1,8 +1,17 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { PaymentType } from '@prisma/client'
+import {
+  isBranchFilterActive,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
+import { getVisiblePurchaseOrderIds } from '@/lib/purchase-orders/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
+import {
+  createPurchaseFromInput,
+  PurchaseOperationError,
+} from '@/lib/purchases/createPurchase'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -15,21 +24,51 @@ interface RouteParams {
  */
 export async function POST(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_purchase')
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enablePurchaseOrders'
+    )
+    if (featureError) return featureError
+
+    const { authorized, error: permError } = requirePermission(context!, 'create_purchase')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before converting a purchase order into a purchase.'
+    )
+    if (branchError) return branchError
 
     const { id } = await params
     const body = await req.json()
 
+    if (isBranchFilterActive(context!) && !context!.currentBranchId) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    }
+
     const order = await prisma.purchaseOrder.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(isBranchFilterActive(context!) && context!.currentBranchId
+          ? {
+              OR: [{ branchId: context!.currentBranchId }, { branchId: null }],
+            }
+          : {}),
+      },
       include: { items: true },
     })
 
     if (!order) return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+
+    const visibleOrderIds = await getVisiblePurchaseOrderIds(context!, [order])
+    if (!visibleOrderIds.has(order.id)) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    }
+
     if (order.status === 'RECEIVED') {
       return NextResponse.json({ error: 'Purchase order has already been received' }, { status: 409 })
     }
@@ -40,66 +79,28 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'A supplier must be set before receiving' }, { status: 400 })
     }
 
-    const paidAmount = parseFloat(body.paidAmount) || 0
-    const totalAmount = order.totalAmount
-    const creditAmount = totalAmount - paidAmount
-
-    if (paidAmount > totalAmount) {
-      return NextResponse.json({ error: 'Paid amount cannot exceed total amount' }, { status: 400 })
-    }
-
-    const purchase = await prisma.$transaction(async (tx) => {
-      // 1. Create purchase
-      const newPurchase = await tx.purchase.create({
-        data: {
-          tenantId: tenantId!,
-          supplierId: order.supplierId!,
-          totalAmount,
-          paidAmount,
-          paymentType: creditAmount > 0 ? PaymentType.CREDIT : PaymentType.CASH,
-        },
-      })
-
-      // 2. Create purchase items
-      await tx.purchaseItem.createMany({
-        data: order.items.map(i => ({
-          purchaseId: newPurchase.id,
-          itemId: i.itemId,
-          quantity: i.quantity,
-          costPrice: i.costPrice,
+    const purchase = await createPurchaseFromInput({
+      context: context!,
+      branchId,
+      body: {
+        supplierId: order.supplierId,
+        paidAmount: body.paidAmount,
+        paymentMethod: body.paymentMethod,
+        sourcePurchaseOrderId: order.id,
+        items: order.items.map((item) => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          costPrice: item.costPrice,
         })),
-      })
-
-      // 3. Increment item stock + update cost price
-      for (const item of order.items) {
-        await tx.item.update({
-          where: { id: item.itemId },
-          data: {
-            quantity: { increment: item.quantity },
-            costPrice: item.costPrice,
-          },
-        })
-      }
-
-      // 4. If credit, add to supplier balance
-      if (creditAmount > 0) {
-        await tx.supplier.update({
-          where: { id: order.supplierId! },
-          data: { balance: { increment: creditAmount } },
-        })
-      }
-
-      // 5. Mark order as RECEIVED
-      await tx.purchaseOrder.update({
-        where: { id: order.id },
-        data: { status: 'RECEIVED' },
-      })
-
-      return newPurchase
+      },
     })
 
-    return NextResponse.json({ purchaseId: purchase.id })
+    return NextResponse.json(purchase)
   } catch (err) {
+    if (err instanceof PurchaseOperationError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
+
     console.error('Failed to convert purchase order:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed to convert purchase order' }, { status: 500 })
   }

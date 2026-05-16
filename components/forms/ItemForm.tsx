@@ -5,12 +5,27 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { itemSchema, ItemFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
+import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
 
 /**
  * Item Form Component
  *
  * Form for creating and editing items
  */
+
+interface Account {
+  id: string
+  code: string
+  name: string
+  type: string
+}
+
+interface TaxRateOption {
+  id: string
+  name: string
+  ratePercentage: number
+  description: string | null
+}
 
 interface ItemFormProps {
   initialData?: Partial<ItemFormData>
@@ -24,6 +39,7 @@ interface ItemFormProps {
   enablePromoPrice?: boolean
   enableExpiryTracking?: boolean
   enablePosTerminal?: boolean
+  enableAccounting?: boolean
 }
 
 export function ItemForm({
@@ -38,8 +54,15 @@ export function ItemForm({
   enablePromoPrice = false,
   enableExpiryTracking = false,
   enablePosTerminal = false,
+  enableAccounting = false,
 }: ItemFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [coaAccounts, setCoaAccounts] = useState<Account[]>([])
+  const [taxEnabled, setTaxEnabled] = useState(false)
+  const [defaultTaxCalculationType, setDefaultTaxCalculationType] = useState<
+    'ADD_TO_PRICE' | 'INCLUSIVE'
+  >('ADD_TO_PRICE')
+  const [taxRates, setTaxRates] = useState<TaxRateOption[]>([])
 
   // Unit name combobox state
   const [existingUnitNames, setExistingUnitNames] = useState<string[]>([])
@@ -55,19 +78,62 @@ export function ItemForm({
     formState: { errors },
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
-    defaultValues: initialData || {
+    defaultValues: {
       manufacturerId: '',
       name: '',
       quantity: 0,
       costPrice: 0,
       sellingPrice: 0,
+      itemType: 'INVENTORY',
+      isTaxable: false,
+      useTenantDefaultTaxes: true,
+      taxRateIds: [],
+      ...initialData,
     },
   })
 
+  const itemType = normalizeItemType(watch('itemType'))
+  const isInventoryItem = isInventoryItemType(itemType)
+  const isTaxable = watch('isTaxable') ?? false
+  const useTenantDefaultTaxes = watch('useTenantDefaultTaxes') ?? true
+  const selectedTaxRateIds = watch('taxRateIds') ?? []
   const costPrice = watch('costPrice') || 0
   const sellingPrice = watch('sellingPrice') || 0
   const profit = sellingPrice - costPrice
   const profitMargin = costPrice > 0 ? ((profit / costPrice) * 100).toFixed(1) : '0'
+
+  // Fetch COA accounts when accounting is enabled
+  useEffect(() => {
+    if (!enableAccounting) return
+    fetch('/api/accounting/accounts?activeOnly=true')
+      .then(r => r.json())
+      .then(d => setCoaAccounts(d.accounts ?? []))
+      .catch(() => {})
+  }, [enableAccounting])
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/tax/settings'),
+      fetch('/api/tax/rates?activeOnly=true'),
+    ])
+      .then(async ([settingRes, ratesRes]) => {
+        if (settingRes.ok) {
+          const settingData = await settingRes.json()
+          setTaxEnabled(Boolean(settingData.taxSetting?.taxEnabled))
+          setDefaultTaxCalculationType(
+            settingData.taxSetting?.defaultTaxCalculationType === 'INCLUSIVE'
+              ? 'INCLUSIVE'
+              : 'ADD_TO_PRICE'
+          )
+        }
+
+        if (ratesRes.ok) {
+          const ratesData = await ratesRes.json()
+          setTaxRates(ratesData.taxRates ?? [])
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   // Fetch existing unit names when unit system section is shown
   useEffect(() => {
@@ -118,6 +184,15 @@ export function ItemForm({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const toggleTaxRateSelection = (taxRateId: string) => {
+    const current = selectedTaxRateIds ?? []
+    const next = current.includes(taxRateId)
+      ? current.filter((id) => id !== taxRateId)
+      : [...current, taxRateId]
+
+    setValue('taxRateIds', next)
   }
 
   return (
@@ -179,24 +254,55 @@ export function ItemForm({
         )}
       </div>
 
-      {/* Initial Quantity */}
+      {/* Item Type */}
+      <div className="border border-slate-200 bg-slate-50/70 rounded-lg p-4 space-y-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
+          <select
+            {...register('itemType')}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm"
+          >
+            <option value="INVENTORY">Inventory Item — tracks stock, value, COGS</option>
+            <option value="NON_INVENTORY">Non-Inventory — sell/buy without stock tracking</option>
+            <option value="SERVICE">Service — no stock tracking, invoices only</option>
+          </select>
+        </div>
+        <p className="text-xs text-slate-600">
+          {isInventoryItem
+            ? 'Inventory items affect stock counts, low-stock alerts, inventory valuation, and cost of goods sold.'
+            : `${itemTypeLabel(itemType)} items stay in your catalog but do not use stock quantities or inventory valuation.`}
+        </p>
+      </div>
+
+      {/* Initial Quantity / Stock Tracking */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Initial Quantity
+          {isInventoryItem ? 'Initial Quantity' : 'Stock Tracking'}
         </label>
-        <input
-          type="number"
-          {...register('quantity', { valueAsNumber: true })}
-          placeholder="0"
-          min="0"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        {errors.quantity && (
-          <p className="mt-1 text-sm text-red-600">{errors.quantity.message}</p>
+        {isInventoryItem ? (
+          <>
+            <input
+              type="number"
+              {...register('quantity', { valueAsNumber: true })}
+              placeholder="0"
+              min="0"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            {errors.quantity && (
+              <p className="mt-1 text-sm text-red-600">{errors.quantity.message}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-500">
+              Leave blank or set to 0 if adding via purchase
+            </p>
+          </>
+        ) : (
+          <>
+            <input type="hidden" {...register('quantity', { valueAsNumber: true })} />
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+              Stock quantity is not tracked for {itemTypeLabel(itemType).toLowerCase()} items.
+            </div>
+          </>
         )}
-        <p className="mt-1 text-xs text-gray-500">
-          Leave blank or set to 0 if adding via purchase
-        </p>
       </div>
 
       {/* Unit System Fields */}
@@ -410,6 +516,118 @@ export function ItemForm({
         </div>
       )}
 
+      {/* Tax Configuration */}
+      <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-4 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-emerald-900">Tax Configuration</h3>
+            <p className="mt-1 text-xs text-emerald-800">
+              Control whether this item is taxable and whether it uses the tenant default tax bundle or specific named taxes.
+            </p>
+          </div>
+          <label className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-emerald-900 shadow-sm">
+            <input
+              type="checkbox"
+              checked={isTaxable}
+              onChange={(event) => setValue('isTaxable', event.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Taxable
+          </label>
+        </div>
+
+        {!taxEnabled ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+            Tenant tax is currently disabled. You can still prepare product tax settings here, and they will start applying once tax is enabled in Settings.
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Calculation Type
+              </label>
+              <select
+                {...register('taxCalculationType', {
+                  setValueAs: (value) => value || undefined,
+                })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="">
+                  Use tenant default ({defaultTaxCalculationType === 'INCLUSIVE' ? 'Tax Inclusive / Reverse Tax' : 'Tax Added to Price'})
+                </option>
+                <option value="ADD_TO_PRICE">Tax Added to Price</option>
+                <option value="INCLUSIVE">Tax Inclusive / Reverse Tax</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Leave this on the tenant default unless this item needs a different tax treatment.
+              </p>
+            </div>
+
+            <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+              <input
+                type="checkbox"
+                checked={useTenantDefaultTaxes}
+                onChange={(event) => setValue('useTenantDefaultTaxes', event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <div>
+                <span className="text-sm font-semibold text-gray-900">Use tenant default taxes</span>
+                <p className="mt-1 text-xs text-gray-500">
+                  Turn this off only when this item needs its own tax names or custom bundle.
+                </p>
+              </div>
+            </label>
+
+            {!useTenantDefaultTaxes && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Specific Taxes for This Item
+                  </label>
+                  {taxRates.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
+                      No active tax rates found. Create tax rates in Settings first.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {taxRates.map((taxRate) => (
+                        <label
+                          key={taxRate.id}
+                          className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 hover:border-emerald-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedTaxRateIds.includes(taxRate.id)}
+                            onChange={() => toggleTaxRateSelection(taxRate.id)}
+                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {taxRate.name}
+                              </span>
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                                {taxRate.ratePercentage}%
+                              </span>
+                            </div>
+                            {taxRate.description && (
+                              <p className="mt-1 text-xs text-gray-500">{taxRate.description}</p>
+                            )}
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Multiple taxes can be selected for the same item. They will be calculated separately and shown as a breakdown on invoices and reports.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Barcode (shown when POS Terminal is enabled) */}
       {enablePosTerminal && (
         <div>
@@ -438,6 +656,61 @@ export function ItemForm({
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="mt-1 text-xs text-gray-500">Leave blank if this item does not expire</p>
+        </div>
+      )}
+
+      {/* Accounting — Account Mapping */}
+      {enableAccounting && (
+        <div className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-4 space-y-4">
+          <h3 className="text-sm font-bold text-indigo-800">Accounting Mappings</h3>
+
+          {/* Account selectors */}
+          <div className="grid grid-cols-1 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Income / Sales Account</label>
+              <select
+                {...register('incomeAccountId')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+              >
+                <option value="">Default (Sales Revenue 4100)</option>
+                {coaAccounts.filter(a => a.type === 'REVENUE').map(a => (
+                  <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">COGS Account</label>
+              <select
+                {...register('cogsAccountId')}
+                disabled={!isInventoryItem}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+              >
+                <option value="">Default (COGS 5100)</option>
+                {coaAccounts.filter(a => a.type === 'COGS').map(a => (
+                  <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Only used for inventory items.
+              </p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Expense Account (for bills)</label>
+              <select
+                {...register('expenseAccountId')}
+                disabled={isInventoryItem}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+              >
+                <option value="">None</option>
+                {coaAccounts.filter(a => a.type === 'EXPENSE').map(a => (
+                  <option key={a.id} value={a.id}>{a.code} — {a.name}</option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Used when non-inventory or service items are purchased.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

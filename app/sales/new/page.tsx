@@ -6,9 +6,11 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { SaleForm } from '@/components/forms/SaleForm'
 import Link from 'next/link'
 
+type PageState = 'form' | 'success' | 'pending_approval'
+
 export default function NewSalePage() {
   const router = useRouter()
-  const [isSuccess, setIsSuccess] = useState(false)
+  const [pageState, setPageState] = useState<PageState>('form')
   const [lastSaleId, setLastSaleId] = useState<string | null>(null)
 
   const handleSubmit = async (data: unknown) => {
@@ -18,19 +20,56 @@ export default function NewSalePage() {
       body: JSON.stringify(data),
     })
 
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.error || 'Failed to create sale')
+    const result = await response.json()
+
+    if (response.status === 202 && result.requiresApproval) {
+      setLastSaleId(result.saleId)
+      setPageState('pending_approval')
+      return
     }
 
-    const result = await response.json()
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to create sale')
+    }
+
     setLastSaleId(result.id || result.data?.id || null)
-    setIsSuccess(true)
+    setPageState('success')
   }
 
   const handleCancel = () => router.push('/sales')
 
-  if (isSuccess) {
+  if (pageState === 'pending_approval') {
+    return (
+      <AppLayout>
+        <div className="max-w-lg mx-auto text-center py-12">
+          <div className="w-24 h-24 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-5xl">⏳</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Awaiting Approval</h2>
+          <p className="text-gray-600 mb-2">This sale has been flagged and is waiting for manager approval.</p>
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 inline-block mb-8">
+            Receipt cannot be printed until a manager approves the transaction.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => router.push('/approvals')}
+              className="px-6 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors"
+            >
+              View Approvals Queue
+            </button>
+            <button
+              onClick={() => { setPageState('form'); setLastSaleId(null) }}
+              className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
+            >
+              New Sale
+            </button>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (pageState === 'success') {
     return (
       <AppLayout>
         <div className="max-w-lg mx-auto text-center py-12">
@@ -49,7 +88,7 @@ export default function NewSalePage() {
               </Link>
             )}
             <button
-              onClick={() => { setIsSuccess(false); setLastSaleId(null) }}
+              onClick={() => { setPageState('form'); setLastSaleId(null) }}
               className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
             >
               New Sale

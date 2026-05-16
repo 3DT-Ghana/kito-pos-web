@@ -4,138 +4,167 @@ import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { Role } from '@/lib/permissions/rbac'
 
-/**
- * NextAuth Configuration
- *
- * Features:
- * - Credential-based authentication
- * - Tenant-aware sessions (includes tenantId in JWT)
- * - Role-based access control (OWNER/STAFF)
- * - Secure password verification with bcryptjs
- */
-
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        email: {
-          label: 'Email',
-          type: 'email',
-          placeholder: 'your@email.com',
-        },
-        password: {
-          label: 'Password',
-          type: 'password',
-        },
+        email: { label: 'Email', type: 'email', placeholder: 'your@email.com' },
+        password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
-        // Validate credentials exist
         if (!credentials?.email || !credentials?.password) {
           throw new Error('Email and password are required')
         }
 
         try {
-          // Find user by email with tenant relation
+          const normalizedEmail = credentials.email.trim().toLowerCase()
+
+          // ── 1. Try tenant user ───────────────────────────────────────────
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email },
-            include: {
-              tenant: true,
-            },
+            where: { email: normalizedEmail },
+            include: { tenant: true },
           })
 
-          // User not found
-          if (!user) {
-            throw new Error('Invalid email or password')
+          if (user) {
+            const valid = await compare(credentials.password, user.password)
+            if (!valid) throw new Error('Invalid email or password')
+
+            const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? '')
+              .split(',')
+              .map((e) => e.trim().toLowerCase())
+              .filter(Boolean)
+
+            if (superAdminEmails.includes(normalizedEmail)) {
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role as unknown as Role,
+                branchId: null,
+                platformRole: 'SUPER_ADMIN' as const,
+              }
+            }
+
+            if (user.tenant.status === 'SUSPENDED') {
+              throw new Error('Your account has been suspended. Please contact support.')
+            }
+
+            return {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role as unknown as Role,
+              tenantId: user.tenantId,
+              branchId: user.branchId,
+            }
           }
 
-          // Verify password
-          const isPasswordValid = await compare(
-            credentials.password,
-            user.password
-          )
+          // ── 2. Try platform agent ────────────────────────────────────────
+          const agent = await prisma.agent.findUnique({
+            where: { email: normalizedEmail },
+          })
 
-          if (!isPasswordValid) {
-            throw new Error('Invalid email or password')
+          if (agent) {
+            const valid = await compare(credentials.password, agent.passwordHash)
+            if (!valid) throw new Error('Invalid email or password')
+
+            if (agent.status === 'REJECTED') {
+              throw new Error('Your agent application has been rejected. Please contact support.')
+            }
+            if (agent.status === 'SUSPENDED') {
+              throw new Error('Your agent account has been suspended. Please contact support.')
+            }
+
+            return {
+              id: agent.id,
+              email: agent.email,
+              name: agent.fullName,
+              // Agents authenticate into the platform flow, not a tenant workspace.
+              role: 'STAFF' as unknown as Role,
+              branchId: null,
+              platformRole: 'AGENT' as const,
+              agentId: agent.id,
+              agentStatus: agent.status,
+            }
           }
 
-          // Check if tenant is active
-          if (user.tenant.status === 'SUSPENDED') {
-            throw new Error('Your account has been suspended. Please contact support.')
-          }
-
-          // Return user data for session
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role as unknown as Role,
-            tenantId: user.tenantId,
-          }
+          throw new Error('Invalid email or password')
         } catch (error) {
-          // Log error server-side for debugging
           console.error('Authentication error:', error)
-
-          // Return user-friendly error
-          if (error instanceof Error) {
-            throw error
-          }
+          if (error instanceof Error) throw error
           throw new Error('Authentication failed. Please try again.')
         }
       },
     }),
   ],
 
-  // Use JWT strategy for serverless compatibility
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 30 * 24 * 60 * 60,
   },
 
-  // Callbacks to add custom data to session
   callbacks: {
-    /**
-     * JWT Callback - Add user data to token
-     * This runs when JWT is created or updated
-     */
     async jwt({ token, user }) {
-      // On sign in, add user data to token
       if (user) {
         token.id = user.id
         token.email = user.email
         token.name = user.name
-        token.role = user.role
-        token.tenantId = user.tenantId
+        // Tenant user fields
+        if (user.role) token.role = user.role
+        if (user.tenantId) token.tenantId = user.tenantId
+        token.branchId = user.branchId ?? null
+        // Agent/platform fields
+        if (user.platformRole) token.platformRole = user.platformRole
+        if (user.agentId) token.agentId = user.agentId
+        if (user.agentStatus) token.agentStatus = user.agentStatus
       }
+
+      if (token.platformRole === 'AGENT' && token.agentId) {
+        const agent = await prisma.agent.findUnique({
+          where: { id: token.agentId as string },
+          select: {
+            email: true,
+            fullName: true,
+            status: true,
+          },
+        })
+
+        if (agent) {
+          token.email = agent.email
+          token.name = agent.fullName
+          token.agentStatus = agent.status
+        } else {
+          token.agentStatus = 'REVOKED'
+        }
+      }
+
       return token
     },
 
-    /**
-     * Session Callback - Add token data to session
-     * This runs whenever session is accessed
-     */
     async session({ session, token }) {
-      // Add token data to session object
       if (session.user) {
         session.user.id = token.id as string
         session.user.email = token.email as string
         session.user.name = token.name as string
-        session.user.role = token.role as unknown as Role
-        session.user.tenantId = token.tenantId as string
+        // Tenant user fields
+        if (token.role) session.user.role = token.role as unknown as Role
+        if (token.tenantId) session.user.tenantId = token.tenantId as string
+        session.user.branchId = (token.branchId as string | null | undefined) ?? null
+        // Agent/platform fields
+        if (token.platformRole) session.user.platformRole = token.platformRole as 'AGENT' | 'SUPER_ADMIN'
+        if (token.agentId) session.user.agentId = token.agentId as string
+        if (token.agentStatus) session.user.agentStatus = token.agentStatus as string
       }
       return session
     },
   },
 
-  // Custom pages
   pages: {
     signIn: '/auth/login',
     error: '/auth/error',
   },
 
-  // Security options
   secret: process.env.NEXTAUTH_SECRET,
-
-  // Enable debug messages in development
   debug: process.env.NODE_ENV === 'development',
 }

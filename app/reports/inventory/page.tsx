@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { ItemWithManufacturer } from '@/types'
 import { formatCurrency } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import { useBranch } from '@/lib/branch/BranchContext'
 
 /**
  * Inventory Reports Page
@@ -14,6 +15,7 @@ import { ExportButton } from '@/components/ExportButton'
  */
 
 export default function InventoryReportsPage() {
+  const { currentBranchId } = useBranch()
   const [items, setItems] = useState<ItemWithManufacturer[]>([])
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -22,7 +24,7 @@ export default function InventoryReportsPage() {
   useEffect(() => {
     fetchManufacturers()
     fetchInventoryReport()
-  }, [])
+  }, [currentBranchId])
 
   const fetchManufacturers = async () => {
     try {

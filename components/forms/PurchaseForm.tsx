@@ -5,11 +5,13 @@ import { useItems } from '@/hooks/useItems'
 import { useSuppliers } from '@/hooks/useSuppliers'
 import { useUser } from '@/hooks/useUser'
 import { formatCurrency } from '@/lib/utils/format'
+import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
 
 interface CartItem {
   itemId: string
   name: string
   manufacturer: string
+  itemType: 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE'
   quantity: number
   costPrice: number
   unitName?: string
@@ -181,6 +183,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
         itemId: item.id,
         name: item.name,
         manufacturer: item.manufacturer?.name || 'Unknown',
+        itemType: normalizeItemType(item.itemType),
         quantity: 1,
         costPrice: item.costPrice,
         unitName: item.unitName,
@@ -375,17 +378,27 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
           <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
             {filteredItems.map(item => {
               const inCart = cart.find(c => c.itemId === item.id)
+              const stockTracked = isInventoryItemType(item.itemType)
               return (
                 <button key={item.id} type="button" onClick={() => addToCart(item)}
                   className="w-full px-4 py-2.5 text-left border-b border-gray-100 last:border-0 flex items-center gap-3 hover:bg-green-50 cursor-pointer">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-blue-600 font-medium">{item.manufacturer?.name || 'Unknown'}</p>
+                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                      <p className="text-xs text-blue-600 font-medium">{item.manufacturer?.name || 'Unknown'}</p>
+                      {!stockTracked && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                          {itemTypeLabel(item.itemType)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="font-bold text-gray-800 text-sm">{formatCurrency(item.costPrice)}</p>
                     <p className="text-xs text-gray-500">
-                      {useUnitSystem && item.unitName ? `Stock: ${item.quantity} ${item.unitName}` : `Stock: ${item.quantity}`}
+                      {stockTracked
+                        ? (useUnitSystem && item.unitName ? `Stock: ${item.quantity} ${item.unitName}` : `Stock: ${item.quantity}`)
+                        : 'No stock tracking'}
                     </p>
                   </div>
                   {inCart && (
@@ -431,6 +444,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {cart.map(item => {
+                const stockTracked = isInventoryItemType(item.itemType)
                 const isCartonMode = useUnitSystem && (item.piecesPerUnit ?? 1) > 1
                 const isWeightMode = useUnitSystem && !!item.unitName && (item.piecesPerUnit ?? 1) <= 1
                 return (
@@ -440,7 +454,11 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                       <p className="font-semibold text-gray-900 text-sm truncate max-w-[200px]">{item.name}</p>
                       <p className="text-xs text-blue-500">{item.manufacturer}</p>
                       {isCartonMode && (
-                        <p className="text-xs text-gray-400 mt-0.5">= {Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock {items.find(i => i.id === item.itemId)?.quantity ?? '—'} {item.unitName ?? 'ctn'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {stockTracked
+                            ? `= ${Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock ${items.find(i => i.id === item.itemId)?.quantity ?? '—'} ${item.unitName ?? 'ctn'}`
+                            : 'No stock tracking'}
+                        </p>
                       )}
                     </td>
                     {/* Quantity */}
@@ -503,6 +521,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
           {/* Mobile card list */}
           <div className="md:hidden divide-y divide-gray-100">
             {cart.map(item => {
+              const stockTracked = isInventoryItemType(item.itemType)
               const isCartonMode = useUnitSystem && (item.piecesPerUnit ?? 1) > 1
               const isWeightMode = useUnitSystem && !!item.unitName && (item.piecesPerUnit ?? 1) <= 1
               return (
@@ -538,7 +557,11 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                         </div>
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-gray-400">= {Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock {items.find(i => i.id === item.itemId)?.quantity ?? '—'}</p>
+                        <p className="text-xs text-gray-400">
+                          {stockTracked
+                            ? `= ${Math.round(item.quantity * (item.piecesPerUnit ?? 1))} pcs · stock ${items.find(i => i.id === item.itemId)?.quantity ?? '—'}`
+                            : 'No stock tracking'}
+                        </p>
                         <div className="flex items-center gap-1">
                           <input type="number" value={item.costPrice} onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
                             step="0.01" min="0" className="w-20 px-2 py-1 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { ExpenseCategory } from '@prisma/client'
+import { ExpenseCategory, PaymentMethod } from '@prisma/client'
+import { applyBranchScope, requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
+import { postExpenseJournal } from '@/lib/accounting/journalEngine'
 
 /**
  * Expenses API Routes
@@ -15,10 +16,10 @@ const VALID_CATEGORIES = Object.values(ExpenseCategory)
 
 export async function GET(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'view_expenses')
+    const { authorized, error: permError } = requirePermission(context!, 'view_expenses')
     if (!authorized) return permError!
 
     const { searchParams } = new URL(req.url)
@@ -27,7 +28,7 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = { tenantId: tenantId! }
+    const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (category && VALID_CATEGORIES.includes(category as ExpenseCategory)) {
       where.category = category as ExpenseCategory
@@ -65,11 +66,17 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_expenses')
+    const { authorized, error: permError } = requirePermission(context!, 'create_expenses')
     if (!authorized) return permError!
+
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before recording an expense.'
+    )
+    if (branchError) return branchError
 
     const body = await req.json()
     const { amount, category, description, paidBy } = body
@@ -89,14 +96,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Description is required' }, { status: 400 })
     }
 
-    const expense = await prisma.expense.create({
-      data: {
-        tenantId: tenantId!,
-        amount: parseFloat(amount),
-        category: category as ExpenseCategory,
-        description: description.trim(),
-        paidBy: paidBy?.trim() || null,
-      },
+    const tenantSettings = await prisma.tenant.findUnique({
+      where: { id: context!.tenantId },
+      select: { enableAccounting: true },
+    })
+    const accountingEnabled = tenantSettings?.enableAccounting ?? false
+
+    const validMethods: string[] = Object.values(PaymentMethod)
+    const paymentMethod: PaymentMethod = validMethods.includes(body.paymentMethod)
+      ? (body.paymentMethod as PaymentMethod)
+      : PaymentMethod.CASH
+
+    const expense = await prisma.$transaction(async (tx) => {
+      const newExpense = await tx.expense.create({
+        data: {
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
+          amount: parseFloat(amount),
+          category: category as ExpenseCategory,
+          description: description.trim(),
+          paidBy: paidBy?.trim() || null,
+        },
+      })
+
+      if (accountingEnabled) {
+        await postExpenseJournal(tx, {
+          tenantId: context!.tenantId,
+          expenseId: newExpense.id,
+          postedById: context!.user.id,
+          amount: parseFloat(amount),
+          category: category as ExpenseCategory,
+          paymentMethod,
+        })
+      }
+
+      return newExpense
     })
 
     return NextResponse.json(expense, { status: 201 })

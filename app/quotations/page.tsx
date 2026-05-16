@@ -3,10 +3,21 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { StatCard } from '@/components/ui/StatCard'
+import { Badge } from '@/components/ui/Badge'
+import { Btn } from '@/components/ui/Btn'
+import { TabBar } from '@/components/ui/TabBar'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import {
+  FileText, Search, X, CheckCircle, XCircle,
+  Clock, Send, Plus, ChevronRight,
+} from 'lucide-react'
 
 type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+type StatusFilter = QuotationStatus | 'all'
 
 interface Quotation {
   id: string
@@ -20,12 +31,39 @@ interface Quotation {
   items: { id: string; itemName: string; quantity: number; price: number }[]
 }
 
-const STATUS_COLORS: Record<QuotationStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-700',
-  SENT: 'bg-blue-100 text-blue-700',
-  ACCEPTED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  EXPIRED: 'bg-orange-100 text-orange-700',
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
+  'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-pink-500',
+]
+
+function avatarColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
+}
+
+const STATUS_BADGE: Record<QuotationStatus, { variant: 'slate' | 'blue' | 'green' | 'red' | 'amber'; label: string }> = {
+  DRAFT:    { variant: 'slate',  label: 'Draft'    },
+  SENT:     { variant: 'blue',   label: 'Sent'     },
+  ACCEPTED: { variant: 'green',  label: 'Accepted' },
+  REJECTED: { variant: 'red',    label: 'Rejected' },
+  EXPIRED:  { variant: 'amber',  label: 'Expired'  },
+}
+
+const STATUS_ICONS: Record<QuotationStatus, React.ElementType> = {
+  DRAFT:    FileText,
+  SENT:     Send,
+  ACCEPTED: CheckCircle,
+  REJECTED: XCircle,
+  EXPIRED:  Clock,
+}
+
+const STATUS_ACCENT: Record<QuotationStatus, { bg: string; icon: string; text: string; border: string }> = {
+  DRAFT:    { bg: 'bg-gray-50',   icon: 'text-gray-500',   text: 'text-gray-900',  border: 'border-gray-200' },
+  SENT:     { bg: 'bg-blue-50',   icon: 'text-blue-500',   text: 'text-blue-900',  border: 'border-blue-200' },
+  ACCEPTED: { bg: 'bg-emerald-50',icon: 'text-emerald-500',text: 'text-emerald-900',border: 'border-emerald-200' },
+  REJECTED: { bg: 'bg-red-50',    icon: 'text-red-500',    text: 'text-red-900',   border: 'border-red-200' },
+  EXPIRED:  { bg: 'bg-amber-50',  icon: 'text-amber-500',  text: 'text-amber-900', border: 'border-amber-200' },
 }
 
 export default function QuotationsPage() {
@@ -33,7 +71,7 @@ export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<Quotation[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<QuotationStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   useEffect(() => { fetchQuotations() }, [])
 
@@ -49,11 +87,11 @@ export default function QuotationsPage() {
   }
 
   const filtered = quotations.filter(q => {
-    const q_ = search.toLowerCase()
-    const matchSearch = !q_
-      || q.customer?.name.toLowerCase().includes(q_)
-      || q.id.toLowerCase().includes(q_)
-      || q.items.some(i => i.itemName.toLowerCase().includes(q_))
+    const qStr = search.toLowerCase()
+    const matchSearch = !qStr
+      || (q.customer?.name || '').toLowerCase().includes(qStr)
+      || q.id.toLowerCase().includes(qStr)
+      || q.items.some(i => i.itemName.toLowerCase().includes(qStr))
     const matchStatus = statusFilter === 'all' || q.status === statusFilter
     return matchSearch && matchStatus
   })
@@ -64,189 +102,253 @@ export default function QuotationsPage() {
   }, {} as Record<string, number>)
 
   const totalValue = filtered.reduce((s, q) => s + q.totalAmount, 0)
+  const acceptedValue = quotations
+    .filter(q => q.status === 'ACCEPTED')
+    .reduce((s, q) => s + q.totalAmount, 0)
+
+  const statusTabs = [
+    { value: 'all' as StatusFilter, label: 'All', count: quotations.length },
+    { value: 'DRAFT' as StatusFilter, label: 'Draft', count: statusCounts['DRAFT'] || 0 },
+    { value: 'SENT' as StatusFilter, label: 'Sent', count: statusCounts['SENT'] || 0, countVariant: 'blue' as const },
+    { value: 'ACCEPTED' as StatusFilter, label: 'Accepted', count: statusCounts['ACCEPTED'] || 0, countVariant: 'green' as const },
+    { value: 'REJECTED' as StatusFilter, label: 'Rejected', count: statusCounts['REJECTED'] || 0, countVariant: 'red' as const },
+  ]
 
   return (
     <AppLayout>
       <div className="space-y-5">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900">Quotations</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{quotations.length} proforma invoices</p>
-          </div>
-          <div className="flex gap-2">
-            <ExportButton
-              filename="quotations"
-              getData={() => filtered.map(q => ({
-                Date: formatDate(q.createdAt),
-                Customer: q.customer?.name || 'Walk-in',
-                Status: q.status,
-                Items: q.items.length,
-                'Total (GHS)': q.totalAmount.toFixed(2),
-                'Valid Until': q.validUntil ? formatDate(q.validUntil) : '',
-              }))}
-            />
-            <button
-              onClick={() => router.push('/quotations/new')}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md text-sm"
-            >
-              <span className="text-xl leading-none">+</span> New Quote
-            </button>
-          </div>
+        <PageHeader
+          title="Quotations"
+          subtitle={`${quotations.length} proforma invoice${quotations.length !== 1 ? 's' : ''}`}
+          actions={
+            <>
+              <ExportButton
+                filename="quotations"
+                getData={() => filtered.map(q => ({
+                  Date: formatDate(q.createdAt),
+                  Customer: q.customer?.name || 'Walk-in',
+                  Status: q.status,
+                  Items: q.items.length,
+                  'Total (GHS)': q.totalAmount.toFixed(2),
+                  'Valid Until': q.validUntil ? formatDate(q.validUntil) : '',
+                }))}
+              />
+              <Btn icon={Plus} href="/quotations/new">New Quote</Btn>
+            </>
+          }
+        />
+
+        {/* Status summary cards — clickable filters */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'] as QuotationStatus[]).map(status => {
+            const accent = STATUS_ACCENT[status]
+            const Icon = STATUS_ICONS[status]
+            const isActive = statusFilter === status
+            return (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(isActive ? 'all' : status)}
+                className={`rounded-2xl p-4 border text-left transition-all shadow-sm ring-1 ${
+                  isActive ? 'ring-blue-400 ring-2' : 'ring-black/5'
+                } ${accent.bg} ${accent.border}`}
+              >
+                <div className={`w-8 h-8 rounded-xl ${accent.bg} border ${accent.border} flex items-center justify-center mb-2`}>
+                  <Icon className={`w-4 h-4 ${accent.icon}`} strokeWidth={1.75} />
+                </div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{status}</p>
+                <p className={`text-2xl font-bold mt-0.5 ${accent.text}`}>{statusCounts[status] || 0}</p>
+              </button>
+            )
+          })}
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          {(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'] as QuotationStatus[]).map(status => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(statusFilter === status ? 'all' : status)}
-              className={`rounded-xl p-3 border text-left transition-all ${
-                statusFilter === status ? 'ring-2 ring-blue-500' : ''
-              } ${
-                status === 'ACCEPTED' ? 'bg-green-50 border-green-200' :
-                status === 'REJECTED' ? 'bg-red-50 border-red-200' :
-                status === 'SENT' ? 'bg-blue-50 border-blue-200' :
-                status === 'EXPIRED' ? 'bg-orange-50 border-orange-200' :
-                'bg-white border-gray-200'
-              }`}
-            >
-              <p className="text-xs font-semibold text-gray-500 uppercase">{status}</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{statusCounts[status] || 0}</p>
-            </button>
-          ))}
+        {/* Summary stat */}
+        <div className="grid grid-cols-2 gap-3">
+          <StatCard
+            label="Filtered Value"
+            value={formatCurrency(totalValue)}
+            sub={`${filtered.length} quotation${filtered.length !== 1 ? 's' : ''} shown`}
+            icon={FileText}
+            accent="bg-blue-50"
+            iconColor="text-blue-600"
+            valueColor="text-blue-700"
+          />
+          <StatCard
+            label="Accepted Value"
+            value={formatCurrency(acceptedValue)}
+            sub={`${statusCounts['ACCEPTED'] || 0} accepted quote${(statusCounts['ACCEPTED'] || 0) !== 1 ? 's' : ''}`}
+            icon={CheckCircle}
+            accent="bg-emerald-50"
+            iconColor="text-emerald-600"
+            valueColor="text-emerald-700"
+          />
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+          <TabBar tabs={statusTabs} active={statusFilter} onChange={setStatusFilter} />
+          <div className="relative flex-1 min-w-48">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by customer, item, or ID..."
+              placeholder="Search customer, item, or ID…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
-          {statusFilter !== 'all' && (
-            <button
-              onClick={() => setStatusFilter('all')}
-              className="px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl hover:bg-gray-50 text-gray-600 font-semibold"
-            >
-              Clear Filter
-            </button>
-          )}
         </div>
 
         {/* Content */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl h-20 animate-pulse border border-gray-200" />)}
+            {[1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-20 animate-pulse" />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center py-16">
-            <span className="text-5xl mb-3">📄</span>
-            <p className="font-semibold text-gray-700">No quotations found</p>
-            {!search && statusFilter === 'all' && (
-              <button
-                onClick={() => router.push('/quotations/new')}
-                className="mt-4 px-5 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700"
-              >
-                Create First Quote
-              </button>
+          <EmptyState
+            icon={FileText}
+            title="No quotations found"
+            description={
+              search
+                ? 'Try a different customer name, item, or ID'
+                : statusFilter !== 'all'
+                  ? `No ${statusFilter.toLowerCase()} quotations yet`
+                  : 'Create your first quotation to get started'
+            }
+            action={!search && statusFilter === 'all' && (
+              <Btn icon={Plus} href="/quotations/new" size="sm">Create First Quote</Btn>
             )}
-          </div>
+          />
         ) : (
           <>
-            {/* Mobile: Cards */}
-            <div className="md:hidden space-y-2">
-              {filtered.map(q => (
-                <div
-                  key={q.id}
-                  onClick={() => router.push(`/quotations/${q.id}`)}
-                  className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer active:bg-gray-50"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-bold text-gray-900">{q.customer?.name || 'Walk-in'}</p>
-                      <p className="text-xs font-mono text-gray-400 mt-0.5">#{q.id.slice(0, 8).toUpperCase()}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{formatDate(q.createdAt)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900">{formatCurrency(q.totalAmount)}</p>
-                      <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_COLORS[q.status]}`}>
-                        {q.status}
-                      </span>
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {filtered.map(q => {
+                const { variant, label } = STATUS_BADGE[q.status]
+                const name = q.customer?.name || 'Walk-in'
+                const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+                const isExpiredNow = q.validUntil && new Date(q.validUntil) < new Date() && q.status === 'SENT'
+                return (
+                  <div
+                    key={q.id}
+                    onClick={() => router.push(`/quotations/${q.id}`)}
+                    className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                        {initials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm truncate">{name}</p>
+                            <p className="text-xs text-gray-400 font-mono mt-0.5">#{q.id.slice(0, 8).toUpperCase()}</p>
+                          </div>
+                          <p className="font-bold text-gray-900 shrink-0">{formatCurrency(q.totalAmount)}</p>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <p className="text-xs text-gray-400">
+                            {formatDate(q.createdAt)} · {q.items.length} item{q.items.length !== 1 ? 's' : ''}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant={variant} dot>{label}</Badge>
+                            {isExpiredNow && <Badge variant="amber">Overdue</Badge>}
+                          </div>
+                        </div>
+                        {q.validUntil && (
+                          <p className={`mt-1 text-xs ${isExpiredNow ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+                            Valid until {formatDate(q.validUntil)}
+                            {isExpiredNow && ' — expired'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-2">{q.items.length} item(s): {q.items.map(i => i.itemName).join(', ')}</p>
-                </div>
-              ))}
+                )
+              })}
             </div>
 
-            {/* Desktop: Table */}
-            <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b-2 border-gray-100">
+                <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Customer</th>
-                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Items</th>
-                    <th className="px-6 py-3 text-right text-xs font-bold text-gray-600 uppercase">Total</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase">Valid Until</th>
-                    <th className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase">Status</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Valid Until</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-50">
                   {filtered.map(q => {
+                    const { variant, label } = STATUS_BADGE[q.status]
+                    const name = q.customer?.name || 'Walk-in'
+                    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     const isExpiredNow = q.validUntil && new Date(q.validUntil) < new Date() && q.status === 'SENT'
                     return (
                       <tr
                         key={q.id}
                         onClick={() => router.push(`/quotations/${q.id}`)}
-                        className="hover:bg-blue-50 cursor-pointer transition-colors"
+                        className="hover:bg-blue-50/40 cursor-pointer transition-colors"
                       >
-                        <td className="px-6 py-4 text-sm text-gray-700">{formatDate(q.createdAt)}</td>
-                        <td className="px-6 py-4">
-                          <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                            #{q.id.slice(0, 8).toUpperCase()}
-                          </span>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-8 h-8 rounded-lg ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                              {initials}
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{name}</p>
+                              <p className="text-xs text-gray-400 font-mono">#{q.id.slice(0, 8).toUpperCase()}</p>
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                          {q.customer?.name || 'Walk-in'}
-                        </td>
-                        <td className="px-6 py-4 text-center text-sm text-gray-600">{q.items.length}</td>
-                        <td className="px-6 py-4 text-right font-bold text-gray-900">{formatCurrency(q.totalAmount)}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
+                        <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(q.createdAt)}</td>
+                        <td className="px-5 py-3.5 text-sm text-center text-gray-600">{q.items.length}</td>
+                        <td className="px-5 py-3.5 text-right font-bold text-gray-900">{formatCurrency(q.totalAmount)}</td>
+                        <td className="px-5 py-3.5 text-sm">
                           {q.validUntil ? (
-                            <span className={isExpiredNow ? 'text-red-600 font-semibold' : ''}>
+                            <span className={isExpiredNow ? 'text-red-600 font-semibold' : 'text-gray-600'}>
                               {formatDate(q.validUntil)}
-                              {isExpiredNow && ' (Expired)'}
+                              {isExpiredNow && (
+                                <span className="ml-1 text-xs text-red-400">(overdue)</span>
+                              )}
                             </span>
-                          ) : '—'}
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_COLORS[q.status]}`}>
-                            {q.status}
-                          </span>
+                        <td className="px-5 py-3.5 text-center">
+                          <Badge variant={variant} dot>{label}</Badge>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          <ChevronRight className="w-4 h-4 text-gray-300 mx-auto" />
                         </td>
                       </tr>
                     )
                   })}
                 </tbody>
-                <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                <tfoot className="bg-gray-50/60 border-t border-gray-100">
                   <tr>
-                    <td colSpan={4} className="px-6 py-3 text-sm font-bold text-gray-700">
-                      Total ({filtered.length} quotations)
+                    <td colSpan={3} className="px-5 py-3 text-xs font-bold text-gray-600">
+                      {filtered.length} quotation{filtered.length !== 1 ? 's' : ''}
                     </td>
-                    <td className="px-6 py-3 text-right text-sm font-bold text-blue-700">
+                    <td className="px-5 py-3 text-right text-sm font-bold text-blue-700">
                       {formatCurrency(totalValue)}
                     </td>
-                    <td colSpan={2} />
+                    <td colSpan={3} />
                   </tr>
                 </tfoot>
               </table>

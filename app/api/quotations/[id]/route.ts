@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { QuotationStatus } from '@prisma/client'
+import { requireBranchAccess } from '@/lib/branch/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
+import { buildVisibleQuotationWhere } from '@/lib/quotations/server'
 
 /**
  * GET /api/quotations/[id] — get single quotation
@@ -11,13 +14,29 @@ import { prisma } from '@/lib/db/prisma'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
+
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enableQuotations'
+    )
+    if (featureError) return featureError
+
     const { id } = await params
+    const where = buildVisibleQuotationWhere(context!, { id })
+    if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const quotation = await prisma.quotation.findFirst({
-      where: { id, tenantId: tenantId! },
-      include: { items: true },
+      where,
+      include: {
+        taxLines: true,
+        items: {
+          include: {
+            taxLines: true,
+          },
+        },
+      },
     })
 
     if (!quotation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -25,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     let customer = null
     if (quotation.customerId) {
       customer = await prisma.customer.findFirst({
-        where: { id: quotation.customerId, tenantId: tenantId! },
+        where: { id: quotation.customerId, tenantId: context!.tenantId },
         select: { id: true, name: true, phone: true },
       })
     }
@@ -39,15 +58,32 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
+
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enableQuotations'
+    )
+    if (featureError) return featureError
+
     const { id } = await params
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'create_quotation')
+    const { authorized, error: permError } = requirePermission(context!, 'create_quotation')
     if (!authorized) return permError!
 
     const body = await req.json()
-    const existing = await prisma.quotation.findFirst({ where: { id, tenantId: tenantId! } })
+    const where = buildVisibleQuotationWhere(context!, { id })
+    if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    if (
+      body.status !== undefined &&
+      !Object.values(QuotationStatus).includes(body.status)
+    ) {
+      return NextResponse.json({ error: 'Invalid quotation status' }, { status: 400 })
+    }
+
+    const existing = await prisma.quotation.findFirst({ where })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const updated = await prisma.quotation.update({
@@ -68,14 +104,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
+
+    const featureError = requireTenantFeature(
+      context!.features,
+      'enableQuotations'
+    )
+    if (featureError) return featureError
+
     const { id } = await params
 
-    const { authorized, error: permError } = requirePermission(user!.role, 'delete_quotation')
+    const { authorized, error: permError } = requirePermission(context!, 'delete_quotation')
     if (!authorized) return permError!
 
-    const existing = await prisma.quotation.findFirst({ where: { id, tenantId: tenantId! } })
+    const where = buildVisibleQuotationWhere(context!, { id })
+    if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const existing = await prisma.quotation.findFirst({ where })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     await prisma.quotation.delete({ where: { id } })

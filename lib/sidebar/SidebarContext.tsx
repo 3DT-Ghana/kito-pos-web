@@ -20,7 +20,15 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   // Restore from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved === 'true') setCollapsed(true)
+    if (saved !== 'true') return
+
+    const frame = window.requestAnimationFrame(() => {
+      setCollapsed(true)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
   }, [])
 
   const toggle = () => {

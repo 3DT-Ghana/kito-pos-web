@@ -2,6 +2,12 @@
 
 import { useSession } from 'next-auth/react'
 import { useEffect, useState } from 'react'
+import {
+  hasPermission,
+  type Permission,
+  type Role,
+  type RolePermissionsMap,
+} from '@/lib/permissions/rbac'
 
 /**
  * useTenant Hook
@@ -24,6 +30,57 @@ export function useTenant() {
   }
 }
 
+export function useRolePermissions(): {
+  rolePermissions: RolePermissionsMap | null
+  isLoading: boolean
+  hasTenantPermission: (role: Role | null | undefined, permission: Permission) => boolean
+} {
+  const { data: session, status } = useSession()
+  const tenantId = session?.user?.tenantId
+  const [rolePermissions, setRolePermissions] = useState<RolePermissionsMap | null>(null)
+  const [loadedTenantId, setLoadedTenantId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (status === 'loading' || !tenantId) {
+      return
+    }
+
+    let cancelled = false
+
+    fetch('/api/settings/role-permissions')
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
+        setRolePermissions((data.rolePermissions as RolePermissionsMap | null) ?? null)
+        setLoadedTenantId(tenantId)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRolePermissions(null)
+          setLoadedTenantId(tenantId)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [tenantId, status])
+
+  const effectiveRolePermissions = tenantId && loadedTenantId === tenantId
+    ? rolePermissions
+    : null
+  const isLoading = status === 'loading' || Boolean(tenantId && loadedTenantId !== tenantId)
+
+  return {
+    rolePermissions: effectiveRolePermissions,
+    isLoading,
+    hasTenantPermission: (role, permission) => {
+      if (!role) return false
+      return hasPermission({ role, rolePermissions: effectiveRolePermissions }, permission)
+    },
+  }
+}
+
 // ─── Feature flags ────────────────────────────────────────────────────────────
 
 export interface TenantFeatures {
@@ -42,6 +99,10 @@ export interface TenantFeatures {
   enableExpenses: boolean
   enableTill: boolean
   allowSaleOnZeroStock: boolean
+  enableBarcodeGenerator: boolean
+  enableAccounting: boolean
+  enablePayroll: boolean
+  requireApproval: boolean
 }
 
 const DEFAULT_FEATURES: TenantFeatures = {
@@ -60,6 +121,10 @@ const DEFAULT_FEATURES: TenantFeatures = {
   enableExpenses: false,
   enableTill: false,
   allowSaleOnZeroStock: false,
+  enableBarcodeGenerator: false,
+  enableAccounting: false,
+  enablePayroll: false,
+  requireApproval: false,
 }
 
 /**
@@ -96,6 +161,10 @@ export function useTenantFeatures(): { features: TenantFeatures; isLoading: bool
           enableExpenses: data.enableExpenses ?? false,
           enableTill: data.enableTill ?? false,
           allowSaleOnZeroStock: data.allowSaleOnZeroStock ?? false,
+          enableBarcodeGenerator: data.enableBarcodeGenerator ?? false,
+          enableAccounting: data.enableAccounting ?? false,
+          enablePayroll: data.enablePayroll ?? false,
+          requireApproval: data.requireApproval ?? false,
         })
       })
       .catch(() => {})

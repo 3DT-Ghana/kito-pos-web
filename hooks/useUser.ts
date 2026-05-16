@@ -9,7 +9,7 @@ import { useSession } from 'next-auth/react'
  *
  * @example
  * ```tsx
- * const { user, isOwner, isStaff, isCashier } = useUser()
+ * const { user, isOwner, isBranchManager, canManageUsers } = useUser()
  * ```
  */
 
@@ -21,10 +21,13 @@ export function useUser() {
 
   const isOwner = role === 'OWNER'
   const isStoreManager = role === 'STORE_MANAGER'
+  const isBranchManager = role === 'BRANCH_MANAGER'
   const isCashier = role === 'CASHIER'
   const isInventoryManager = role === 'INVENTORY_MANAGER'
   const isAccountant = role === 'ACCOUNTANT'
   const isStaff = role === 'STAFF'
+  const isCompanyAdmin = isOwner || isStoreManager
+  const canManageUsers = isOwner || isBranchManager
 
   // True for any authenticated staff (all roles)
   const isTeamMember = !!role
@@ -33,10 +36,13 @@ export function useUser() {
     user,
     isOwner,
     isStoreManager,
+    isBranchManager,
     isCashier,
     isInventoryManager,
     isAccountant,
     isStaff,
+    isCompanyAdmin,
+    canManageUsers,
     isTeamMember,
     isLoading: status === 'loading',
     isAuthenticated: status === 'authenticated',

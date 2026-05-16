@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
 
 /**
  * Purchase Detail API Routes
@@ -21,16 +21,13 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     const { id } = await params
 
     const purchase = await prisma.purchase.findFirst({
-      where: {
-        id,
-        tenantId,
-      },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
         supplier: true,
         items: {
@@ -78,10 +75,10 @@ export async function GET(req: Request, { params }: RouteParams) {
  */
 export async function PUT(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
-    const { authorized, error: roleError } = requireOwner(user!.role)
+    const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
     const { id } = await params
@@ -103,10 +100,46 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Fetch current purchase
     const purchase = await prisma.purchase.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: { items: true },
     })
     if (!purchase) return NextResponse.json({ error: 'Purchase not found' }, { status: 404 })
+
+    const purchaseJournal = await prisma.journalEntry.findFirst({
+      where: { tenantId: context!.tenantId, purchaseId: id },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { entryNumber: true, status: true },
+    })
+    if (purchaseJournal) {
+      return NextResponse.json(
+        {
+          error: `This purchase already has accounting history (${purchaseJournal.entryNumber}, ${purchaseJournal.status}). Posted purchases must be corrected with reversing entries and replacement transactions instead of editing the source document.`,
+        },
+        { status: 409 }
+      )
+    }
+
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: supplierId, tenantId: context!.tenantId },
+      select: { id: true },
+    })
+    if (!supplier) {
+      return NextResponse.json({ error: 'Supplier not found' }, { status: 404 })
+    }
+
+    const itemIds = items.map((item: { itemId: string }) => item.itemId)
+    const dbItems = await prisma.item.findMany({
+      where: {
+        id: { in: itemIds },
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+      },
+      select: { id: true },
+    })
+
+    if (dbItems.length !== itemIds.length) {
+      return NextResponse.json({ error: 'One or more items were not found in this branch' }, { status: 404 })
+    }
 
     const oldCreditAmount = purchase.totalAmount - purchase.paidAmount
     const newCreditAmount = totalAmount - paid
@@ -168,7 +201,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     })
 
     const updated = await prisma.purchase.findFirst({
-      where: { id },
+      where: { id, tenantId: context!.tenantId },
       include: {
         supplier: true,
         items: { include: { item: { include: { manufacturer: true } } } },
@@ -195,18 +228,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
  */
 export async function DELETE(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId, user } = await requireTenant()
-    if (error) return error!
+    const { error, context } = await requireBranchAccess()
+    if (error) return error
 
     // Only OWNERs can void purchases
-    const { authorized, error: roleError } = requireOwner(user!.role)
+    const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
     const { id } = await params
 
     // Fetch purchase with all details
     const purchase = await prisma.purchase.findFirst({
-      where: { id, tenantId: tenantId! },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
         items: true,
         supplier: true,
@@ -220,12 +253,30 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       )
     }
 
+    const purchaseJournal = await prisma.journalEntry.findFirst({
+      where: { tenantId: context!.tenantId, purchaseId: id },
+      orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      select: { entryNumber: true, status: true },
+    })
+    if (purchaseJournal) {
+      return NextResponse.json(
+        {
+          error: `This purchase already has accounting history (${purchaseJournal.entryNumber}, ${purchaseJournal.status}). Posted purchases must be reversed instead of deleted.`,
+        },
+        { status: 409 }
+      )
+    }
+
     const creditAmount = purchase.totalAmount - purchase.paidAmount
 
     // Check if there's enough stock to reverse
     for (const purchaseItem of purchase.items) {
-      const item = await prisma.item.findUnique({
-        where: { id: purchaseItem.itemId },
+      const item = await prisma.item.findFirst({
+        where: {
+          id: purchaseItem.itemId,
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+        },
       })
 
       if (!item) {
