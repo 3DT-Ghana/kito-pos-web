@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ReturnType } from '@prisma/client'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import {
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
 import { postCustomerReturnJournal } from '@/lib/accounting/journalEngine'
 import { approvedSaleWhere } from '@/lib/approvals/sales'
 import { round2 } from '@/lib/accounting/accounts'
@@ -96,6 +99,12 @@ export async function POST(req: Request) {
     const { authorized, error: permError } = requirePermission(context!, 'process_returns')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before processing a customer return.'
+    )
+    if (branchError) return branchError
+
     const body = await req.json()
 
     // Validate
@@ -137,9 +146,11 @@ export async function POST(req: Request) {
 
     // Verify sale belongs to tenant
     const sale = await prisma.sale.findFirst({
-      where: approvedSaleWhere(
-        applyBranchScope({ id: body.saleId, tenantId: context!.tenantId }, context!)
-      ),
+      where: approvedSaleWhere({
+        id: body.saleId,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+      }),
       include: {
         items: {
           include: {

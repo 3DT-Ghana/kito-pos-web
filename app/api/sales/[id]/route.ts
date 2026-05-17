@@ -3,7 +3,11 @@ import { randomUUID } from 'crypto'
 import { ItemType, TaxCalculationType } from '@prisma/client'
 import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import {
+  applyBranchScope,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
 import {
   calculateLineTaxes,
   resolveItemTaxProfile,
@@ -90,6 +94,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before editing a sale.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
     const body = await req.json()
     const { customerId, paymentType, paidAmount, items } = body
@@ -100,7 +110,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Fetch current sale
     const sale = await prisma.sale.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+      },
       include: {
         items: {
           include: {
@@ -140,6 +154,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     const oldCreditAmount = sale.totalAmount - sale.paidAmount
+    const saleBranchId = sale.branchId ?? branchId
     const itemIds = Array.from(
       new Set(
         items
@@ -152,7 +167,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
       where: {
         tenantId: context!.tenantId,
         id: { in: itemIds },
-        ...(context!.branchesEnabled ? { branchId: sale.branchId ?? null } : {}),
+        ...(context!.branchesEnabled && saleBranchId
+          ? { branchId: saleBranchId }
+          : {}),
       },
       include: itemTaxSettingInclude,
     })
@@ -347,6 +364,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
       await tx.sale.update({
         where: { id },
         data: {
+          ...(context!.branchesEnabled && branchId && !sale.branchId
+            ? { branchId }
+            : {}),
           customerId: customerId || null,
           paymentType: newCreditAmount > 0 ? 'CREDIT' : (paymentType || 'CASH'),
           subtotalAmount,
@@ -398,11 +418,21 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before voiding a sale.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
 
     // Fetch sale with all details
     const sale = await prisma.sale.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+      },
       include: {
         items: {
           include: {

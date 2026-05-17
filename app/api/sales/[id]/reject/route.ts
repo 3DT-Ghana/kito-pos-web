@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ApprovalStatus } from '@prisma/client'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 
 /**
  * POST /api/sales/[id]/reject
@@ -25,14 +25,22 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { authorized, error: permError } = requirePermission(context!, 'approve_transactions')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before rejecting a sale.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
     const body = await req.json().catch(() => ({}))
     const note: string | undefined = body.note
 
-    const saleWhere = applyBranchScope(
-      { id, tenantId: context!.tenantId, approvalStatus: ApprovalStatus.PENDING },
-      context!
-    )
+    const saleWhere = {
+      id,
+      tenantId: context!.tenantId,
+      approvalStatus: ApprovalStatus.PENDING,
+      ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+    }
 
     const sale = await prisma.sale.findFirst({ where: saleWhere })
 

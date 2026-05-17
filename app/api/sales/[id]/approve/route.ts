@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ApprovalStatus } from '@prisma/client'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 import { postSaleJournal, SaleLineBreakdown } from '@/lib/accounting/journalEngine'
 import { round2, ACCOUNT_CODES } from '@/lib/accounting/accounts'
 
@@ -27,15 +27,22 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { authorized, error: permError } = requirePermission(context!, 'approve_transactions')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before approving a sale.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
     const body = await req.json().catch(() => ({}))
     const note: string | undefined = body.note
 
-    // Load the pending sale with all items
-    const saleWhere = applyBranchScope(
-      { id, tenantId: context!.tenantId, approvalStatus: ApprovalStatus.PENDING },
-      context!
-    )
+    const saleWhere = {
+      id,
+      tenantId: context!.tenantId,
+      approvalStatus: ApprovalStatus.PENDING,
+      ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+    }
 
     const sale = await prisma.sale.findFirst({
       where: saleWhere,
@@ -190,7 +197,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     })
 
     const updatedSale = await prisma.sale.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
+      },
       include: {
         customer: { select: { id: true, name: true } },
         items: { include: { item: { select: { id: true, name: true } } } },

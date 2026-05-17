@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { QuotationStatus } from '@prisma/client'
-import { requireBranchAccess } from '@/lib/branch/server'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 import { requireTenantFeature } from '@/lib/tenant/features'
 import { buildVisibleQuotationWhere } from '@/lib/quotations/server'
 
@@ -72,9 +72,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { authorized, error: permError } = requirePermission(context!, 'create_quotation')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before updating a quotation.'
+    )
+    if (branchError) return branchError
+
     const body = await req.json()
-    const where = buildVisibleQuotationWhere(context!, { id })
-    if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const where = {
+      tenantId: context!.tenantId,
+      id,
+      ...(context!.branchesEnabled && branchId
+        ? {
+            OR: [{ branchId }, { branchId: null }],
+          }
+        : {}),
+    }
 
     if (
       body.status !== undefined &&
@@ -118,8 +131,21 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { authorized, error: permError } = requirePermission(context!, 'delete_quotation')
     if (!authorized) return permError!
 
-    const where = buildVisibleQuotationWhere(context!, { id })
-    if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before deleting a quotation.'
+    )
+    if (branchError) return branchError
+
+    const where = {
+      tenantId: context!.tenantId,
+      id,
+      ...(context!.branchesEnabled && branchId
+        ? {
+            OR: [{ branchId }, { branchId: null }],
+          }
+        : {}),
+    }
 
     const existing = await prisma.quotation.findFirst({ where })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })

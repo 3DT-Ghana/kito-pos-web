@@ -3,7 +3,6 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 import { requireTenantFeature } from '@/lib/tenant/features'
-import { buildVisibleQuotationWhere } from '@/lib/quotations/server'
 import {
   createSaleFromInput,
   SaleOperationError,
@@ -35,8 +34,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     )
     if (branchError) return branchError
 
-    const where = buildVisibleQuotationWhere(context!, { id })
-    if (!where) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 })
+    const where = {
+      tenantId: context!.tenantId,
+      id,
+      ...(context!.branchesEnabled && branchId
+        ? {
+            OR: [{ branchId }, { branchId: null }],
+          }
+        : {}),
+    }
 
     const quotation = await prisma.quotation.findFirst({
       where,

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import {
-  isBranchFilterActive,
   requireBranchAccess,
   requireOperationalBranch,
 } from '@/lib/branch/server'
@@ -45,17 +44,13 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { id } = await params
     const body = await req.json()
 
-    if (isBranchFilterActive(context!) && !context!.currentBranchId) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
-    }
-
     const order = await prisma.purchaseOrder.findFirst({
       where: {
         id,
         tenantId: context!.tenantId,
-        ...(isBranchFilterActive(context!) && context!.currentBranchId
+        ...(context!.branchesEnabled && branchId
           ? {
-              OR: [{ branchId: context!.currentBranchId }, { branchId: null }],
+              OR: [{ branchId }, { branchId: null }],
             }
           : {}),
       },
@@ -64,7 +59,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     if (!order) return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
 
-    const visibleOrderIds = await getVisiblePurchaseOrderIds(context!, [order])
+    const visibleOrderIds = await getVisiblePurchaseOrderIds(
+      { ...context!, currentBranchId: branchId, allBranchesSelected: false },
+      [order]
+    )
     if (!visibleOrderIds.has(order.id)) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 
 /**
  * DELETE /api/expenses/[id] - Delete an expense
@@ -15,8 +15,22 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const { authorized, error: permError } = requirePermission(context!, 'delete_expenses')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before deleting an expense.'
+    )
+    if (branchError) return branchError
+
     const expense = await prisma.expense.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId
+          ? {
+              OR: [{ branchId }, { branchId: null }],
+            }
+          : {}),
+      },
     })
 
     if (!expense) {

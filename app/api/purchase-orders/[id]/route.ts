@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server'
 import { PurchaseOrderStatus } from '@prisma/client'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { isBranchFilterActive, requireBranchAccess } from '@/lib/branch/server'
+import {
+  isBranchFilterActive,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
 import { getVisiblePurchaseOrderIds } from '@/lib/purchase-orders/server'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
@@ -83,20 +87,22 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const { authorized, error: permError } = requirePermission(context!, 'create_purchase_order')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before updating a purchase order.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
     const body = await req.json()
-
-    if (isBranchFilterActive(context!) && !context!.currentBranchId) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
-    }
 
     const existing = await prisma.purchaseOrder.findFirst({
       where: {
         id,
         tenantId: context!.tenantId,
-        ...(isBranchFilterActive(context!) && context!.currentBranchId
+        ...(context!.branchesEnabled && branchId
           ? {
-              OR: [{ branchId: context!.currentBranchId }, { branchId: null }],
+              OR: [{ branchId }, { branchId: null }],
             }
           : {}),
       },
@@ -104,7 +110,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     })
     if (!existing) return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
 
-    const visibleOrderIds = await getVisiblePurchaseOrderIds(context!, [existing])
+    const visibleOrderIds = await getVisiblePurchaseOrderIds(
+      { ...context!, currentBranchId: branchId, allBranchesSelected: false },
+      [existing]
+    )
     if (!visibleOrderIds.has(existing.id)) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }
@@ -131,7 +140,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     }
 
     const shouldBackfillBranchId =
-      context!.branchesEnabled && context!.currentBranchId && !existing.branchId
+      context!.branchesEnabled && branchId && !existing.branchId
 
     const order = await prisma.purchaseOrder.update({
       where: { id },
@@ -141,7 +150,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         ...(body.expectedAt !== undefined && {
           expectedAt: body.expectedAt ? new Date(body.expectedAt) : null,
         }),
-        ...(shouldBackfillBranchId ? { branchId: context!.currentBranchId } : {}),
+        ...(shouldBackfillBranchId ? { branchId } : {}),
       },
     })
 
@@ -170,19 +179,21 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     const { authorized, error: permError } = requirePermission(context!, 'delete_purchase_order')
     if (!authorized) return permError!
 
-    const { id } = await params
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before deleting a purchase order.'
+    )
+    if (branchError) return branchError
 
-    if (isBranchFilterActive(context!) && !context!.currentBranchId) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
-    }
+    const { id } = await params
 
     const existing = await prisma.purchaseOrder.findFirst({
       where: {
         id,
         tenantId: context!.tenantId,
-        ...(isBranchFilterActive(context!) && context!.currentBranchId
+        ...(context!.branchesEnabled && branchId
           ? {
-              OR: [{ branchId: context!.currentBranchId }, { branchId: null }],
+              OR: [{ branchId }, { branchId: null }],
             }
           : {}),
       },
@@ -190,7 +201,10 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     })
     if (!existing) return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
 
-    const visibleOrderIds = await getVisiblePurchaseOrderIds(context!, [existing])
+    const visibleOrderIds = await getVisiblePurchaseOrderIds(
+      { ...context!, currentBranchId: branchId, allBranchesSelected: false },
+      [existing]
+    )
     if (!visibleOrderIds.has(existing.id)) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }

@@ -2,7 +2,10 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { ReturnType } from '@prisma/client'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import {
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
 import { postSupplierReturnJournal } from '@/lib/accounting/journalEngine'
 
 /**
@@ -93,6 +96,12 @@ export async function POST(req: Request) {
     const { authorized, error: permError } = requirePermission(context!, 'process_returns')
     if (!authorized) return permError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before processing a supplier return.'
+    )
+    if (branchError) return branchError
+
     const body = await req.json()
 
     // Validate
@@ -130,7 +139,15 @@ export async function POST(req: Request) {
 
     // Verify purchase belongs to tenant
     const purchase = await prisma.purchase.findFirst({
-      where: applyBranchScope({ id: body.purchaseId, tenantId: context!.tenantId }, context!),
+      where: {
+        id: body.purchaseId,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId
+          ? {
+              OR: [{ branchId }, { branchId: null }],
+            }
+          : {}),
+      },
       include: {
         items: true,
         supplier: true,
@@ -172,11 +189,14 @@ export async function POST(req: Request) {
     }
 
     // Fetch item type + current stock
+    const purchaseBranchId = purchase.branchId ?? branchId
     const item = await prisma.item.findFirst({
       where: {
         id: body.itemId,
         tenantId: context!.tenantId,
-        ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+        ...(context!.branchesEnabled && purchaseBranchId
+          ? { branchId: purchaseBranchId }
+          : {}),
       },
       select: { quantity: true, itemType: true },
     })

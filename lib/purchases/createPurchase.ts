@@ -225,8 +225,8 @@ export async function createPurchaseFromInput(
         where: { id: body.sourcePurchaseOrderId },
         data: {
           status: 'RECEIVED',
-          ...(context.branchesEnabled && context.currentBranchId
-            ? { branchId: context.currentBranchId }
+          ...(context.branchesEnabled && branchId
+            ? { branchId }
             : {}),
         },
       })

@@ -1,5 +1,9 @@
 import type { StockTransfer, StockTransferItem } from '@prisma/client'
-import { canAccessBranch, type BranchAccessContext } from '@/lib/branch/server'
+import {
+  canAccessBranch,
+  getOperationalBranchId,
+  type BranchAccessContext,
+} from '@/lib/branch/server'
 
 export type StockTransferWithItems = StockTransfer & {
   items: StockTransferItem[]
@@ -32,13 +36,11 @@ export function canViewTransfer(context: BranchAccessContext, transfer: Pick<Sto
 }
 
 export function canDispatchTransfer(context: BranchAccessContext, transfer: Pick<StockTransfer, 'fromBranchId'>) {
-  if (context.canViewAllBranches) return true
-  return context.currentBranchId === transfer.fromBranchId || context.assignedBranchId === transfer.fromBranchId
+  return getOperationalBranchId(context) === transfer.fromBranchId
 }
 
 export function canReceiveTransfer(context: BranchAccessContext, transfer: Pick<StockTransfer, 'toBranchId'>) {
-  if (context.canViewAllBranches) return true
-  return context.currentBranchId === transfer.toBranchId || context.assignedBranchId === transfer.toBranchId
+  return getOperationalBranchId(context) === transfer.toBranchId
 }
 
 export function canCancelTransfer(context: BranchAccessContext, transfer: Pick<StockTransfer, 'fromBranchId'>) {

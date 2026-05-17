@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import {
   TrendingUp,
@@ -19,7 +19,10 @@ import {
   RefreshCw,
   AlertCircle,
   Calendar,
+  Download,
+  Printer,
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared helpers
@@ -27,6 +30,50 @@ import {
 
 const fmt = (n: number) =>
   n.toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Export helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function exportToExcel(rows: Record<string, any>[], filename: string, sheetName = 'Report') {
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  XLSX.writeFile(wb, `${filename}.xlsx`)
+}
+
+function exportToPdf(title: string) {
+  const style = document.createElement('style')
+  style.id = '__print_style__'
+  style.textContent = `
+    @media print {
+      body > *:not(#__print_root__) { display: none !important; }
+      #__print_root__ { display: block !important; }
+      @page { margin: 18mm; }
+    }
+  `
+  document.head.appendChild(style)
+
+  const src = document.getElementById('report-panel-content')
+  if (!src) { document.head.removeChild(style); window.print(); return }
+
+  const wrap = document.createElement('div')
+  wrap.id = '__print_root__'
+  wrap.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:99999;padding:24px;overflow:auto;'
+
+  const heading = document.createElement('h2')
+  heading.textContent = title
+  heading.style.cssText = 'font-size:18px;font-weight:700;margin-bottom:16px;color:#0f172a;'
+  wrap.appendChild(heading)
+  wrap.appendChild(src.cloneNode(true))
+  document.body.appendChild(wrap)
+
+  window.print()
+
+  document.body.removeChild(wrap)
+  document.head.removeChild(style)
+}
 
 function ReportBtn({
   onClick,
@@ -176,7 +223,7 @@ function SummaryRow({
 // 1. Profit & Loss
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ProfitLossReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function ProfitLossReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Data = {
     revenue:  { rows: { code: string; name: string; balance: number }[]; total: number }
     cogs:     { rows: { code: string; name: string; balance: number }[]; total: number }
@@ -201,7 +248,19 @@ function ProfitLossReport({ startDate, endDate }: { startDate: string; endDate: 
     if (endDate)   p.set('endDate',   endDate)
     fetch(`/api/accounting/reports/profit-loss?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d: Data) => {
+        setData(d)
+        onData([
+          ...d.revenue.rows.map(r => ({ Section: 'Revenue', Code: r.code, Account: r.name, Amount: r.balance })),
+          { Section: 'Revenue', Code: '', Account: 'Total Revenue', Amount: d.revenue.total },
+          ...d.cogs.rows.map(r => ({ Section: 'COGS', Code: r.code, Account: r.name, Amount: r.balance })),
+          { Section: 'COGS', Code: '', Account: 'Total COGS', Amount: d.cogs.total },
+          { Section: 'Summary', Code: '', Account: 'Gross Profit', Amount: d.summary.grossProfit },
+          ...d.expenses.rows.map(r => ({ Section: 'Expenses', Code: r.code, Account: r.name, Amount: r.balance })),
+          { Section: 'Expenses', Code: '', Account: 'Total Expenses', Amount: d.expenses.total },
+          { Section: 'Summary', Code: '', Account: 'Net Income', Amount: d.summary.netIncome },
+        ])
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -227,7 +286,7 @@ function ProfitLossReport({ startDate, endDate }: { startDate: string; endDate: 
 // 2. Balance Sheet
 // ─────────────────────────────────────────────────────────────────────────────
 
-function BalanceSheetReport({ asOf }: { asOf: string }) {
+function BalanceSheetReport({ asOf, onData }: { asOf: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Data = {
     assets:      { rows: { code: string; name: string; balance: number }[]; total: number }
     liabilities: { rows: { code: string; name: string; balance: number }[]; total: number }
@@ -251,7 +310,17 @@ function BalanceSheetReport({ asOf }: { asOf: string }) {
     if (asOf) p.set('asOf', asOf)
     fetch(`/api/accounting/reports/balance-sheet?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d: Data) => {
+        setData(d)
+        onData([
+          ...d.assets.rows.map(r => ({ Section: 'Assets', Code: r.code, Account: r.name, Balance: r.balance })),
+          { Section: 'Assets', Code: '', Account: 'Total Assets', Balance: d.assets.total },
+          ...d.liabilities.rows.map(r => ({ Section: 'Liabilities', Code: r.code, Account: r.name, Balance: r.balance })),
+          { Section: 'Liabilities', Code: '', Account: 'Total Liabilities', Balance: d.liabilities.total },
+          ...d.equity.rows.map(r => ({ Section: 'Equity', Code: r.code, Account: r.name, Balance: r.balance })),
+          { Section: 'Equity', Code: '', Account: 'Total Equity', Balance: d.equity.total },
+        ])
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -288,7 +357,7 @@ function BalanceSheetReport({ asOf }: { asOf: string }) {
 // 3. Trial Balance
 // ─────────────────────────────────────────────────────────────────────────────
 
-function TrialBalanceReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function TrialBalanceReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Data = {
     rows: { code: string; name: string; type: string; totalDebit: number; totalCredit: number; balance: number }[]
     totals: { totalDebit: number; totalCredit: number }
@@ -306,7 +375,10 @@ function TrialBalanceReport({ startDate, endDate }: { startDate: string; endDate
     if (endDate)   p.set('endDate',   endDate)
     fetch(`/api/accounting/reports/trial-balance?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d: Data) => {
+        setData(d)
+        onData(d.rows.map(r => ({ Code: r.code, Account: r.name, Type: r.type, Debit: r.totalDebit, Credit: r.totalCredit, Balance: r.balance })))
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -369,7 +441,7 @@ function TrialBalanceReport({ startDate, endDate }: { startDate: string; endDate
 // 4. General Ledger
 // ─────────────────────────────────────────────────────────────────────────────
 
-function GeneralLedgerReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function GeneralLedgerReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   const [accounts, setAccounts] = useState<{ id: string; code: string; name: string; type: string }[]>([])
   const [accountId, setAccountId] = useState('')
   const [data, setData] = useState<{
@@ -406,7 +478,19 @@ function GeneralLedgerReport({ startDate, endDate }: { startDate: string; endDat
     if (endDate)   p.set('endDate',   endDate)
     fetch(`/api/accounting/reports/general-ledger?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.rows.map((r: { entryNumber: string; date: string; source: string; lineDescription: string | null; description: string; debit: number; credit: number; runningBalance: number }) => ({
+          Entry: r.entryNumber,
+          Date: new Date(r.date).toLocaleDateString('en-GH'),
+          Source: r.source,
+          Description: r.lineDescription ?? r.description,
+          Debit: r.debit,
+          Credit: r.credit,
+          'Running Balance': r.runningBalance,
+        })))
+      })
       .catch(() => setError('Failed to load general ledger'))
       .finally(() => setLoading(false))
   }
@@ -535,7 +619,7 @@ function GeneralLedgerReport({ startDate, endDate }: { startDate: string; endDat
 // 5. AR Aging
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ArAgingReport({ asOf }: { asOf: string }) {
+function ArAgingReport({ asOf, onData }: { asOf: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Row = {
     customerId: string
     customerName: string
@@ -563,7 +647,14 @@ function ArAgingReport({ asOf }: { asOf: string }) {
     if (asOf) p.set('asOf', asOf)
     fetch(`/api/accounting/reports/ar-aging?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d) => {
+        setData(d)
+        onData(d.rows.map((r: { customerName: string; phone: string | null; current: number; days31_60: number; days61_90: number; over90: number; total: number }) => ({
+          Customer: r.customerName, Phone: r.phone ?? '',
+          '0-30 Days': r.current, '31-60 Days': r.days31_60,
+          '61-90 Days': r.days61_90, '90+ Days': r.over90, Total: r.total,
+        })))
+      })
       .catch(() => setError('Failed to load AR aging'))
       .finally(() => setLoading(false))
   }
@@ -643,7 +734,7 @@ function ArAgingReport({ asOf }: { asOf: string }) {
 // 6. AP Aging
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ApAgingReport({ asOf }: { asOf: string }) {
+function ApAgingReport({ asOf, onData }: { asOf: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Row = {
     supplierId: string
     supplierName: string
@@ -670,7 +761,14 @@ function ApAgingReport({ asOf }: { asOf: string }) {
     if (asOf) p.set('asOf', asOf)
     fetch(`/api/accounting/reports/ap-aging?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d) => {
+        setData(d)
+        onData(d.rows.map((r: { supplierName: string; phone: string | null; current: number; days31_60: number; days61_90: number; over90: number; total: number }) => ({
+          Supplier: r.supplierName, Phone: r.phone ?? '',
+          '0-30 Days': r.current, '31-60 Days': r.days31_60,
+          '61-90 Days': r.days61_90, '90+ Days': r.over90, Total: r.total,
+        })))
+      })
       .catch(() => setError('Failed to load AP aging'))
       .finally(() => setLoading(false))
   }
@@ -750,7 +848,7 @@ function ApAgingReport({ asOf }: { asOf: string }) {
 // 7. Cash Flow Statement
 // ─────────────────────────────────────────────────────────────────────────────
 
-function CashFlowReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function CashFlowReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Data = {
     operating: {
       netIncome: number
@@ -774,7 +872,21 @@ function CashFlowReport({ startDate, endDate }: { startDate: string; endDate: st
     if (endDate)   p.set('endDate',   endDate)
     fetch(`/api/accounting/reports/cash-flow?${p}`)
       .then((r) => r.json())
-      .then(setData)
+      .then((d) => {
+        setData(d)
+        onData([
+          { Section: 'Operating', Item: 'Net Income', Amount: d.operating.netIncome },
+          ...d.operating.workingCapitalAdjustments.map((i: { label: string; amount: number }) => ({ Section: 'Operating', Item: i.label, Amount: i.amount })),
+          { Section: 'Operating', Item: 'Net Cash from Operations', Amount: d.operating.netCashFromOperations },
+          ...d.investing.items.map((i: { label: string; amount: number }) => ({ Section: 'Investing', Item: i.label, Amount: i.amount })),
+          { Section: 'Investing', Item: 'Net Cash from Investing', Amount: d.investing.netCashFromInvesting },
+          ...d.financing.items.map((i: { label: string; amount: number }) => ({ Section: 'Financing', Item: i.label, Amount: i.amount })),
+          { Section: 'Financing', Item: 'Net Cash from Financing', Amount: d.financing.netCashFromFinancing },
+          { Section: 'Summary', Item: 'Opening Cash', Amount: d.summary.openingCash },
+          { Section: 'Summary', Item: 'Net Change in Cash', Amount: d.summary.netChangeInCash },
+          { Section: 'Summary', Item: 'Closing Cash', Amount: d.summary.closingCash },
+        ])
+      })
       .catch(() => setError('Failed to load cash flow'))
       .finally(() => setLoading(false))
   }
@@ -836,7 +948,7 @@ function CashFlowReport({ startDate, endDate }: { startDate: string; endDate: st
 // 8. Statement of Account (per customer)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function StatementOfAccountReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function StatementOfAccountReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   const [customers, setCustomers] = useState<{ id: string; name: string; phone: string | null }[]>([])
   const [customerId, setCustomerId] = useState('')
   const [data, setData] = useState<{
@@ -874,7 +986,15 @@ function StatementOfAccountReport({ startDate, endDate }: { startDate: string; e
     if (endDate)   p.set('endDate',   endDate)
     fetch(`/api/accounting/reports/statement-of-account?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.rows.map((r: { date: string; type: string; reference: string; description: string; debit: number; credit: number; balance: number }) => ({
+          Date: new Date(r.date).toLocaleDateString('en-GH'),
+          Type: r.type, Reference: r.reference, Description: r.description,
+          Debit: r.debit, Credit: r.credit, Balance: r.balance,
+        })))
+      })
       .catch(() => setError('Failed to load statement'))
       .finally(() => setLoading(false))
   }
@@ -1005,7 +1125,7 @@ function StatementOfAccountReport({ startDate, endDate }: { startDate: string; e
 // 9. Sales by Customer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SalesByCustomerReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function SalesByCustomerReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Row = {
     customerId: string | null
     customerName: string
@@ -1042,7 +1162,15 @@ function SalesByCustomerReport({ startDate, endDate }: { startDate: string; endD
     if (endDate) p.set('endDate', endDate)
     fetch(`/api/accounting/reports/sales-by-customer?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.rows.map((r: { customerName: string; phone: string | null; transactionCount: number; totalSales: number; totalCOGS: number; grossProfit: number; grossMarginPct: number; amountPaid: number; amountOwing: number }) => ({
+          Customer: r.customerName, Phone: r.phone ?? '', Transactions: r.transactionCount,
+          Revenue: r.totalSales, COGS: r.totalCOGS, 'Gross Profit': r.grossProfit,
+          'Margin %': r.grossMarginPct.toFixed(1), Paid: r.amountPaid, Owing: r.amountOwing,
+        })))
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -1112,7 +1240,7 @@ function SalesByCustomerReport({ startDate, endDate }: { startDate: string; endD
 // 10. Sales by Product
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SalesByProductReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function SalesByProductReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type Row = {
     itemId: string
     itemName: string
@@ -1140,7 +1268,15 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string; endDa
     if (endDate) p.set('endDate', endDate)
     fetch(`/api/accounting/reports/sales-by-product?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.rows.map((r: { itemName: string; categoryName: string | null; quantitySold: number; avgSellingPrice: number; revenue: number; cogs: number; grossProfit: number; grossMarginPct: number }) => ({
+          Product: r.itemName, Category: r.categoryName ?? '', 'Qty Sold': r.quantitySold,
+          'Avg Price': r.avgSellingPrice, Revenue: r.revenue, COGS: r.cogs,
+          'Gross Profit': r.grossProfit, 'Margin %': r.grossMarginPct.toFixed(1),
+        })))
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -1207,7 +1343,7 @@ function SalesByProductReport({ startDate, endDate }: { startDate: string; endDa
 // 11. Expense by Vendor
 // ─────────────────────────────────────────────────────────────────────────────
 
-function ExpenseByVendorReport({ startDate, endDate }: { startDate: string; endDate: string }) {
+function ExpenseByVendorReport({ startDate, endDate, onData }: { startDate: string; endDate: string; onData: (rows: Record<string, unknown>[]) => void }) {
   type SupplierRow = {
     vendorId: string
     vendorName: string
@@ -1237,7 +1373,20 @@ function ExpenseByVendorReport({ startDate, endDate }: { startDate: string; endD
     if (endDate) p.set('endDate', endDate)
     fetch(`/api/accounting/reports/expense-by-vendor?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData([
+          ...d.supplierRows.map((r: { vendorName: string; phone: string | null; transactionCount: number; totalPurchases: number; amountPaid: number; amountOwing: number }) => ({
+            Section: 'Supplier Purchases', Vendor: r.vendorName, Phone: r.phone ?? '',
+            Transactions: r.transactionCount, Total: r.totalPurchases, Paid: r.amountPaid, Owing: r.amountOwing,
+          })),
+          ...d.expenseRows.map((r: { categoryName: string; transactionCount: number; totalAmount: number }) => ({
+            Section: 'Operating Expenses', Vendor: r.categoryName, Phone: '',
+            Transactions: r.transactionCount, Total: r.totalAmount, Paid: '', Owing: '',
+          })),
+        ])
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -1340,7 +1489,7 @@ function ExpenseByVendorReport({ startDate, endDate }: { startDate: string; endD
 // 12. Payroll Summary
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PayrollSummaryReport() {
+function PayrollSummaryReport({ onData }: { onData: (rows: Record<string, unknown>[]) => void }) {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear.toString())
   const [month, setMonth] = useState('')
@@ -1385,7 +1534,16 @@ function PayrollSummaryReport() {
     if (month) p.set('month', month)
     fetch(`/api/accounting/reports/payroll-summary?${p}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.periodRows.map((r: { periodLabel: string; employeeCount: number; totalGross: number; totalSSFEmployee: number; totalSSFEmployer: number; totalPAYE: number; totalDeductions: number; totalNetPay: number; totalEmployerCost: number }) => ({
+          Period: r.periodLabel, Employees: r.employeeCount, 'Gross Pay': r.totalGross,
+          'SSF (Emp)': r.totalSSFEmployee, 'SSF (Employer)': r.totalSSFEmployer,
+          PAYE: r.totalPAYE, 'Total Deductions': r.totalDeductions,
+          'Net Pay': r.totalNetPay, 'Employer Cost': r.totalEmployerCost,
+        })))
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -1478,7 +1636,7 @@ function PayrollSummaryReport() {
 // 13. Inventory Valuation
 // ─────────────────────────────────────────────────────────────────────────────
 
-function InventoryValuationReport() {
+function InventoryValuationReport({ onData }: { onData: (rows: Record<string, unknown>[]) => void }) {
   type ItemRow = {
     itemId: string
     itemName: string
@@ -1525,7 +1683,16 @@ function InventoryValuationReport() {
     setError('')
     fetch('/api/accounting/reports/inventory-valuation')
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else setData(d) })
+      .then((d) => {
+        if (d.error) { setError(d.error); return }
+        setData(d)
+        onData(d.rows.map((r: { itemName: string; categoryName: string | null; manufacturerName: string; barcode: string | null; quantityOnHand: number; costPrice: number; sellingPrice: number; totalCostValue: number; totalRetailValue: number; potentialProfit: number; status: string }) => ({
+          Item: r.itemName, Category: r.categoryName ?? '', Manufacturer: r.manufacturerName,
+          Barcode: r.barcode ?? '', Qty: r.quantityOnHand, 'Cost/Unit': r.costPrice,
+          'Selling Price': r.sellingPrice, 'Cost Value': r.totalCostValue,
+          'Retail Value': r.totalRetailValue, 'Potential Profit': r.potentialProfit, Status: r.status,
+        })))
+      })
       .catch(() => setError('Failed to load report'))
       .finally(() => setLoading(false))
   }
@@ -1688,6 +1855,9 @@ export default function AccountingReportsPage() {
 
   const [startDate, setStartDate] = useState(firstOfMonth)
   const [endDate, setEndDate] = useState(today)
+  const [exportRows, setExportRows] = useState<Record<string, unknown>[]>([])
+
+  const handleData = useCallback((rows: Record<string, unknown>[]) => setExportRows(rows), [])
 
   const tabs: { id: ReportType; label: string; icon: React.ReactNode; group: string }[] = [
     { id: 'profit-loss',          label: 'Profit & Loss',        icon: <TrendingUp className="w-4 h-4" />,   group: 'Core' },
@@ -1707,50 +1877,50 @@ export default function AccountingReportsPage() {
 
   const groups = ['Core', 'Aging', 'Cash', 'Sales', 'HR & Stock']
   const activeTab = tabs.find((t) => t.id === activeReport)!
+
+  const switchReport = (id: ReportType) => { setActiveReport(id); setExportRows([]) }
   const activeGroup = activeTab.group
 
   return (
     <AppLayout>
       {/* ── Dark hero banner ─────────────────────────────────────────────────── */}
       <div className="-mx-4 sm:-mx-6 lg:-mx-8 -mt-4 sm:-mt-6 mb-0">
-        <div className="relative overflow-hidden bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 px-6 sm:px-10 pt-8 pb-24">
-          {/* decorative circles */}
-          <div className="pointer-events-none absolute -top-16 -right-16 w-64 h-64 rounded-full bg-blue-500/10" />
-          <div className="pointer-events-none absolute top-8 -left-12 w-48 h-48 rounded-full bg-indigo-500/10" />
-          <div className="pointer-events-none absolute bottom-0 right-1/4 w-56 h-56 rounded-full bg-violet-500/8" />
+        <div className="relative overflow-hidden bg-slate-900 px-6 sm:px-10 pt-8 pb-10">
+          {/* decorative accents */}
+          <div className="pointer-events-none absolute top-0 right-0 w-64 h-64 bg-blue-600/10 border-l border-b border-blue-500/20" />
+          <div className="pointer-events-none absolute bottom-0 left-0 w-48 h-48 bg-blue-600/8 border-t border-r border-blue-500/15" />
+          <div className="pointer-events-none absolute inset-x-0 top-[55%] h-px bg-white/5" />
 
-          <div className="relative max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-            <div>
-              <div className="inline-flex items-center gap-2 bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs font-semibold px-3 py-1 rounded-full mb-3">
-                <TrendingUp className="w-3.5 h-3.5" />
-                QuickBooks-Standard Reports
+          <div className="relative max-w-7xl mx-auto">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Financial Reports</h1>
+                <p className="mt-1 text-slate-400 text-sm">13 reports · Double-entry accounting</p>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Financial Reports</h1>
-              <p className="mt-1 text-slate-400 text-sm">13 reports · Double-entry accounting</p>
-            </div>
 
-            {/* Date range controls in hero */}
-            <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-3 flex-wrap shrink-0">
-              <Calendar className="w-4 h-4 text-slate-300 shrink-0" />
-              <div className="flex items-center gap-2 flex-wrap">
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-0.5">From</label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
-                  />
-                </div>
-                <div className="text-slate-500 text-sm mt-4">→</div>
-                <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-0.5">To / As-of</label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
-                  />
+              {/* Date range controls in hero */}
+              <div className="flex items-center gap-3 bg-white/8 border border-white/12 rounded-xl px-4 py-3 flex-wrap shrink-0">
+                <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">From</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
+                    />
+                  </div>
+                  <span className="text-slate-600 text-sm self-end mb-2">→</span>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-400 mb-1">To / As-of</label>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1758,8 +1928,8 @@ export default function AccountingReportsPage() {
         </div>
       </div>
 
-      {/* ── Content pulled up over the hero ─────────────────────────────────── */}
-      <div className="-mt-16 space-y-0">
+      {/* ── Content below hero ───────────────────────────────────────────────── */}
+      <div className="mt-6 space-y-0">
 
         {/* ── Report category cards ─────────────────────────────────────────── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
@@ -1770,7 +1940,7 @@ export default function AccountingReportsPage() {
             return (
               <button
                 key={group}
-                onClick={() => setActiveReport(groupTabs[0].id)}
+                onClick={() => switchReport(groupTabs[0].id)}
                 className={`text-left p-4 rounded-2xl border-2 transition-all shadow-sm ${
                   isActive
                     ? 'bg-white border-blue-500 shadow-blue-100 shadow-md'
@@ -1806,7 +1976,7 @@ export default function AccountingReportsPage() {
                     return (
                       <button
                         key={tab.id}
-                        onClick={() => setActiveReport(tab.id)}
+                        onClick={() => switchReport(tab.id)}
                         className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-left transition-all ${
                           active
                             ? 'bg-blue-600 text-white font-semibold'
@@ -1833,7 +2003,7 @@ export default function AccountingReportsPage() {
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setActiveReport(tab.id)}
+                    onClick={() => switchReport(tab.id)}
                     className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl whitespace-nowrap transition-all ${
                       active
                         ? 'bg-blue-600 text-white shadow-sm'
@@ -1853,7 +2023,7 @@ export default function AccountingReportsPage() {
             {/* Panel header */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-4">
-                <div className={`p-2 rounded-xl ${
+                <div className={`p-2 rounded-xl shrink-0 ${
                   activeGroup === 'Core'       ? 'bg-blue-100 text-blue-600' :
                   activeGroup === 'Aging'      ? 'bg-amber-100 text-amber-600' :
                   activeGroup === 'Cash'       ? 'bg-teal-100 text-teal-600' :
@@ -1862,7 +2032,7 @@ export default function AccountingReportsPage() {
                 }`}>
                   {activeTab.icon}
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <h2 className="text-base font-bold text-slate-900">{activeTab.label}</h2>
                   <p className="text-xs text-slate-400">
                     {startDate && endDate
@@ -1870,23 +2040,44 @@ export default function AccountingReportsPage() {
                       : 'Set date range above'}
                   </p>
                 </div>
+                {/* Export buttons — shown only after data is loaded */}
+                {exportRows.length > 0 && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => exportToExcel(exportRows, activeTab.label)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      title="Export to Excel"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Excel
+                    </button>
+                    <button
+                      onClick={() => exportToPdf(activeTab.label)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
+                      title="Print / Save as PDF"
+                    >
+                      <Printer className="w-3.5 h-3.5" />
+                      PDF
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="space-y-4">
-              {activeReport === 'profit-loss'           && <ProfitLossReport          startDate={startDate} endDate={endDate} />}
-              {activeReport === 'balance-sheet'          && <BalanceSheetReport         asOf={endDate} />}
-              {activeReport === 'trial-balance'          && <TrialBalanceReport          startDate={startDate} endDate={endDate} />}
-              {activeReport === 'general-ledger'         && <GeneralLedgerReport         startDate={startDate} endDate={endDate} />}
-              {activeReport === 'ar-aging'               && <ArAgingReport               asOf={endDate} />}
-              {activeReport === 'ap-aging'               && <ApAgingReport               asOf={endDate} />}
-              {activeReport === 'cash-flow'              && <CashFlowReport              startDate={startDate} endDate={endDate} />}
-              {activeReport === 'statement-of-account'   && <StatementOfAccountReport    startDate={startDate} endDate={endDate} />}
-              {activeReport === 'sales-by-customer'      && <SalesByCustomerReport       startDate={startDate} endDate={endDate} />}
-              {activeReport === 'sales-by-product'       && <SalesByProductReport        startDate={startDate} endDate={endDate} />}
-              {activeReport === 'expense-by-vendor'      && <ExpenseByVendorReport       startDate={startDate} endDate={endDate} />}
-              {activeReport === 'payroll-summary'        && <PayrollSummaryReport />}
-              {activeReport === 'inventory-valuation'    && <InventoryValuationReport />}
+            <div id="report-panel-content" className="space-y-4">
+              {activeReport === 'profit-loss'           && <ProfitLossReport          startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'balance-sheet'          && <BalanceSheetReport         asOf={endDate} onData={handleData} />}
+              {activeReport === 'trial-balance'          && <TrialBalanceReport          startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'general-ledger'         && <GeneralLedgerReport         startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'ar-aging'               && <ArAgingReport               asOf={endDate} onData={handleData} />}
+              {activeReport === 'ap-aging'               && <ApAgingReport               asOf={endDate} onData={handleData} />}
+              {activeReport === 'cash-flow'              && <CashFlowReport              startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'statement-of-account'   && <StatementOfAccountReport    startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'sales-by-customer'      && <SalesByCustomerReport       startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'sales-by-product'       && <SalesByProductReport        startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'expense-by-vendor'      && <ExpenseByVendorReport       startDate={startDate} endDate={endDate} onData={handleData} />}
+              {activeReport === 'payroll-summary'        && <PayrollSummaryReport        onData={handleData} />}
+              {activeReport === 'inventory-valuation'    && <InventoryValuationReport    onData={handleData} />}
             </div>
           </div>
         </div>

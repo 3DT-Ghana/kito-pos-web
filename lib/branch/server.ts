@@ -180,6 +180,14 @@ export function isBranchFilterActive(context: BranchAccessContext) {
   return context.branchesEnabled && !context.allBranchesSelected
 }
 
+export function getOperationalBranchId(context: BranchAccessContext) {
+  if (!context.branchesEnabled) {
+    return null
+  }
+
+  return context.currentBranchId ?? context.assignedBranchId ?? null
+}
+
 export function requireOperationalBranch(
   context: BranchAccessContext,
   message = 'Select a branch before performing this action.'
@@ -188,14 +196,17 @@ export function requireOperationalBranch(
     return { branchId: null as string | null, error: null as NextResponse | null }
   }
 
-  if (context.currentBranchId) {
-    return { branchId: context.currentBranchId, error: null as NextResponse | null }
+  const branchId = getOperationalBranchId(context)
+  if (branchId) {
+    return { branchId, error: null as NextResponse | null }
   }
 
   const fallbackMessage =
     context.branches.length === 0
       ? 'Create a branch first before recording branch-specific data.'
-      : message
+      : context.allBranchesSelected
+        ? 'You are viewing All Branches. Select a specific branch before performing this action.'
+        : message
 
   return {
     branchId: null as string | null,

@@ -1,17 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { SaleForm } from '@/components/forms/SaleForm'
+import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
+import { useBranch } from '@/lib/branch/BranchContext'
 import Link from 'next/link'
 
 type PageState = 'form' | 'success' | 'pending_approval'
 
 export default function NewSalePage() {
   const router = useRouter()
+  const {
+    assignedBranchId,
+    branchesEnabled,
+    currentBranchId,
+    isLoading: isBranchLoading,
+    setBranchId,
+  } = useBranch()
   const [pageState, setPageState] = useState<PageState>('form')
   const [lastSaleId, setLastSaleId] = useState<string | null>(null)
+  const isAutoSelectingAssignedBranch =
+    !isBranchLoading && branchesEnabled && !currentBranchId && Boolean(assignedBranchId)
+  const requiresOperationalBranch =
+    !isBranchLoading && branchesEnabled && !currentBranchId && !assignedBranchId
+
+  useEffect(() => {
+    if (isAutoSelectingAssignedBranch && assignedBranchId) {
+      setBranchId(assignedBranchId)
+    }
+  }, [assignedBranchId, isAutoSelectingAssignedBranch, setBranchId])
 
   const handleSubmit = async (data: unknown) => {
     const response = await fetch('/api/sales', {
@@ -124,10 +143,20 @@ export default function NewSalePage() {
           </div>
         </div>
 
-        {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6">
-          <SaleForm onSubmit={handleSubmit} onCancel={handleCancel} />
-        </div>
+        {isBranchLoading || isAutoSelectingAssignedBranch ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
+            Loading branch selection...
+          </div>
+        ) : requiresOperationalBranch ? (
+          <OperationalBranchPrompt
+            title="Choose a branch before recording this sale"
+            description="Sales must be attached to one branch so stock and reports stay accurate. Pick the branch you are working from to continue."
+          />
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6">
+            <SaleForm onSubmit={handleSubmit} onCancel={handleCancel} />
+          </div>
+        )}
       </div>
     </AppLayout>
   )

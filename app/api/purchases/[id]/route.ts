@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import {
+  applyBranchScope,
+  requireBranchAccess,
+  requireOperationalBranch,
+} from '@/lib/branch/server'
 
 /**
  * Purchase Detail API Routes
@@ -81,6 +85,12 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before editing a purchase.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
     const body = await req.json()
     const { supplierId, paymentType, paidAmount, items } = body
@@ -100,7 +110,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     // Fetch current purchase
     const purchase = await prisma.purchase.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId
+          ? {
+              OR: [{ branchId }, { branchId: null }],
+            }
+          : {}),
+      },
       include: { items: true },
     })
     if (!purchase) return NextResponse.json({ error: 'Purchase not found' }, { status: 404 })
@@ -127,12 +145,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Supplier not found' }, { status: 404 })
     }
 
+    const purchaseBranchId = purchase.branchId ?? branchId
     const itemIds = items.map((item: { itemId: string }) => item.itemId)
     const dbItems = await prisma.item.findMany({
       where: {
         id: { in: itemIds },
         tenantId: context!.tenantId,
-        ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+        ...(context!.branchesEnabled && purchaseBranchId
+          ? { branchId: purchaseBranchId }
+          : {}),
       },
       select: { id: true },
     })
@@ -192,6 +213,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
       await tx.purchase.update({
         where: { id },
         data: {
+          ...(context!.branchesEnabled && branchId && !purchase.branchId
+            ? { branchId }
+            : {}),
           supplierId,
           paymentType: paymentType || 'CASH',
           totalAmount,
@@ -235,11 +259,25 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     const { authorized, error: roleError } = requireOwner(context!.user.role)
     if (!authorized) return roleError!
 
+    const { branchId, error: branchError } = requireOperationalBranch(
+      context!,
+      'Select a branch before voiding a purchase.'
+    )
+    if (branchError) return branchError
+
     const { id } = await params
 
     // Fetch purchase with all details
     const purchase = await prisma.purchase.findFirst({
-      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
+      where: {
+        id,
+        tenantId: context!.tenantId,
+        ...(context!.branchesEnabled && branchId
+          ? {
+              OR: [{ branchId }, { branchId: null }],
+            }
+          : {}),
+      },
       include: {
         items: true,
         supplier: true,
@@ -268,6 +306,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     const creditAmount = purchase.totalAmount - purchase.paidAmount
+    const purchaseBranchId = purchase.branchId ?? branchId
 
     // Check if there's enough stock to reverse
     for (const purchaseItem of purchase.items) {
@@ -275,7 +314,9 @@ export async function DELETE(req: Request, { params }: RouteParams) {
         where: {
           id: purchaseItem.itemId,
           tenantId: context!.tenantId,
-          ...(context!.branchesEnabled ? { branchId: purchase.branchId ?? null } : {}),
+          ...(context!.branchesEnabled && purchaseBranchId
+            ? { branchId: purchaseBranchId }
+            : {}),
         },
       })
 

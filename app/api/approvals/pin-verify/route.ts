@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
-import { requireBranchAccess } from '@/lib/branch/server'
+import { getOperationalBranchId, requireBranchAccess } from '@/lib/branch/server'
 import {
   canViewAllBranchesForRole,
   hasPermission,
@@ -40,6 +40,14 @@ export async function POST(req: Request) {
       { status: 200 }
     )
 
+    const operationalBranchId = getOperationalBranchId(context!)
+    if (context!.branchesEnabled && !operationalBranchId) {
+      return NextResponse.json(
+        { valid: false, error: 'Select a branch before requesting approval.' },
+        { status: 200 }
+      )
+    }
+
     if (!manager) return invalidResponse
 
     const passwordMatch = await compare(password, manager.password)
@@ -56,12 +64,12 @@ export async function POST(req: Request) {
 
     const branchAllowed = !context!.branchesEnabled ||
       canViewAllBranchesForRole(manager.role as Parameters<typeof canViewAllBranchesForRole>[0]) ||
-      manager.branchId === context!.currentBranchId
+      manager.branchId === operationalBranchId
     if (!branchAllowed) return invalidResponse
 
     const grant = createApprovalGrant({
       tenantId: context!.tenantId,
-      branchId: context!.currentBranchId,
+      branchId: operationalBranchId,
       approverId: manager.id,
       approverName: manager.name,
       scope: 'SALE',

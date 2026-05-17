@@ -7,6 +7,7 @@ import { useBranch } from '@/lib/branch/BranchContext'
 import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
+import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,14 @@ function saveHolds(holds: HeldOrder[]) {
 export default function PosPage() {
   const router = useRouter()
   const { user } = useUser()
-  const { currentBranch, currentBranchId } = useBranch()
+  const {
+    assignedBranchId,
+    branchesEnabled,
+    currentBranch,
+    currentBranchId,
+    isLoading: isBranchLoading,
+    setBranchId,
+  } = useBranch()
   const { features } = useTenantFeatures()
   const { hasTenantPermission } = useRolePermissions()
   const { tenantId } = useTenant()
@@ -211,6 +219,16 @@ export default function PosPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [noticeMsg, setNoticeMsg] = useState('')
   const [mobileTab, setMobileTab] = useState<MobileTab>('items')
+  const isAutoSelectingAssignedBranch =
+    !isBranchLoading && branchesEnabled && !currentBranchId && Boolean(assignedBranchId)
+  const requiresOperationalBranch =
+    !isBranchLoading && branchesEnabled && !currentBranchId && !assignedBranchId
+
+  useEffect(() => {
+    if (isAutoSelectingAssignedBranch && assignedBranchId) {
+      setBranchId(assignedBranchId)
+    }
+  }, [assignedBranchId, isAutoSelectingAssignedBranch, setBranchId])
 
   // ── Load items ──────────────────────────────────────────────────────────────
 
@@ -1399,6 +1417,25 @@ export default function PosPage() {
     } finally {
       setIsPinVerifying(false)
     }
+  }
+
+  if (requiresOperationalBranch) {
+    return (
+      <div className="min-h-screen bg-gray-50 px-4 py-10 sm:px-6 lg:px-8">
+        <OperationalBranchPrompt
+          title="Choose a branch before opening the POS terminal"
+          description="The POS terminal sells from one branch at a time. Select the branch you are serving from to load the right stock and continue."
+        />
+      </div>
+    )
+  }
+
+  if (isBranchLoading || isAutoSelectingAssignedBranch) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 text-sm text-gray-500">
+        Loading branch selection...
+      </div>
+    )
   }
 
   return (

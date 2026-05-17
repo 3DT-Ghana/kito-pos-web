@@ -1,7 +1,10 @@
 import { ApprovalFlag, ApprovalStatus, StockAdjustmentType } from '@prisma/client'
 import { hasPermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { type BranchAccessContext, applyBranchScope } from '@/lib/branch/server'
+import {
+  type BranchAccessContext,
+  getOperationalBranchId,
+} from '@/lib/branch/server'
 import { postStockAdjustmentJournal } from '@/lib/accounting/journalEngine'
 import { createAuditLog } from '@/lib/audit/auditLog'
 
@@ -68,11 +71,24 @@ export async function processStockAdjustment(
     )
   }
 
+  const branchId = getOperationalBranchId(context)
+  if (context.branchesEnabled && !branchId) {
+    const fallbackMessage =
+      context.branches.length === 0
+        ? 'Create a branch first before recording branch-specific data.'
+        : context.allBranchesSelected
+          ? 'You are viewing All Branches. Select a specific branch before performing this action.'
+          : 'Select a branch before performing this action.'
+
+    throw new StockAdjustmentError(fallbackMessage, 400)
+  }
+
   const item = await prisma.item.findFirst({
-    where: applyBranchScope(
-      { id: input.itemId, tenantId: context.tenantId },
-      context
-    ),
+    where: {
+      id: input.itemId,
+      tenantId: context.tenantId,
+      ...(context.branchesEnabled && branchId ? { branchId } : {}),
+    },
   })
 
   if (!item) {
@@ -115,8 +131,8 @@ export async function processStockAdjustment(
       const createdAdjustment = await tx.stockAdjustment.create({
         data: {
           tenantId: context.tenantId,
-          ...(context.branchesEnabled && context.currentBranchId
-            ? { branchId: context.currentBranchId }
+          ...(context.branchesEnabled && branchId
+            ? { branchId }
             : {}),
           itemId: input.itemId,
           userId: context.user.id,
@@ -169,10 +185,11 @@ export async function processStockAdjustment(
 
   const result = await prisma.$transaction(async (tx) => {
     const lockedItem = await tx.item.findFirst({
-      where: applyBranchScope(
-        { id: input.itemId, tenantId: context.tenantId },
-        context
-      ),
+      where: {
+        id: input.itemId,
+        tenantId: context.tenantId,
+        ...(context.branchesEnabled && branchId ? { branchId } : {}),
+      },
       select: {
         id: true,
         quantity: true,
@@ -231,8 +248,8 @@ export async function processStockAdjustment(
     const adjustment = await tx.stockAdjustment.create({
       data: {
         tenantId: context.tenantId,
-        ...(context.branchesEnabled && context.currentBranchId
-          ? { branchId: context.currentBranchId }
+        ...(context.branchesEnabled && branchId
+          ? { branchId }
           : {}),
         itemId: input.itemId,
         userId: context.user.id,
