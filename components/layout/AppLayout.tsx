@@ -42,14 +42,7 @@ function AppLayoutInner({ children }: AppLayoutProps) {
           </div>
         </main>
 
-        {/* Branding footer — desktop only */}
-        <footer className="hidden md:block border-t border-gray-100 bg-white px-6 py-3">
-          <p className="text-xs text-gray-400 text-center">
-            <span className="font-semibold text-gray-500">PETROS Business Management Mini</span>
-            {' · '}Developed by <span className="font-semibold text-gray-500">EYO Solutions</span>
-            {' · '}0246462398
-          </p>
-        </footer>
+
       </div>
 
       {/* Mobile Bottom Tab Navigation */}
