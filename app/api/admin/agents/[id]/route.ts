@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/admin/server'
 import { prisma } from '@/lib/db/prisma'
 import { AgentStatus } from '@prisma/client'
+import { getGlobalKYCSettings, getMissingAgentKYCRequirements } from '@/lib/kyc/settings'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -13,6 +14,7 @@ interface RouteParams {
  *
  * PATCH /api/admin/agents/[id]
  * Update agent status (APPROVED | REJECTED | SUSPENDED).
+ * Body: { status, rejectionReason? }
  */
 
 export async function GET(req: Request, { params }: RouteParams) {
@@ -45,7 +47,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   try {
     const body = await req.json()
-    const { status } = body
+    const { status, rejectionReason } = body
+    const trimmedRejectionReason =
+      typeof rejectionReason === 'string' ? rejectionReason.trim() : ''
 
     const validStatuses: AgentStatus[] = ['APPROVED', 'REJECTED', 'SUSPENDED']
     if (!validStatuses.includes(status)) {
@@ -60,12 +64,37 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Agent not found' }, { status: 404 })
     }
 
+    if (status === 'REJECTED' && !trimmedRejectionReason) {
+      return NextResponse.json(
+        { error: 'Rejection reason is required when rejecting an agent' },
+        { status: 400 }
+      )
+    }
+
+    if (status === 'APPROVED') {
+      const kycSettings = await getGlobalKYCSettings()
+      const missingKYC = getMissingAgentKYCRequirements(kycSettings, agent)
+
+      if (missingKYC.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Agent cannot be approved until the following KYC requirements are met: ${missingKYC.join(', ')}.`,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
     const updated = await prisma.agent.update({
       where: { id },
       data: {
         status,
+        rejectionReason: status === 'REJECTED' ? trimmedRejectionReason : null,
         ...(status === 'APPROVED'
-          ? { approvedAt: new Date(), approvedById: context!.email }
+          ? {
+              approvedAt: agent.approvedAt ?? new Date(),
+              approvedById: agent.approvedById ?? context!.email,
+            }
           : {}),
       },
     })
@@ -76,7 +105,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         action: `agent.${status.toLowerCase()}`,
         entity: 'Agent',
         entityId: id,
-        details: { agentCode: agent.agentCode, previousStatus: agent.status, newStatus: status },
+        details: {
+          agentCode: agent.agentCode,
+          previousStatus: agent.status,
+          newStatus: status,
+          rejectionReason: status === 'REJECTED' ? trimmedRejectionReason : null,
+        },
       },
     })
 

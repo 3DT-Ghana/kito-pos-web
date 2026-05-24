@@ -15,9 +15,15 @@ interface AgentProfile {
   ghanaCardImageUrl: string | null
   residentialAddress: string | null
   territory: string | null
+  emergencyContactName: string | null
+  emergencyContactPhone: string | null
   status: string
   approvedAt: string | null
   _count: { onboardedBusinesses: number }
+  kycRequirements: {
+    requireAgentGhanaCardNumber: boolean
+    requireAgentGhanaCardUpload: boolean
+  }
 }
 
 export default function AgentProfilePage() {
@@ -29,7 +35,7 @@ export default function AgentProfilePage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const [form, setForm] = useState({ phone: '', residentialAddress: '', territory: '' })
+  const [form, setForm] = useState({ phone: '', residentialAddress: '', territory: '', emergencyContactName: '', emergencyContactPhone: '' })
   const [cardNumber, setCardNumber] = useState('')
 
   useEffect(() => {
@@ -41,6 +47,8 @@ export default function AgentProfilePage() {
           phone: data.phone ?? '',
           residentialAddress: data.residentialAddress ?? '',
           territory: data.territory ?? '',
+          emergencyContactName: data.emergencyContactName ?? '',
+          emergencyContactPhone: data.emergencyContactPhone ?? '',
         })
         setCardNumber(data.ghanaCardNumber ?? '')
         if (data?.status && data.status !== session?.user.agentStatus) {
@@ -59,7 +67,12 @@ export default function AgentProfilePage() {
       const res = await fetch('/api/agent/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ghanaCardNumber: cardNumber || null,
+          emergencyContactName: form.emergencyContactName || null,
+          emergencyContactPhone: form.emergencyContactPhone || null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -75,8 +88,12 @@ export default function AgentProfilePage() {
 
   async function handleCardUpload() {
     const file = fileRef.current?.files?.[0]
-    if (!file) return
-    if (!cardNumber.trim()) {
+    if (!file || !profile) return
+    if (
+      profile.kycRequirements.requireAgentGhanaCardNumber &&
+      !cardNumber.trim() &&
+      !profile.ghanaCardNumber
+    ) {
       setMessage({ type: 'error', text: 'Please enter your Ghana Card number first.' })
       return
     }
@@ -143,9 +160,9 @@ export default function AgentProfilePage() {
         }`}
       >
         {profile.status === 'APPROVED' ? (
-          <CheckCircle className="w-5 h-5 flex-shrink-0" />
+          <CheckCircle className="w-5 h-5 shrink-0" />
         ) : (
-          <Clock className="w-5 h-5 flex-shrink-0" />
+          <Clock className="w-5 h-5 shrink-0" />
         )}
         <div>
           <p className="text-sm font-medium">
@@ -158,7 +175,11 @@ export default function AgentProfilePage() {
           )}
           {profile.status === 'PENDING' && (
             <p className="text-xs mt-0.5">
-              Upload your Ghana Card below to complete verification.
+              {profile.kycRequirements.requireAgentGhanaCardUpload
+                ? 'A Ghana Card image is required before your account can be approved.'
+                : profile.kycRequirements.requireAgentGhanaCardNumber && !profile.ghanaCardNumber
+                  ? 'Enter your Ghana Card number below to complete verification.'
+                  : 'Upload your Ghana Card below if the admin asks for it during review.'}
             </p>
           )}
         </div>
@@ -169,14 +190,30 @@ export default function AgentProfilePage() {
         <h2 className="text-sm font-semibold text-gray-800">Ghana Card (KYC)</h2>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Ghana Card Number</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            {profile.kycRequirements.requireAgentGhanaCardNumber
+              ? 'Ghana Card Number'
+              : 'Ghana Card Number, if available'}
+            {profile.kycRequirements.requireAgentGhanaCardNumber && (
+              <span className="text-red-500 ml-0.5">*</span>
+            )}
+          </label>
           <input
             type="text"
             value={cardNumber}
             onChange={(e) => setCardNumber(e.target.value)}
-            placeholder="GHA-XXXXXXXXX-X"
+            placeholder={
+              profile.kycRequirements.requireAgentGhanaCardNumber
+                ? 'GHA-XXXXXXXXX-X'
+                : 'GHA-XXXXXXXXX-X (optional)'
+            }
             className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+          <p className="text-xs text-gray-400 mt-1">
+            {profile.kycRequirements.requireAgentGhanaCardNumber
+              ? 'Required by the current KYC settings.'
+              : 'Optional unless an administrator requests it.'}
+          </p>
         </div>
 
         {profile.ghanaCardImageUrl && (
@@ -209,6 +246,11 @@ export default function AgentProfilePage() {
             {uploadLoading ? 'Uploading…' : 'Upload Card'}
           </button>
         </div>
+        <p className="text-xs text-gray-400">
+          {profile.kycRequirements.requireAgentGhanaCardUpload
+            ? 'This upload is required before approval.'
+            : 'This upload is optional but can speed up the review.'}
+        </p>
       </div>
 
       {/* Contact details */}
@@ -259,6 +301,30 @@ export default function AgentProfilePage() {
             placeholder="e.g. Kasoa, Central Region"
             className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Emergency Contact</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Name</label>
+              <input
+                value={form.emergencyContactName}
+                onChange={(e) => setForm((p) => ({ ...p, emergencyContactName: e.target.value }))}
+                placeholder="e.g. Jane Doe"
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Contact Phone</label>
+              <input
+                value={form.emergencyContactPhone}
+                onChange={(e) => setForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))}
+                placeholder="e.g. 0241234567"
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-end">

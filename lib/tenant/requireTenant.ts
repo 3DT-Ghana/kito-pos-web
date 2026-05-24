@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db/prisma'
 import type { RolePermissionsMap } from '@/lib/permissions/rbac'
 import {
   TENANT_FEATURE_SELECT,
+  mergePlanFeatures,
   type TenantFeatureFlags,
 } from '@/lib/tenant/features'
 
@@ -98,13 +99,21 @@ export async function requireTenant(): Promise<TenantContext> {
     }
   }
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: session.user.tenantId },
-    select: {
-      rolePermissions: true,
-      ...TENANT_FEATURE_SELECT,
-    },
-  })
+  const [tenant, plan] = await Promise.all([
+    prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: {
+        rolePermissions: true,
+        ...TENANT_FEATURE_SELECT,
+      },
+    }),
+    prisma.tenantBusinessPlan.findUnique({
+      where: { tenantId: session.user.tenantId },
+      select: {
+        features: { select: { feature: { select: { key: true } } } },
+      },
+    }),
+  ])
 
   if (!tenant) {
     return {
@@ -122,21 +131,33 @@ export async function requireTenant(): Promise<TenantContext> {
     }
   }
 
-  // Success - return tenant context
+  // Build base feature flags from tenant column values
+  const baseFeatures: TenantFeatureFlags = {
+    enableBranches: tenant.enableBranches,
+    enableQuotations: tenant.enableQuotations,
+    enablePurchaseOrders: tenant.enablePurchaseOrders,
+    enableTill: tenant.enableTill,
+    enableAccounting: tenant.enableAccounting,
+    enablePayroll: tenant.enablePayroll,
+    requireApproval: tenant.requireApproval,
+    enablePosTerminal: tenant.enablePosTerminal,
+    enableExpenses: tenant.enableExpenses,
+    enableBarcodeGenerator: tenant.enableBarcodeGenerator,
+    enableExpiryTracking: tenant.enableExpiryTracking,
+    enableCreditSales: tenant.enableCreditSales,
+    enableSmsNotifications: tenant.enableSmsNotifications,
+  }
+
+  // Merge plan-assigned features (plan features take OR precedence over column flags)
+  const planKeys = plan?.features.map((f) => f.feature.key) ?? []
+  const features = mergePlanFeatures(baseFeatures, planKeys)
+
   return {
     error: null,
     tenantId: session.user.tenantId,
     user: session.user,
     rolePermissions: (tenant.rolePermissions as RolePermissionsMap | null) ?? null,
-    features: {
-      enableBranches: tenant.enableBranches,
-      enableQuotations: tenant.enableQuotations,
-      enablePurchaseOrders: tenant.enablePurchaseOrders,
-      enableTill: tenant.enableTill,
-      enableAccounting: tenant.enableAccounting,
-      enablePayroll: tenant.enablePayroll,
-      requireApproval: tenant.requireApproval,
-    },
+    features,
   }
 }
 

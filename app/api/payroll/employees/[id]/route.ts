@@ -58,9 +58,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
     if (body.ssfTier && !Object.values(SsfTier).includes(body.ssfTier)) {
       return NextResponse.json({ error: 'Invalid SSF tier' }, { status: 400 })
     }
-    if (body.ssfTier && body.ssfTier !== 'TIER1') {
-      return NextResponse.json({ error: 'Payroll currently supports Tier 1 employees only' }, { status: 400 })
-    }
     if (body.basicSalary !== undefined) {
       const v = parseFloat(body.basicSalary)
       if (isNaN(v) || v < 0) return NextResponse.json({ error: 'Invalid basic salary' }, { status: 400 })
@@ -69,20 +66,32 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const updated = await prisma.employee.update({
       where: { id },
       data: {
-        ...(body.name      !== undefined && { name:      body.name.trim() }),
-        ...(body.email     !== undefined && { email:     body.email?.trim() || null }),
-        ...(body.phone     !== undefined && { phone:     body.phone?.trim() || null }),
-        ...(body.position  !== undefined && { position:  body.position.trim() }),
-        ...(body.department !== undefined && { department: body.department?.trim() || null }),
-        ...(body.employmentType !== undefined && { employmentType: body.employmentType as EmploymentType }),
-        ...(body.basicSalary  !== undefined && { basicSalary: parseFloat(body.basicSalary) }),
-        ...(body.ssfTier      !== undefined && { ssfTier: 'TIER1' as SsfTier }),
+        ...(body.firstName   !== undefined && { firstName:   body.firstName.trim() }),
+        ...(body.middleName  !== undefined && { middleName:  body.middleName?.trim() || null }),
+        ...(body.lastName    !== undefined && { lastName:    body.lastName.trim() }),
+        ...(body.gender      !== undefined && { gender:      body.gender?.trim() || null }),
+        ...(body.dateOfBirth !== undefined && { dateOfBirth: body.dateOfBirth ? new Date(body.dateOfBirth) : null }),
+        ...(body.tinNumber   !== undefined && { tinNumber:   body.tinNumber?.trim() || null }),
+        ...(body.ssnitNumber !== undefined && { ssnitNumber: body.ssnitNumber?.trim() || null }),
+        ...(body.residentialAddress    !== undefined && { residentialAddress:    body.residentialAddress?.trim() || null }),
+        ...(body.emergencyContactName  !== undefined && { emergencyContactName:  body.emergencyContactName?.trim() || null }),
+        ...(body.emergencyContactPhone !== undefined && { emergencyContactPhone: body.emergencyContactPhone?.trim() || null }),
+        ...(body.email       !== undefined && { email:       body.email?.trim() || null }),
+        ...(body.phone       !== undefined && { phone:       body.phone?.trim() || null }),
+        ...(body.position    !== undefined && { position:    body.position.trim() }),
+        ...(body.department  !== undefined && { department:  body.department?.trim() || null }),
+        ...(body.employmentType  !== undefined && { employmentType: body.employmentType as EmploymentType }),
+        ...(body.basicSalary     !== undefined && { basicSalary: parseFloat(body.basicSalary) }),
+        ...(body.ssfTier         !== undefined && { ssfTier: body.ssfTier as SsfTier }),
         ...(body.isExemptFromPAYE !== undefined && { isExemptFromPAYE: Boolean(body.isExemptFromPAYE) }),
-        ...(body.bankName     !== undefined && { bankName:     body.bankName?.trim() || null }),
-        ...(body.bankBranch   !== undefined && { bankBranch:   body.bankBranch?.trim() || null }),
-        ...(body.accountNumber !== undefined && { accountNumber: body.accountNumber?.trim() || null }),
-        ...(body.isActive     !== undefined && { isActive: Boolean(body.isActive) }),
-        ...(body.endDate      !== undefined && { endDate: body.endDate ? new Date(body.endDate) : null }),
+        ...(body.bankName        !== undefined && { bankName:        body.bankName?.trim() || null }),
+        ...(body.bankBranch      !== undefined && { bankBranch:      body.bankBranch?.trim() || null }),
+        ...(body.accountNumber   !== undefined && { accountNumber:   body.accountNumber?.trim() || null }),
+        ...(body.momoProvider    !== undefined && { momoProvider:    body.momoProvider?.trim() || null }),
+        ...(body.momoNumber      !== undefined && { momoNumber:      body.momoNumber?.trim() || null }),
+        ...(body.momoAccountName !== undefined && { momoAccountName: body.momoAccountName?.trim() || null }),
+        ...(body.isActive  !== undefined && { isActive: Boolean(body.isActive) }),
+        ...(body.endDate   !== undefined && { endDate: body.endDate ? new Date(body.endDate) : null }),
       },
     })
 

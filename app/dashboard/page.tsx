@@ -3,6 +3,7 @@ import { authOptions } from '@/lib/auth/auth'
 import { redirect } from 'next/navigation'
 import { ImprovedDashboard } from './ImprovedDashboard'
 import { prisma } from '@/lib/db/prisma'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 /**
  * Dashboard Page
@@ -54,11 +55,13 @@ export default async function DashboardPage() {
   }).format(now)
 
   return (
-    <ImprovedDashboard
-      userName={user.name}
-      tenantName={tenantName}
-      greeting={greeting}
-      dateStr={dateStr}
-    />
+    <AppLayout>
+      <ImprovedDashboard
+        userName={user.name}
+        tenantName={tenantName}
+        greeting={greeting}
+        dateStr={dateStr}
+      />
+    </AppLayout>
   )
 }

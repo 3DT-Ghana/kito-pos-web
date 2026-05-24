@@ -8,6 +8,10 @@ import {
   createTenantWithOwner,
   OwnerEmailConflictError,
 } from '@/lib/tenant/onboarding'
+import {
+  getGlobalKYCSettings,
+  getMissingBusinessApplicationKYCRequirements,
+} from '@/lib/kyc/settings'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -55,7 +59,7 @@ function buildOwnerWelcomeEmail(params: {
  *
  * PATCH /api/admin/applications/[id]
  * Approve or reject a business application.
- * Body: { action: 'approve' | 'reject', rejectionReason?: string }
+ * Body: { action: 'approve' | 'reject', rejectionReason?: string, approvalNote?: string }
  *
  * On approve (atomic transaction):
  *   1. Create Tenant (TRIAL status)
@@ -77,6 +81,9 @@ export async function GET(req: Request, { params }: RouteParams) {
       agent: {
         select: { id: true, agentCode: true, fullName: true, email: true, phone: true },
       },
+      documents: {
+        orderBy: { uploadedAt: 'desc' },
+      },
     },
   })
 
@@ -95,7 +102,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
   try {
     const body = await req.json()
-    const { action, rejectionReason } = body
+    const { action, rejectionReason, approvalNote } = body
+    const trimmedRejectionReason =
+      typeof rejectionReason === 'string' ? rejectionReason.trim() : ''
+    const trimmedApprovalNote =
+      typeof approvalNote === 'string' ? approvalNote.trim() : ''
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json(
@@ -104,9 +115,19 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       )
     }
 
+    if (action === 'reject' && !trimmedRejectionReason) {
+      return NextResponse.json(
+        { error: 'Rejection reason is required when rejecting an application' },
+        { status: 400 }
+      )
+    }
+
     const application = await prisma.businessApplication.findUnique({
       where: { id },
-      include: { agent: { select: { id: true, agentCode: true } } },
+      include: {
+        agent: { select: { id: true, agentCode: true } },
+        documents: { select: { documentType: true } },
+      },
     })
 
     if (!application) {
@@ -125,7 +146,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         where: { id },
         data: {
           status: 'REJECTED',
-          rejectionReason: rejectionReason ?? null,
+          rejectionReason: trimmedRejectionReason,
+          approvalNote: null,
           reviewedById: context!.email,
           reviewedAt: new Date(),
         },
@@ -137,7 +159,10 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           action: 'application.rejected',
           entity: 'BusinessApplication',
           entityId: id,
-          details: { businessName: application.businessName, rejectionReason },
+          details: {
+            businessName: application.businessName,
+            rejectionReason: trimmedRejectionReason,
+          },
         },
       })
 
@@ -145,6 +170,21 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     }
 
     // ── APPROVE ──────────────────────────────────────────────────────────────
+    const kycSettings = await getGlobalKYCSettings()
+    const missingKYC = getMissingBusinessApplicationKYCRequirements(
+      kycSettings,
+      application
+    )
+
+    if (missingKYC.length > 0) {
+      return NextResponse.json(
+        {
+          error: `Application cannot be approved until the following KYC requirements are met: ${missingKYC.join(', ')}.`,
+        },
+        { status: 409 }
+      )
+    }
+
     const tempPassword = randomBytes(12).toString('base64url')
     const passwordHash = await hash(tempPassword, 12)
 
@@ -163,6 +203,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         data: {
           status: 'APPROVED',
           tenantId: tenant.id,
+          rejectionReason: null,
+          approvalNote: trimmedApprovalNote || null,
           reviewedById: context!.email,
           reviewedAt: new Date(),
         },
@@ -196,6 +238,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           tenantId: result.tenant.id,
           ownerEmail: application.ownerEmail,
           agentCode: application.agent.agentCode,
+          approvalNote: trimmedApprovalNote || null,
           ownerNotified,
         },
       },

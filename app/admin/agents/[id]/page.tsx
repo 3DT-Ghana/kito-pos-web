@@ -27,6 +27,10 @@ interface Agent {
   ghanaCardImageUrl: string | null
   residentialAddress: string | null
   territory: string | null
+  emergencyContactName: string | null
+  emergencyContactPhone: string | null
+  registeredByAdminEmail: string | null
+  rejectionReason: string | null
   status: string
   approvedAt: string | null
   approvedById: string | null
@@ -67,6 +71,8 @@ export default function AdminAgentDetailPage() {
   const [report, setReport] = useState<AgentReportRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [rejectionReasonInput, setRejectionReasonInput] = useState('')
+  const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function load() {
     const [agentRes, reportRes] = await Promise.all([
@@ -75,6 +81,7 @@ export default function AdminAgentDetailPage() {
     ])
     const agentData = await agentRes.json()
     setAgent(agentData.id ? agentData : null)
+    setRejectionReasonInput(agentData?.rejectionReason ?? '')
 
     if (reportRes.ok) {
       const reportData = await reportRes.json()
@@ -87,13 +94,41 @@ export default function AdminAgentDetailPage() {
   useEffect(() => { load() }, [id])
 
   async function updateStatus(status: string) {
+    const trimmedRejectionReason = rejectionReasonInput.trim()
+
+    if (status === 'REJECTED' && !trimmedRejectionReason) {
+      setResult({ type: 'error', text: 'A rejection reason is required to reject this agent.' })
+      return
+    }
+
     setActionLoading(true)
-    await fetch(`/api/admin/agents/${id}`, {
+    setResult(null)
+
+    const res = await fetch(`/api/admin/agents/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(status === 'REJECTED' ? { rejectionReason: trimmedRejectionReason } : {}),
+      }),
     })
+    const data = await res.json().catch(() => ({}))
     setActionLoading(false)
+
+    if (!res.ok) {
+      setResult({ type: 'error', text: data.error ?? 'Failed to update agent' })
+      return
+    }
+
+    setResult({
+      type: 'success',
+      text:
+        status === 'APPROVED'
+          ? 'Agent approved successfully.'
+          : status === 'REJECTED'
+            ? 'Agent rejected successfully.'
+            : 'Agent suspended successfully.',
+    })
     load()
   }
 
@@ -148,6 +183,12 @@ export default function AdminAgentDetailPage() {
           </div>
         </div>
 
+        {result && (
+          <div className={`text-sm px-4 py-3 rounded-lg border ${result.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+            {result.text}
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex gap-2 flex-wrap">
           {agent.status === 'PENDING' && (
@@ -193,6 +234,22 @@ export default function AdminAgentDetailPage() {
             Full Reports
           </Link>
         </div>
+
+        {agent.status === 'PENDING' && (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">Review Decision</h2>
+            <label className="block text-xs text-gray-500 font-medium mb-1.5">
+              Rejection reason (required only if rejecting)
+            </label>
+            <input
+              type="text"
+              value={rejectionReasonInput}
+              onChange={(event) => setRejectionReasonInput(event.target.value)}
+              placeholder="e.g. Missing Ghana Card upload"
+              className="w-full max-w-lg px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+        )}
 
         {/* Performance scorecard */}
         <div>
@@ -274,6 +331,15 @@ export default function AdminAgentDetailPage() {
             <Row label="Joined" value={formatDate(agent.createdAt)} />
             {agent.approvedAt && <Row label="Approved on" value={formatDate(agent.approvedAt)} />}
             {agent.approvedById && <Row label="Approved by" value={agent.approvedById} />}
+            {agent.registeredByAdminEmail && (
+              <Row label="Registered by Admin" value={agent.registeredByAdminEmail} />
+            )}
+            {agent.emergencyContactName && (
+              <Row label="Emergency Contact" value={`${agent.emergencyContactName}${agent.emergencyContactPhone ? ` · ${agent.emergencyContactPhone}` : ''}`} />
+            )}
+            {agent.rejectionReason && (
+              <Row label="Rejection Reason" value={agent.rejectionReason} />
+            )}
           </div>
         </div>
 

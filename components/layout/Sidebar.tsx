@@ -13,6 +13,7 @@ import {
   Landmark, Users, Truck, BarChart2, ClipboardList, UserCog,
   GitBranch, Settings, Download, Sliders, Scale, ChevronDown,
   LogOut, Building2, ClipboardCheck, Printer, BookOpen, List, TrendingUp, Briefcase, ShieldCheck,
+  Settings2, BarChart3,
 } from 'lucide-react'
 
 interface NavItem {
@@ -101,8 +102,12 @@ export function Sidebar() {
     {
       label: 'Payroll',
       itemsRaw: [
-        { name: 'Employees',    href: '/payroll/employees', icon: <Users className={sz} />,    show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
-        { name: 'Payroll Runs', href: '/payroll/runs',      icon: <Briefcase className={sz} />, show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Employees',     href: '/payroll/employees',  icon: <Users className={sz} />,     show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Payroll Runs',  href: '/payroll/runs',       icon: <Briefcase className={sz} />,  show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Components',    href: '/payroll/components', icon: <Settings2 className={sz} />,  show: features.enablePayroll && has('OWNER','STORE_MANAGER') },
+        { name: 'Statutory',     href: '/payroll/statutory',  icon: <ShieldCheck className={sz} />, show: features.enablePayroll && has('OWNER','STORE_MANAGER') },
+        { name: 'Loans',         href: '/payroll/loans',      icon: <Landmark className={sz} />,   show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Reports',       href: '/payroll/reports',    icon: <BarChart3 className={sz} />,  show: features.enablePayroll && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
       ],
     },
     {

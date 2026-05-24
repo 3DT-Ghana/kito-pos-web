@@ -5,7 +5,7 @@ import { requireBranchAccess } from '@/lib/branch/server'
 import { postPayrollJournal } from '@/lib/accounting/journalEngine'
 import { round2 } from '@/lib/accounting/accounts'
 import { seedDefaultAccounts } from '@/lib/accounting/seedAccounts'
-import { EMPLOYER_TIER2_RATE } from '@/lib/payroll/compute'
+const EMPLOYER_TIER2_RATE = 0.05
 import { PaymentMethod } from '@prisma/client'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
@@ -33,10 +33,12 @@ export async function GET(_req: Request, { params }: RouteParams) {
         lines: {
           include: {
             employee: {
-              select: { id: true, name: true, staffId: true, position: true, department: true, employmentType: true },
+              select: { id: true, firstName: true, lastName: true, staffId: true, position: true, department: true, employmentType: true,
+                bankName: true, bankBranch: true, accountNumber: true,
+                momoProvider: true, momoNumber: true, momoAccountName: true },
             },
           },
-          orderBy: { employee: { name: 'asc' } },
+          orderBy: { employee: { lastName: 'asc' } },
         },
         createdBy:  { select: { name: true } },
         approvedBy: { select: { name: true } },
@@ -44,7 +46,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
       },
     })
     if (!run) return NextResponse.json({ error: 'Payroll run not found' }, { status: 404 })
-    return NextResponse.json(run)
+    return NextResponse.json({ run })
   } catch (err) {
     console.error('Failed to fetch payroll run:', err)
     return NextResponse.json({ error: 'Failed to fetch payroll run' }, { status: 500 })
@@ -138,7 +140,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           totalSSFEmployer: run.totalSSFEmployer,
           totalTier2Employer,
           totalPAYE:        run.totalPAYE,
-          totalOtherDeductions: run.totalOtherDeductions,
+          totalOtherDeductions: run.totalDeductions,
           totalNetPay:      run.totalNetPay,
           paymentMethod,
         })

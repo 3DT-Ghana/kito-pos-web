@@ -104,6 +104,10 @@ export async function POST(req: Request) {
         description:  description?.trim() || null,
         isSystemAccount: false,
       },
+      include: {
+        parent: { select: { id: true, code: true, name: true } },
+        _count: { select: { lines: true } },
+      },
     })
 
     return NextResponse.json(account, { status: 201 })

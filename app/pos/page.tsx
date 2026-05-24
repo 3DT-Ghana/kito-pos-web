@@ -176,8 +176,7 @@ export default function PosPage() {
 
   // Approval PIN modal
   const [showPinModal, setShowPinModal] = useState(false)
-  const [pinEmail, setPinEmail] = useState('')
-  const [pinPassword, setPinPassword] = useState('')
+  const [pinDigits, setPinDigits] = useState('')
   const [pinError, setPinError] = useState('')
   const [isPinVerifying, setIsPinVerifying] = useState(false)
 
@@ -1113,8 +1112,7 @@ export default function PosPage() {
       <button
         onClick={() => {
           if (cartNeedsApproval()) {
-            setPinEmail('')
-            setPinPassword('')
+            setPinDigits('')
             setPinError('')
             setShowPinModal(true)
           } else {
@@ -1341,82 +1339,133 @@ export default function PosPage() {
   // ────────────────────────────────────────────────────────────────────────────
 
   // ── PIN Approval Modal ──────────────────────────────────────────────────────
-  const PinModal = () => (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
-          <div>
-            <p className="font-bold text-gray-900">Manager Approval Required</p>
-            <p className="text-xs text-gray-500">This transaction has been flagged (discount / price override / credit). Enter a manager&apos;s credentials to proceed.</p>
-          </div>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1">Manager Email</label>
-            <input
-              type="email"
-              value={pinEmail}
-              onChange={e => setPinEmail(e.target.value)}
-              autoFocus
-              placeholder="manager@example.com"
-              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-gray-500 block mb-1">Password</label>
-            <input
-              type="password"
-              value={pinPassword}
-              onChange={e => setPinPassword(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handlePinVerify() }}
-              placeholder="••••••••"
-              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-400 focus:outline-none"
-            />
-          </div>
-          {pinError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{pinError}</p>}
-        </div>
-        <div className="px-5 pb-5 flex gap-2">
-          <button
-            onClick={handlePinVerify}
-            disabled={isPinVerifying || !pinEmail || !pinPassword}
-            className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
-          >
-            {isPinVerifying ? 'Verifying…' : 'Approve & Complete Sale'}
-          </button>
-          <button
-            onClick={() => { setShowPinModal(false) }}
-            className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  const PIN_LENGTH = 6
 
-  const handlePinVerify = async () => {
-    if (!pinEmail || !pinPassword || isPinVerifying) return
+  const handlePinKey = (key: string) => {
+    if (isPinVerifying) return
+    if (key === 'backspace') {
+      setPinDigits(d => d.slice(0, -1))
+      setPinError('')
+      return
+    }
+    if (pinDigits.length >= PIN_LENGTH) return
+    const next = pinDigits + key
+    setPinDigits(next)
+    setPinError('')
+    if (next.length === PIN_LENGTH) {
+      submitPin(next)
+    }
+  }
+
+  const submitPin = async (pin: string) => {
+    if (pin.length < 4 || isPinVerifying) return
     setIsPinVerifying(true)
     setPinError('')
     try {
       const res = await fetch('/api/approvals/pin-verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pinEmail, password: pinPassword }),
+        body: JSON.stringify({ pin }),
       })
       const data = await res.json()
       if (data.valid) {
         setShowPinModal(false)
+        setPinDigits('')
         handleCheckout(data.grant)
       } else {
-        setPinError(data.error ?? 'Invalid credentials')
+        setPinError(data.error ?? 'Invalid PIN')
+        setPinDigits('')
       }
     } catch {
       setPinError('Verification failed. Please try again.')
+      setPinDigits('')
     } finally {
       setIsPinVerifying(false)
     }
+  }
+
+  const PinModal = () => {
+    const numpadKeys = ['1','2','3','4','5','6','7','8','9','','0','backspace']
+    return (
+      <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
+            <div>
+              <p className="font-bold text-gray-900">Manager Approval Required</p>
+              <p className="text-xs text-gray-500">Enter a manager&apos;s approval PIN to proceed.</p>
+            </div>
+          </div>
+
+          {/* PIN dots */}
+          <div className="px-5 pt-5 pb-2">
+            <div className="flex justify-center gap-3 mb-1">
+              {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                    i < pinDigits.length ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
+                  }`}
+                />
+              ))}
+            </div>
+            {pinError && (
+              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-2 text-center">{pinError}</p>
+            )}
+          </div>
+
+          {/* Numpad */}
+          <div className="px-4 pb-2 grid grid-cols-3 gap-2">
+            {numpadKeys.map((key, idx) => {
+              if (key === '') {
+                return <div key={idx} />
+              }
+              if (key === 'backspace') {
+                return (
+                  <button
+                    key={key}
+                    onClick={() => handlePinKey('backspace')}
+                    disabled={isPinVerifying}
+                    className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-600 flex items-center justify-center transition-all disabled:opacity-40"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6H6a2 2 0 00-2 2v8a2 2 0 002 2h6l6-6-6-6z" />
+                    </svg>
+                  </button>
+                )
+              }
+              return (
+                <button
+                  key={key}
+                  onClick={() => handlePinKey(key)}
+                  disabled={isPinVerifying || pinDigits.length >= PIN_LENGTH}
+                  className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-xl font-semibold text-gray-800 transition-all disabled:opacity-40"
+                >
+                  {key}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Actions */}
+          <div className="px-4 pb-5 flex gap-2 mt-1">
+            <button
+              onClick={() => submitPin(pinDigits)}
+              disabled={isPinVerifying || pinDigits.length < 4}
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
+            >
+              {isPinVerifying ? 'Verifying…' : 'Approve'}
+            </button>
+            <button
+              onClick={() => { setShowPinModal(false); setPinDigits(''); setPinError('') }}
+              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (requiresOperationalBranch) {

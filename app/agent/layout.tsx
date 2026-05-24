@@ -108,7 +108,7 @@ export default function AgentLayout({ children }: { children: React.ReactNode })
           <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center gap-2 text-sm text-amber-800">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>
-              Your account is pending approval. Please upload your Ghana Card on the{' '}
+              Your account is pending approval. Please complete any required KYC updates on the{' '}
               <Link href="/agent/profile" className="font-medium underline">
                 Profile
               </Link>{' '}

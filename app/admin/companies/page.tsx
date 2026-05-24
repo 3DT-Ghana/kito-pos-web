@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { Building2, Users, TrendingUp, DollarSign } from 'lucide-react'
+import { Building2, Users, TrendingUp, DollarSign, Wallet } from 'lucide-react'
 
 type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
 
@@ -422,6 +422,18 @@ export default function AdminCompaniesPage() {
                             </tbody>
                           </table>
                         </div>
+                      </div>
+
+                      {/* Billing Plan */}
+                      <div>
+                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Billing Plan</h4>
+                        <Link
+                          href={`/admin/tenant-plans/${tenant.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                        >
+                          <Wallet className="w-4 h-4" /> Setup / View Plan
+                        </Link>
                       </div>
 
                       {/* Account status */}

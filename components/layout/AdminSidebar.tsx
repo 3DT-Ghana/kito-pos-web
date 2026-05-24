@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, Building2, ClipboardList,
-  FileText, ShieldCheck, LogOut, ChevronDown, BarChart2, X,
+  FileText, ShieldCheck, LogOut, ChevronDown, BarChart2, X, Settings2,
+  Layers, Package, Wallet, Receipt, TrendingUp,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -50,9 +51,20 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Billing',
+    items: [
+      { name: 'Module Setup',    href: '/admin/module-setup',    icon: <Layers className={sz} /> },
+      { name: 'Hardware Items',  href: '/admin/business-items',  icon: <Package className={sz} /> },
+      { name: 'Tenant Plans',    href: '/admin/tenant-plans',    icon: <Wallet className={sz} /> },
+      { name: 'Invoices',        href: '/admin/invoices',        icon: <Receipt className={sz} /> },
+      { name: 'Commissions',     href: '/admin/commissions',     icon: <TrendingUp className={sz} /> },
+    ],
+  },
+  {
     label: 'Platform',
     items: [
-      { name: 'Audit Log', href: '/admin/audit-log', icon: <ClipboardList className={sz} /> },
+      { name: 'Audit Log',    href: '/admin/audit-log',    icon: <ClipboardList className={sz} /> },
+      { name: 'KYC Settings', href: '/admin/kyc-settings', icon: <Settings2 className={sz} /> },
     ],
   },
 ]

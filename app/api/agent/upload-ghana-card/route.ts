@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
 import { uploadGhanaCard, getSignedUrl } from '@/lib/storage/supabase'
+import { getGlobalKYCSettings } from '@/lib/kyc/settings'
 
 /**
  * POST /api/agent/upload-ghana-card
@@ -17,12 +18,18 @@ export async function POST(req: Request) {
     const formData = await req.formData()
     const file = formData.get('file') as File | null
     const ghanaCardNumber = formData.get('ghanaCardNumber') as string | null
+    const trimmedCardNumber = ghanaCardNumber?.trim() || null
 
     if (!file) {
       return NextResponse.json({ error: 'file is required' }, { status: 400 })
     }
 
-    if (!ghanaCardNumber || ghanaCardNumber.trim().length < 3) {
+    const kycSettings = await getGlobalKYCSettings()
+    if (
+      kycSettings.requireAgentGhanaCardNumber &&
+      !trimmedCardNumber &&
+      !context!.agent.ghanaCardNumber?.trim()
+    ) {
       return NextResponse.json({ error: 'ghanaCardNumber is required' }, { status: 400 })
     }
 
@@ -48,8 +55,8 @@ export async function POST(req: Request) {
     const updated = await prisma.agent.update({
       where: { id: context!.agent.id },
       data: {
-        ghanaCardNumber: ghanaCardNumber.trim(),
         ghanaCardImageUrl: signedUrl,
+        ...(trimmedCardNumber ? { ghanaCardNumber: trimmedCardNumber } : {}),
       },
       select: {
         id: true,

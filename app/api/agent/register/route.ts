@@ -2,15 +2,31 @@ import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { normalizeEmail } from '@/lib/tenant/onboarding'
+import { createAgentWithGeneratedCode } from '@/lib/agent/server'
+import { isUniqueConstraintError } from '@/lib/db/prismaErrors'
+import { getGlobalKYCSettings } from '@/lib/kyc/settings'
 
 /**
  * POST /api/agent/register
  * Public endpoint — registers a new sales agent (status: PENDING).
+ * Body: { fullName, phone, email, password, residentialAddress?, territory?,
+ *         ghanaCardNumber?, emergencyContactName?, emergencyContactPhone? }
  */
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { fullName, phone, email, password, residentialAddress, territory } = body
+    const {
+      fullName,
+      phone,
+      email,
+      password,
+      residentialAddress,
+      territory,
+      ghanaCardNumber,
+      emergencyContactName,
+      emergencyContactPhone,
+    } = body
+
     const normalizedEmail = normalizeEmail(String(email ?? ''))
     const trimmedFullName = String(fullName ?? '').trim()
     const trimmedPhone = String(phone ?? '').trim()
@@ -29,6 +45,15 @@ export async function POST(req: Request) {
       )
     }
 
+    // Ghana Card number required by default; upsert so we always have a settings row
+    const kycSettings = await getGlobalKYCSettings()
+    if (kycSettings.requireAgentGhanaCardNumber && !ghanaCardNumber?.trim()) {
+      return NextResponse.json(
+        { error: 'Ghana Card Number is required for agent registration' },
+        { status: 400 }
+      )
+    }
+
     const existing = await prisma.agent.findUnique({ where: { email: normalizedEmail } })
     if (existing) {
       return NextResponse.json(
@@ -37,21 +62,19 @@ export async function POST(req: Request) {
       )
     }
 
-    // Generate sequential agentCode: AGT-0001, AGT-0002, …
-    const count = await prisma.agent.count()
-    const agentCode = `AGT-${String(count + 1).padStart(4, '0')}`
-
     const passwordHash = await hash(password, 12)
 
-    const agent = await prisma.agent.create({
+    const agent = await createAgentWithGeneratedCode({
       data: {
-        agentCode,
         fullName: trimmedFullName,
         phone: trimmedPhone,
         email: normalizedEmail,
         passwordHash,
+        ghanaCardNumber: ghanaCardNumber?.trim() || null,
         residentialAddress: residentialAddress?.trim() || null,
         territory: territory?.trim() || null,
+        emergencyContactName: emergencyContactName?.trim() || null,
+        emergencyContactPhone: emergencyContactPhone?.trim() || null,
       },
       select: {
         id: true,
@@ -71,6 +94,13 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (err) {
+    if (isUniqueConstraintError(err, 'email')) {
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
+        { status: 409 }
+      )
+    }
+
     console.error('Agent register error:', err)
     return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
   }

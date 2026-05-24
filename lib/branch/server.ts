@@ -88,6 +88,12 @@ export async function requireBranchAccess(): Promise<{
     enableAccounting: Boolean(userRecord.tenant.enableAccounting),
     enablePayroll: Boolean(userRecord.tenant.enablePayroll),
     requireApproval: Boolean(userRecord.tenant.requireApproval),
+    enablePosTerminal: Boolean(userRecord.tenant.enablePosTerminal),
+    enableExpenses: Boolean(userRecord.tenant.enableExpenses),
+    enableBarcodeGenerator: Boolean(userRecord.tenant.enableBarcodeGenerator),
+    enableExpiryTracking: Boolean(userRecord.tenant.enableExpiryTracking),
+    enableCreditSales: Boolean(userRecord.tenant.enableCreditSales),
+    enableSmsNotifications: Boolean(userRecord.tenant.enableSmsNotifications),
   }
   const branchesEnabled = features.enableBranches
   const canViewAllBranches = canViewAllBranchesForRole(base.user!.role)

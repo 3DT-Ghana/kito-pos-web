@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { useItems } from "@/hooks/useItems";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useUser } from "@/hooks/useUser";
+import { useRolePermissions } from "@/hooks/useTenant";
 import { formatCurrency } from "@/lib/utils/format";
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from "@/lib/items/type";
 
@@ -117,6 +118,9 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   const [formError, setFormError] = useState("");
 
   const { user } = useUser();
+  const { hasTenantPermission, isLoading: permissionsLoading } = useRolePermissions();
+  // While permissions are loading treat as allowed to avoid flashing notice on managers
+  const canApplyDiscount = permissionsLoading || hasTenantPermission(user?.role, 'apply_discount');
   const [useUnitSystem, setUseUnitSystem] = useState(false);
   const [enableRetailPrice, setEnableRetailPrice] = useState(false);
   const [enableWholesalePrice, setEnableWholesalePrice] = useState(false);
@@ -428,6 +432,11 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       : Math.min(discountNum, subtotal)
     : 0;
   const totalAmount = Math.max(0, subtotal - discountAmount);
+
+  // True when this submission will go for approval because the user lacks apply_discount
+  const hasAnyDiscount =
+    cart.some((c) => resolveLineDiscount(c) > 0) || discountAmount > 0;
+  const discountNeedsApproval = hasAnyDiscount && !canApplyDiscount;
   const paidNum = parseFloat(amountPaid) || 0;
   const change = paidNum - totalAmount;
   const creditAmount = totalAmount - paidNum;
@@ -1443,6 +1452,18 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         </div>
       )}
 
+      {discountNeedsApproval && (
+        <div className="flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3">
+          <span className="text-xl shrink-0 mt-0.5">⏳</span>
+          <div>
+            <p className="text-sm font-bold text-amber-900">Discount requires manager approval</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              You do not have permission to apply discounts directly. This sale will be submitted for a branch manager to approve before it is completed.
+            </p>
+          </div>
+        </div>
+      )}
+
       {formError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
           ⚠ {formError}
@@ -1454,16 +1475,20 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           type="submit"
           disabled={isSubmitting || cart.length === 0}
           className={`flex-1 py-4 text-white text-base font-bold rounded-xl disabled:opacity-50 transition-all shadow-md ${
-            paymentType === "CASH"
-              ? "bg-blue-600 hover:bg-blue-700"
-              : "bg-orange-500 hover:bg-orange-600"
+            discountNeedsApproval
+              ? "bg-amber-500 hover:bg-amber-600"
+              : paymentType === "CASH"
+                ? "bg-blue-600 hover:bg-blue-700"
+                : "bg-orange-500 hover:bg-orange-600"
           }`}
         >
           {isSubmitting
             ? "Processing..."
-            : paymentType === "CASH"
-              ? `💵 Complete Sale — ${formatCurrency(totalAmount)}`
-              : `📋 Record Sale — ${formatCurrency(totalAmount)}`}
+            : discountNeedsApproval
+              ? `⏳ Submit for Approval — ${formatCurrency(totalAmount)}`
+              : paymentType === "CASH"
+                ? `💵 Complete Sale — ${formatCurrency(totalAmount)}`
+                : `📋 Record Sale — ${formatCurrency(totalAmount)}`}
         </button>
         {onCancel && (
           <button

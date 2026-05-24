@@ -1,18 +1,36 @@
 'use client'
 
-import { useEffect, useState, FormEvent } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { AdminLayout } from '@/components/layout/AdminLayout'
-import { ChevronLeft, CheckCircle, XCircle, Clock } from 'lucide-react'
+import { ChevronLeft, CheckCircle, XCircle, Clock, FileText } from 'lucide-react'
+import Image from 'next/image'
+
+interface Director {
+  fullName: string
+  ghanaCardNumber?: string
+}
+
+interface Document {
+  id: string
+  documentType: string
+  label: string | null
+  fileUrl: string
+  uploadedAt: string
+}
 
 interface Application {
   id: string
   businessName: string
   businessType: string
+  businessRegistrationNumber: string | null
   businessAddress: string
+  businessPhone: string | null
+  businessEmail: string | null
   gpsLatitude: number | null
   gpsLongitude: number | null
+  directors: Director[]
   ownerFullName: string
   ownerPhone: string
   ownerEmail: string
@@ -20,10 +38,12 @@ interface Application {
   ownerGhanaCardImageUrl: string | null
   status: string
   rejectionReason: string | null
+  approvalNote: string | null
   tenantId: string | null
   reviewedById: string | null
   reviewedAt: string | null
   createdAt: string
+  documents: Document[]
   agent: {
     id: string
     agentCode: string
@@ -38,6 +58,7 @@ export default function AdminApplicationDetailPage() {
   const [application, setApplication] = useState<Application | null>(null)
   const [loading, setLoading] = useState(true)
   const [rejectionReason, setRejectionReason] = useState('')
+  const [approvalNote, setApprovalNote] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -45,7 +66,8 @@ export default function AdminApplicationDetailPage() {
     fetch(`/api/admin/applications/${id}`)
       .then((r) => r.json())
       .then((data) => {
-        setApplication(data)
+        setApplication(data?.id ? data : null)
+        setApprovalNote(data?.approvalNote ?? '')
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -67,6 +89,7 @@ export default function AdminApplicationDetailPage() {
       body: JSON.stringify({
         action,
         ...(action === 'reject' ? { rejectionReason: rejectionReason.trim() } : {}),
+        ...(action === 'approve' ? { approvalNote: approvalNote.trim() || undefined } : {}),
       }),
     })
 
@@ -162,6 +185,12 @@ export default function AdminApplicationDetailPage() {
           </div>
         )}
 
+        {application.approvalNote && application.status === 'APPROVED' && (
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-sm text-emerald-700">
+            <span className="font-medium">Approval note:</span> {application.approvalNote}
+          </div>
+        )}
+
         {/* Agent */}
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
           <h2 className="text-sm font-semibold text-gray-800">Submitted by Agent</h2>
@@ -185,24 +214,98 @@ export default function AdminApplicationDetailPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <Row label="Type" value={application.businessType.charAt(0) + application.businessType.slice(1).toLowerCase()} />
             <Row label="Address" value={application.businessAddress} />
+            {application.businessRegistrationNumber && (
+              <Row label="Registration No." value={application.businessRegistrationNumber} />
+            )}
+            {application.businessPhone && <Row label="Phone" value={application.businessPhone} />}
+            {application.businessEmail && <Row label="Email" value={application.businessEmail} />}
             {application.gpsLatitude && (
               <Row label="GPS" value={`${application.gpsLatitude}, ${application.gpsLongitude}`} />
             )}
           </div>
         </div>
 
-        {/* Owner details */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
-          <h2 className="text-sm font-semibold text-gray-800">Owner Details</h2>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <Row label="Full Name" value={application.ownerFullName} />
-            <Row label="Phone" value={application.ownerPhone} />
-            <Row label="Email" value={application.ownerEmail} />
-            {application.ownerGhanaCardNumber && (
-              <Row label="Ghana Card No." value={application.ownerGhanaCardNumber} />
-            )}
+        {/* Directors */}
+        {(() => {
+          const directors: Director[] = Array.isArray(application.directors) ? application.directors : []
+          return directors.length > 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+              <h2 className="text-sm font-semibold text-gray-800">Directors / Owners</h2>
+              {directors.map((d, i) => (
+                <div key={i} className="flex items-start justify-between text-sm border-t border-gray-50 pt-2 first:border-0 first:pt-0">
+                  <div>
+                    <p className="font-medium text-gray-900">{d.fullName}</p>
+                    {d.ghanaCardNumber && (
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">{d.ghanaCardNumber}</p>
+                    )}
+                  </div>
+                  {i === 0 && (
+                    <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full shrink-0 ml-3">
+                      Primary
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Fallback to legacy owner fields when directors array is empty
+            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-800">Owner Details</h2>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <Row label="Full Name" value={application.ownerFullName} />
+                <Row label="Phone" value={application.ownerPhone} />
+                <Row label="Email" value={application.ownerEmail} />
+                {application.ownerGhanaCardNumber && (
+                  <Row label="Ghana Card No." value={application.ownerGhanaCardNumber} />
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* KYC Documents */}
+        {application.documents.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-indigo-500" />
+              KYC Documents ({application.documents.length})
+            </h2>
+            {application.documents.map((doc) => {
+              const isImage = doc.fileUrl.match(/\.(jpg|jpeg|png|webp)/i)
+              const labelMap: Record<string, string> = {
+                BUSINESS_CERTIFICATE: 'Business Certificate',
+                GHANA_CARD_FRONT: 'Ghana Card (Front)',
+                GHANA_CARD_BACK: 'Ghana Card (Back)',
+                OTHER: 'Document',
+              }
+              return (
+                <div key={doc.id} className="flex items-center gap-3">
+                  {isImage ? (
+                    <div className="relative w-24 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                      <Image src={doc.fileUrl} alt={doc.label ?? doc.documentType} fill className="object-cover" />
+                    </div>
+                  ) : (
+                    <div className="w-24 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800">
+                      {doc.label ?? labelMap[doc.documentType] ?? doc.documentType}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(doc.uploadedAt).toLocaleDateString()}
+                    </p>
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-indigo-600 hover:underline mt-0.5 inline-block">
+                      View →
+                    </a>
+                  </div>
+                </div>
+              )
+            })}
           </div>
-        </div>
+        )}
 
         {/* Actions (only for PENDING) */}
         {isPending && (
@@ -219,6 +322,19 @@ export default function AdminApplicationDetailPage() {
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="e.g. Incomplete information, invalid Ghana Card"
                 className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Approval note (optional, shown to the business owner)
+              </label>
+              <textarea
+                value={approvalNote}
+                onChange={(e) => setApprovalNote(e.target.value)}
+                rows={3}
+                placeholder="e.g. Approved after confirming all registration documents."
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
             </div>
 

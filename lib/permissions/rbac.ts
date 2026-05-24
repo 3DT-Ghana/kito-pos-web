@@ -76,6 +76,7 @@ export const PERMISSIONS = {
     'create_sale',
     'create_purchase',
     'process_returns',
+    'apply_discount',
 
     // Expenses
     'create_expenses',
@@ -148,6 +149,7 @@ export const PERMISSIONS = {
     'create_sale',
     'create_purchase',
     'process_returns',
+    'apply_discount',
 
     // Expenses
     'create_expenses',
@@ -225,6 +227,7 @@ export const PERMISSIONS = {
     'create_sale',
     'create_purchase',
     'process_returns',
+    'apply_discount',
 
     // Expenses
     'create_expenses',
@@ -380,7 +383,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   { label: 'Users & Settings',   permissions: ['manage_users','create_users','delete_users','update_user_roles','manage_settings','manage_tenant','view_audit_logs'] as Permission[] },
   { label: 'Financial',          permissions: ['view_all_reports','view_basic_reports','view_profit_margins','record_payments','adjust_balances','delete_transactions','void_sales','void_purchases'] as Permission[] },
   { label: 'Inventory',          permissions: ['view_items','create_items','update_items','delete_items','adjust_stock','manage_manufacturers'] as Permission[] },
-  { label: 'Sales & Purchases',  permissions: ['create_sale','create_purchase','process_returns'] as Permission[] },
+  { label: 'Sales & Purchases',  permissions: ['create_sale','create_purchase','process_returns','apply_discount'] as Permission[] },
   { label: 'Customers & Suppliers', permissions: ['view_customers','create_customers','update_customers','delete_customers','view_suppliers','create_suppliers','update_suppliers','delete_suppliers'] as Permission[] },
   { label: 'Expenses',           permissions: ['view_expenses','create_expenses','delete_expenses'] as Permission[] },
   { label: 'Till',               permissions: ['manage_till'] as Permission[] },

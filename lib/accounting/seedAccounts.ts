@@ -65,28 +65,44 @@ const DEFAULT_COA: Array<{
 
 // Seeds default COA for a tenant. Safe to call multiple times — skipDuplicates.
 export async function seedDefaultAccounts(tenantId: string): Promise<void> {
+  const defaultCodes = DEFAULT_COA.map((account) => account.code)
+  const existingAccounts = await prisma.account.findMany({
+    where: {
+      tenantId,
+      code: { in: [...defaultCodes, '1210'] },
+    },
+    select: {
+      id: true,
+      code: true,
+    },
+  })
+  const existingByCode = new Map(
+    existingAccounts.map((account) => [account.code, account] as const)
+  )
+
   // ── One-time migration: fix the old ASSET account 1210 if it exists ──────────
   // Account 1210 was originally seeded as ASSET/DEBIT but should be REVENUE/CREDIT.
   // It has been replaced by 4800. Delete 1210 if it has no posted journal lines.
-  const old1210 = await prisma.account.findUnique({
-    where: { tenantId_code: { tenantId, code: '1210' } },
-    include: { _count: { select: { lines: true } } },
-  })
-  if (old1210 && old1210._count.lines === 0) {
-    await prisma.account.delete({ where: { tenantId_code: { tenantId, code: '1210' } } })
+  const old1210 = existingByCode.get('1210')
+  if (old1210) {
+    const old1210LineCount = await prisma.journalLine.count({
+      where: { accountId: old1210.id },
+    })
+    if (old1210LineCount === 0) {
+      await prisma.account.delete({ where: { id: old1210.id } })
+      existingByCode.delete('1210')
+    }
   }
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Build code→id map in two passes (headers first, then children)
   const headers = DEFAULT_COA.filter(a => a.parentCode === null)
   const children = DEFAULT_COA.filter(a => a.parentCode !== null)
+  const missingHeaders = headers.filter((account) => !existingByCode.has(account.code))
 
-  // Create header accounts (no parentId)
-  for (const acct of headers) {
-    await prisma.account.upsert({
-      where: { tenantId_code: { tenantId, code: acct.code } },
-      update: {},
-      create: {
+  if (missingHeaders.length > 0) {
+    await prisma.account.createMany({
+      data: missingHeaders.map((acct) => ({
         tenantId,
         code: acct.code,
         name: acct.name,
@@ -94,29 +110,40 @@ export async function seedDefaultAccounts(tenantId: string): Promise<void> {
         normalBalance: acct.normalBalance,
         isSystemAccount: acct.isSystemAccount,
         description: acct.description ?? null,
-      },
+      })),
+      skipDuplicates: true,
     })
   }
 
-  // Create child accounts (resolve parentId from code)
-  for (const acct of children) {
-    const parent = await prisma.account.findUnique({
-      where: { tenantId_code: { tenantId, code: acct.parentCode! } },
-      select: { id: true },
-    })
-    await prisma.account.upsert({
-      where: { tenantId_code: { tenantId, code: acct.code } },
-      update: {},
-      create: {
+  const parentIdByCode = new Map(
+    (
+      await prisma.account.findMany({
+        where: {
+          tenantId,
+          code: { in: headers.map((account) => account.code) },
+        },
+        select: {
+          id: true,
+          code: true,
+        },
+      })
+    ).map((account) => [account.code, account.id] as const)
+  )
+
+  const missingChildren = children.filter((account) => !existingByCode.has(account.code))
+  if (missingChildren.length > 0) {
+    await prisma.account.createMany({
+      data: missingChildren.map((acct) => ({
         tenantId,
         code: acct.code,
         name: acct.name,
         type: acct.type,
         normalBalance: acct.normalBalance,
-        parentId: parent?.id ?? null,
+        parentId: parentIdByCode.get(acct.parentCode!) ?? null,
         isSystemAccount: acct.isSystemAccount,
         description: acct.description ?? null,
-      },
+      })),
+      skipDuplicates: true,
     })
   }
 }

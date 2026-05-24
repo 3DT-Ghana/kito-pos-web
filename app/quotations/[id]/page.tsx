@@ -109,7 +109,11 @@ export default function QuotationDetailPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to convert')
-      router.push(`/sales/${data.saleId}`)
+      const saleId = data.saleId ?? data.id ?? data.data?.id
+      if (!saleId) {
+        throw new Error('Sale was created, but no sale reference was returned')
+      }
+      router.push(`/sales/${saleId}`)
     } catch (err) {
       setConvertError(err instanceof Error ? err.message : 'Failed to convert')
       setIsConverting(false)

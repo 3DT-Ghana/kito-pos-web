@@ -11,12 +11,11 @@ import { createApprovalGrant } from '@/lib/approvals/inlineGrant'
 
 /**
  * POST /api/approvals/pin-verify
- * Verify a manager's password (used as POS inline PIN) and issue
- * a short-lived approval grant for the current tenant + branch.
+ * Verify a manager's approval PIN (numeric, set on their profile).
+ * Scans all eligible approvers in the tenant+branch and compares the PIN.
  *
  * Body:
- *   email:    string
- *   password: string
+ *   pin: string  (4–6 digit string)
  */
 export async function POST(req: Request) {
   try {
@@ -24,19 +23,14 @@ export async function POST(req: Request) {
     if (error) return error
 
     const body = await req.json()
-    const { email, password } = body
+    const { pin } = body
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 })
+    if (!pin || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
+      return NextResponse.json({ error: 'PIN must be 4–6 digits' }, { status: 400 })
     }
 
-    const manager = await prisma.user.findFirst({
-      where: { email: email.trim().toLowerCase(), tenantId: context!.tenantId },
-      select: { id: true, name: true, role: true, password: true, branchId: true },
-    })
-
     const invalidResponse = NextResponse.json(
-      { valid: false, error: 'Invalid approval credentials' },
+      { valid: false, error: 'Invalid approval PIN' },
       { status: 200 }
     )
 
@@ -48,39 +42,49 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!manager) return invalidResponse
-
-    const passwordMatch = await compare(password, manager.password)
-    if (!passwordMatch) return invalidResponse
-
-    const canApprove = hasPermission(
-      {
-        role: manager.role as Role,
-        rolePermissions: context!.rolePermissions,
+    // Load all users in this tenant who have a PIN set
+    const candidates = await prisma.user.findMany({
+      where: {
+        tenantId: context!.tenantId,
+        approvalPin: { not: null },
       },
-      'approve_transactions'
-    )
-    if (!canApprove) return invalidResponse
-
-    const branchAllowed = !context!.branchesEnabled ||
-      canViewAllBranchesForRole(manager.role as Parameters<typeof canViewAllBranchesForRole>[0]) ||
-      manager.branchId === operationalBranchId
-    if (!branchAllowed) return invalidResponse
-
-    const grant = createApprovalGrant({
-      tenantId: context!.tenantId,
-      branchId: operationalBranchId,
-      approverId: manager.id,
-      approverName: manager.name,
-      scope: 'SALE',
+      select: { id: true, name: true, role: true, approvalPin: true, branchId: true },
     })
 
-    return NextResponse.json({
-      valid: true,
-      approverId: manager.id,
-      approverName: manager.name,
-      grant,
-    })
+    // Find the first candidate whose PIN matches and has approve_transactions + correct branch
+    for (const candidate of candidates) {
+      const pinMatch = await compare(pin, candidate.approvalPin!)
+      if (!pinMatch) continue
+
+      const canApprove = hasPermission(
+        { role: candidate.role as Role, rolePermissions: context!.rolePermissions },
+        'approve_transactions'
+      )
+      if (!canApprove) continue
+
+      const branchAllowed =
+        !context!.branchesEnabled ||
+        canViewAllBranchesForRole(candidate.role as Parameters<typeof canViewAllBranchesForRole>[0]) ||
+        candidate.branchId === operationalBranchId
+      if (!branchAllowed) continue
+
+      const grant = createApprovalGrant({
+        tenantId: context!.tenantId,
+        branchId: operationalBranchId,
+        approverId: candidate.id,
+        approverName: candidate.name,
+        scope: 'SALE',
+      })
+
+      return NextResponse.json({
+        valid: true,
+        approverId: candidate.id,
+        approverName: candidate.name,
+        grant,
+      })
+    }
+
+    return invalidResponse
   } catch (err) {
     console.error('PIN verify error:', err)
     return NextResponse.json({ error: 'Verification failed' }, { status: 500 })

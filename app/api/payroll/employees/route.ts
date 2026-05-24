@@ -4,11 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { EmploymentType, SsfTier } from '@prisma/client'
 import { requireBranchAccess } from '@/lib/branch/server'
 import { requireTenantFeature } from '@/lib/tenant/features'
-
-/**
- * GET /api/payroll/employees  — List employees
- * POST /api/payroll/employees — Create employee
- */
+import { generateStaffId } from '@/lib/payroll/employeeId'
 
 export async function GET(req: Request) {
   try {
@@ -22,8 +18,8 @@ export async function GET(req: Request) {
     if (!authorized) return permError!
 
     const { searchParams } = new URL(req.url)
-    const department  = searchParams.get('department')
-    const activeOnly  = searchParams.get('activeOnly') !== 'false'
+    const department = searchParams.get('department')
+    const activeOnly = searchParams.get('activeOnly') !== 'false'
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { tenantId: context!.tenantId }
@@ -32,7 +28,7 @@ export async function GET(req: Request) {
 
     const employees = await prisma.employee.findMany({
       where,
-      orderBy: [{ department: 'asc' }, { name: 'asc' }],
+      orderBy: [{ department: 'asc' }, { lastName: 'asc' }, { firstName: 'asc' }],
     })
 
     return NextResponse.json({ employees, total: employees.length })
@@ -55,9 +51,9 @@ export async function POST(req: Request) {
 
     const body = await req.json()
 
-    if (!body.name?.trim())     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
-    if (!body.staffId?.trim())  return NextResponse.json({ error: 'Staff ID is required' }, { status: 400 })
-    if (!body.position?.trim()) return NextResponse.json({ error: 'Position is required' }, { status: 400 })
+    if (!body.firstName?.trim()) return NextResponse.json({ error: 'First name is required' }, { status: 400 })
+    if (!body.lastName?.trim())  return NextResponse.json({ error: 'Last name is required' }, { status: 400 })
+    if (!body.position?.trim())  return NextResponse.json({ error: 'Position is required' }, { status: 400 })
 
     const basicSalary = parseFloat(body.basicSalary)
     if (isNaN(basicSalary) || basicSalary < 0) {
@@ -70,35 +66,49 @@ export async function POST(req: Request) {
     if (body.ssfTier && !Object.values(SsfTier).includes(body.ssfTier)) {
       return NextResponse.json({ error: 'Invalid SSF tier' }, { status: 400 })
     }
-    if (body.ssfTier && body.ssfTier !== 'TIER1') {
-      return NextResponse.json({ error: 'Payroll currently supports Tier 1 employees only' }, { status: 400 })
-    }
 
-    // Unique staffId per tenant
-    const existing = await prisma.employee.findFirst({
-      where: { tenantId: context!.tenantId, staffId: body.staffId.trim() },
-    })
-    if (existing) {
-      return NextResponse.json({ error: `Staff ID "${body.staffId}" is already in use` }, { status: 409 })
+    // Auto-generate staffId if not provided
+    let staffId = body.staffId?.trim()
+    if (!staffId) {
+      staffId = await generateStaffId(context!.tenantId)
+    } else {
+      const existing = await prisma.employee.findFirst({
+        where: { tenantId: context!.tenantId, staffId },
+      })
+      if (existing) {
+        return NextResponse.json({ error: `Staff ID "${staffId}" is already in use` }, { status: 409 })
+      }
     }
 
     const employee = await prisma.employee.create({
       data: {
-        tenantId:       context!.tenantId,
-        staffId:        body.staffId.trim(),
-        name:           body.name.trim(),
-        email:          body.email?.trim() || null,
-        phone:          body.phone?.trim() || null,
-        position:       body.position.trim(),
-        department:     body.department?.trim() || null,
-        employmentType: (body.employmentType as EmploymentType) ?? 'FULL_TIME',
+        tenantId:             context!.tenantId,
+        staffId,
+        firstName:            body.firstName.trim(),
+        middleName:           body.middleName?.trim() || null,
+        lastName:             body.lastName.trim(),
+        gender:               body.gender?.trim() || null,
+        dateOfBirth:          body.dateOfBirth ? new Date(body.dateOfBirth) : null,
+        tinNumber:            body.tinNumber?.trim() || null,
+        ssnitNumber:          body.ssnitNumber?.trim() || null,
+        residentialAddress:   body.residentialAddress?.trim() || null,
+        emergencyContactName: body.emergencyContactName?.trim() || null,
+        emergencyContactPhone:body.emergencyContactPhone?.trim() || null,
+        email:                body.email?.trim() || null,
+        phone:                body.phone?.trim() || null,
+        position:             body.position.trim(),
+        department:           body.department?.trim() || null,
+        employmentType:       (body.employmentType as EmploymentType) ?? 'FULL_TIME',
         basicSalary,
-        ssfTier:        'TIER1',
-        isExemptFromPAYE: Boolean(body.isExemptFromPAYE),
-        bankName:       body.bankName?.trim() || null,
-        bankBranch:     body.bankBranch?.trim() || null,
-        accountNumber:  body.accountNumber?.trim() || null,
-        hireDate:       body.hireDate ? new Date(body.hireDate) : new Date(),
+        ssfTier:              (body.ssfTier as SsfTier) ?? 'TIER1',
+        isExemptFromPAYE:     Boolean(body.isExemptFromPAYE),
+        bankName:             body.bankName?.trim() || null,
+        bankBranch:           body.bankBranch?.trim() || null,
+        accountNumber:        body.accountNumber?.trim() || null,
+        momoProvider:         body.momoProvider?.trim() || null,
+        momoNumber:           body.momoNumber?.trim() || null,
+        momoAccountName:      body.momoAccountName?.trim() || null,
+        hireDate:             body.hireDate ? new Date(body.hireDate) : new Date(),
       },
     })
 

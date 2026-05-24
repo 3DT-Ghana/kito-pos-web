@@ -18,6 +18,12 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   const application = await prisma.businessApplication.findFirst({
     where: { id, agentId: context!.agent.id },
+    include: {
+      documents: {
+        select: { id: true, documentType: true, label: true, fileUrl: true, uploadedAt: true },
+        orderBy: { uploadedAt: 'desc' },
+      },
+    },
   })
 
   if (!application) {

@@ -36,7 +36,7 @@ export default function NewSalePage() {
     const response = await fetch('/api/sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...(data as object), source: 'sales' }),
     })
 
     const result = await response.json()

@@ -52,6 +52,7 @@ export default function AdminAgentsPage() {
   const [filter, setFilter] = useState<FilterStatus>('ALL')
   const [actionId, setActionId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   async function fetchAgents(status?: string) {
     const url = status && status !== 'ALL' ? `/api/admin/agents?status=${status}` : '/api/admin/agents'
@@ -89,13 +90,47 @@ export default function AdminAgentsPage() {
   useEffect(() => { load(filter) }, [filter])
 
   async function updateStatus(id: string, status: string) {
+    let rejectionReason: string | undefined
+
+    if (status === 'REJECTED') {
+      const response = window.prompt('Enter a rejection reason for this agent:')
+      if (response === null) return
+
+      rejectionReason = response.trim()
+      if (!rejectionReason) {
+        setMessage({ type: 'error', text: 'A rejection reason is required to reject an agent.' })
+        return
+      }
+    }
+
     setActionId(id)
-    await fetch(`/api/admin/agents/${id}`, {
+    setMessage(null)
+
+    const res = await fetch(`/api/admin/agents/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({
+        status,
+        ...(rejectionReason ? { rejectionReason } : {}),
+      }),
     })
+    const data = await res.json().catch(() => ({}))
     setActionId(null)
+
+    if (!res.ok) {
+      setMessage({ type: 'error', text: data.error ?? 'Failed to update agent' })
+      return
+    }
+
+    setMessage({
+      type: 'success',
+      text:
+        status === 'APPROVED'
+          ? 'Agent approved successfully.'
+          : status === 'REJECTED'
+            ? 'Agent rejected successfully.'
+            : 'Agent suspended successfully.',
+    })
     load(filter)
   }
 
@@ -123,16 +158,33 @@ export default function AdminAgentsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Sales Agents</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage platform agent accounts and performance</p>
           </div>
-          <button
-            onClick={() => load(filter)}
-            className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
-          </button>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => load(filter)}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+            <Link
+              href="/admin/agents/new"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 text-sm transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Register Agent
+            </Link>
+          </div>
         </div>
+
+        {message && (
+          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+            {message.text}
+          </div>
+        )}
 
         {/* Scorecard strip */}
         {!loading && (

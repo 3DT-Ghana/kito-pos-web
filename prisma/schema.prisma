@@ -140,6 +140,11 @@ enum SsfTier {
   TIER3  // voluntary provident fund
 }
 
+enum PayrollComponentType {
+  ALLOWANCE
+  DEDUCTION
+}
+
 // =====================
 // AGENT / PLATFORM ENUMS
 // =====================
@@ -162,6 +167,13 @@ enum BusinessApplicationStatus {
   APPROVED
   REJECTED
   SUSPENDED
+}
+
+enum DocumentType {
+  BUSINESS_CERTIFICATE
+  GHANA_CARD_FRONT
+  GHANA_CARD_BACK
+  OTHER
 }
 
 // =====================
@@ -264,8 +276,11 @@ model Tenant {
   transactionTaxLines TransactionTaxLine[]
 
   // Payroll relations
-  employees    Employee[]
-  payrollRuns  PayrollRun[]
+  employeeIdPrefix  String?   // prefix for auto-generated staffIds e.g. "ABC" → "ABC-EMP-0001"
+  employees         Employee[]
+  payrollRuns       PayrollRun[]
+  payrollComponents PayrollComponent[]
+  statutoryDeductions StatutoryDeduction[]
 }
 
 // =====================
@@ -279,6 +294,7 @@ model User {
   name             String
   email            String            @unique
   password         String
+  approvalPin      String?
   role             Role
   branchId         String?
   branch           Branch?           @relation(fields: [branchId], references: [id])
@@ -1044,8 +1060,20 @@ model Employee {
   tenantId   String
   tenant     Tenant @relation(fields: [tenantId], references: [id])
 
-  staffId    String  // internal HR code e.g. "EMP-001"
-  name       String
+  staffId    String  // auto-generated or manual e.g. "ABC-EMP-0001"
+
+  // Personal details
+  firstName             String
+  middleName            String?
+  lastName              String
+  gender                String?   // "MALE" | "FEMALE" | "OTHER"
+  dateOfBirth           DateTime?
+  tinNumber             String?
+  ssnitNumber           String?
+  residentialAddress    String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
   email      String?
   phone      String?
   position   String  // job title
@@ -1054,23 +1082,30 @@ model Employee {
   employmentType EmploymentType @default(FULL_TIME)
 
   // Compensation
-  basicSalary    Float           // monthly gross base salary (GHS)
-  ssfTier        SsfTier         @default(TIER1)
-  isExemptFromPAYE Boolean       @default(false) // e.g. certain agricultural workers
+  basicSalary      Float           // monthly gross base salary (GHS)
+  ssfTier          SsfTier         @default(TIER1)
+  isExemptFromPAYE Boolean         @default(false)
 
   // Bank details for disbursement
   bankName       String?
   bankBranch     String?
   accountNumber  String?
 
-  // Status
-  isActive   Boolean  @default(true)
-  hireDate   DateTime @default(now())
-  endDate    DateTime?
+  // MoMo payment details
+  momoProvider    String?   // "MTN" | "VODAFONE" | "AIRTELTIGO"
+  momoNumber      String?
+  momoAccountName String?
 
-  createdAt  DateTime @default(now())
+  // Status
+  isActive  Boolean  @default(true)
+  hireDate  DateTime @default(now())
+  endDate   DateTime?
+
+  createdAt DateTime @default(now())
 
   payrollLines PayrollLine[]
+  components   EmployeePayrollComponent[]
+  loans        EmployeeLoan[]
 
   @@unique([tenantId, staffId])
   @@index([tenantId, isActive])
@@ -1089,12 +1124,12 @@ model PayrollRun {
   status     PayrollRunStatus @default(DRAFT)
 
   // Totals (computed and stored for reporting without re-summing lines)
-  totalGross         Float @default(0)
-  totalSSFEmployee   Float @default(0)
-  totalSSFEmployer   Float @default(0)
-  totalPAYE          Float @default(0)
-  totalOtherDeductions Float @default(0)
-  totalNetPay        Float @default(0)
+  totalGross           Float @default(0)
+  totalSSFEmployee     Float @default(0)
+  totalSSFEmployer     Float @default(0)
+  totalPAYE            Float @default(0)
+  totalDeductions      Float @default(0)
+  totalNetPay          Float @default(0)
 
   // Audit
   createdById  String
@@ -1126,20 +1161,24 @@ model PayrollLine {
   employeeId   String
   employee     Employee   @relation(fields: [employeeId], references: [id])
 
-  // Input (can be overridden per run)
-  basicSalary  Float
-  allowances   Float @default(0)   // transport, housing, etc.
-  overtime     Float @default(0)   // overtime pay
-  bonus        Float @default(0)   // one-off bonus
+  // Input
+  basicSalary Float
+  overtime    Float @default(0)
+  bonus       Float @default(0)
 
-  // Computed deductions (Ghana statutory)
-  grossPay       Float  // basicSalary + allowances + overtime + bonus
-  ssfEmployee    Float  // 5.5% of basicSalary (not on allowances per GRA rules)
-  ssfEmployer    Float  // 13% of basicSalary
-  taxableIncome  Float  // grossPay − ssfEmployee
-  paye           Float  // Ghana PAYE on taxableIncome
-  otherDeductions Float @default(0) // loans, advances, etc.
-  netPay         Float  // grossPay − ssfEmployee − paye − otherDeductions
+  // Component snapshots (JSON arrays frozen at run time)
+  allowancesSnapshot Json @default("[]")  // [{name, amount, isTaxable}]
+  deductionsSnapshot Json @default("[]")  // [{name, amount, isBeforeTax}]
+  allowancesTotal    Float @default(0)
+  deductionsTotal    Float @default(0)
+
+  // Computed (Ghana statutory)
+  grossPay      Float
+  ssfEmployee   Float
+  ssfEmployer   Float
+  taxableIncome Float
+  paye          Float
+  netPay        Float
 
   createdAt DateTime @default(now())
 
@@ -1162,38 +1201,80 @@ model Agent {
   ghanaCardImageUrl   String?
   residentialAddress  String?
   territory           String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
   status              AgentStatus @default(PENDING)
   approvedAt          DateTime?
-  approvedById        String?     // platform admin email (not a User FK)
+  approvedById        String?     // platform admin email
+  rejectionReason     String?
+  registeredByAdminEmail String?  // set when admin creates the agent directly
   onboardedBusinesses BusinessApplication[]
+  commissions         AgentCommission[]
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 }
 
 model BusinessApplication {
-  id                     String                    @id @default(uuid())
-  businessName           String
-  businessType           BusinessType              @default(SHOP)
-  businessAddress        String
-  gpsLatitude            Float?
-  gpsLongitude           Float?
-  ownerFullName          String
-  ownerPhone             String
-  ownerEmail             String
-  ownerGhanaCardNumber   String?
-  ownerGhanaCardImageUrl String?
-  status                 BusinessApplicationStatus @default(PENDING)
-  rejectionReason        String?
-  agentId                String
-  agent                  Agent                     @relation(fields: [agentId], references: [id])
-  tenantId               String?   // set when approved → tenant created
-  reviewedById           String?   // platform admin email
-  reviewedAt             DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  id                       String                    @id @default(uuid())
+  businessName             String
+  businessType             BusinessType              @default(SHOP)
+  businessRegistrationNumber String?
+  businessAddress          String
+  businessPhone            String?
+  businessEmail            String?
+  gpsLatitude              Float?
+  gpsLongitude             Float?
+
+  // Directors / owners — stored as JSON array of { fullName, ghanaCardNumber? }
+  directors                Json                      @default("[]")
+
+  // Primary owner (legacy + quick access)
+  ownerFullName            String
+  ownerPhone               String
+  ownerEmail               String
+  ownerGhanaCardNumber     String?
+  ownerGhanaCardImageUrl   String?
+
+  status                   BusinessApplicationStatus @default(PENDING)
+  rejectionReason          String?
+  approvalNote             String?
+  agentId                  String
+  agent                    Agent                     @relation(fields: [agentId], references: [id])
+  tenantId                 String?   // set when approved → tenant created
+  reviewedById             String?   // platform admin email
+  reviewedAt               DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  documents                BusinessDocument[]
 
   @@index([agentId])
   @@index([status])
+}
+
+model BusinessDocument {
+  id            String       @id @default(uuid())
+  applicationId String
+  application   BusinessApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  documentType  DocumentType
+  label         String?      // e.g. "Business Certificate", "Director Ghana Card"
+  fileUrl       String
+  uploadedAt    DateTime     @default(now())
+
+  @@index([applicationId])
+}
+
+// Platform-level KYC settings — one row (id = "global")
+model KYCSettings {
+  id                            String  @id @default("global")
+  requireBusinessRegNumber      Boolean @default(false)
+  requireBusinessCertUpload     Boolean @default(false)
+  requireDirectorGhanaCardNumber Boolean @default(true)
+  requireDirectorGhanaCardUpload Boolean @default(false)
+  requireAgentGhanaCardNumber   Boolean @default(true)
+  requireAgentGhanaCardUpload   Boolean @default(false)
+  updatedAt                     DateTime @updatedAt
+  updatedByEmail                String?
 }
 
 model PlatformAuditLog {
@@ -1206,4 +1287,302 @@ model PlatformAuditLog {
   createdAt  DateTime @default(now())
 
   @@index([entity, entityId])
+}
+
+// =====================
+// BILLING — ENUMS
+// =====================
+
+enum BillingCycle {
+  ONE_TIME
+  MONTHLY
+  YEARLY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  VOID
+}
+
+enum CommissionStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+// =====================
+// BILLING — FEATURE MODULES
+// =====================
+
+// Master catalogue of billable platform features/modules.
+// Platform admin manages this list; one row per distinct feature.
+model FeatureModule {
+  id          String   @id @default(uuid())
+  key         String   @unique  // e.g. "pos", "accounting", "payroll" — maps to tenant flag
+  name        String            // e.g. "POS Module"
+  description String?
+  category    String   @default("Module")  // "Module", "Add-on", "Service"
+  isActive    Boolean  @default(true)
+
+  // Pricing
+  setupFee    Float    @default(0)
+  monthlyFee  Float    @default(0)
+  yearlyFee   Float    @default(0)
+  oneTimeFee  Float    @default(0)
+  discount    Float    @default(0)  // percentage 0-100
+  commissionRate Float @default(0)  // percentage 0-100
+  vatRate     Float    @default(0)  // percentage e.g. 15 for 15%
+
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  planFeatures  TenantPlanFeature[]
+  commissions   AgentCommission[]
+  invoiceLines  InvoiceLineItem[]
+}
+
+// Billable hardware / physical items
+model BusinessItem {
+  id              String       @id @default(uuid())
+  name            String
+  description     String?
+  sellingPrice    Float        @default(0)
+  commissionRate  Float        @default(0)  // percentage 0-100
+  billingCycle    BillingCycle @default(ONE_TIME)
+  vatRate         Float        @default(0)
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  planItems    TenantPlanItem[]
+  commissions  AgentCommission[]
+  invoiceLines InvoiceLineItem[]
+}
+
+// =====================
+// BILLING — TENANT PLANS
+// =====================
+
+// One business plan per tenant (upsert pattern: tenantId is unique)
+model TenantBusinessPlan {
+  id        String   @id @default(uuid())
+  tenantId  String   @unique
+  name      String?  // e.g. "Standard Plan"
+  notes     String?
+  billingCycle BillingCycle @default(MONTHLY)
+  discount  Float    @default(0)  // plan-level discount percentage
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdByEmail String?
+
+  features  TenantPlanFeature[]
+  items     TenantPlanItem[]
+  invoices  TenantInvoice[]
+
+  @@index([tenantId])
+}
+
+// Feature row on a tenant plan
+model TenantPlanFeature {
+  id        String   @id @default(uuid())
+  planId    String
+  plan      TenantBusinessPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  featureId String
+  feature   FeatureModule      @relation(fields: [featureId], references: [id])
+  // Per-feature overrides (null = use module default)
+  setupFee  Float?
+  monthlyFee Float?
+  yearlyFee Float?
+  oneTimeFee Float?
+  discount  Float?
+  createdAt DateTime @default(now())
+
+  @@unique([planId, featureId])
+  @@index([planId])
+}
+
+// Hardware/item row on a tenant plan
+model TenantPlanItem {
+  id         String   @id @default(uuid())
+  planId     String
+  plan       TenantBusinessPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       BusinessItem       @relation(fields: [itemId], references: [id])
+  quantity   Int      @default(1)
+  unitPrice  Float?   // override; null = use item.sellingPrice
+  discount   Float?
+  createdAt  DateTime @default(now())
+
+  @@index([planId])
+}
+
+// =====================
+// BILLING — INVOICES
+// =====================
+
+model TenantInvoice {
+  id            String        @id @default(uuid())
+  invoiceNumber String        @unique  // e.g. "INV-2026-0001"
+  planId        String
+  plan          TenantBusinessPlan @relation(fields: [planId], references: [id])
+  tenantId      String
+  tenantName    String        // snapshot
+  billingCycle  BillingCycle
+  status        InvoiceStatus @default(DRAFT)
+  subtotal      Float         @default(0)
+  vatAmount     Float         @default(0)
+  discountAmount Float        @default(0)
+  total         Float         @default(0)
+  dueDate       DateTime?
+  paidAt        DateTime?
+  notes         String?
+  createdByEmail String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lineItems     InvoiceLineItem[]
+  commissions   AgentCommission[]
+
+  @@index([tenantId])
+  @@index([status])
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     TenantInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Float    @default(1)
+  unitPrice   Float
+  discount    Float    @default(0)
+  vatRate     Float    @default(0)
+  vatAmount   Float    @default(0)
+  lineTotal   Float    // (unitPrice * quantity) - discount + vatAmount
+  featureId   String?
+  feature     FeatureModule? @relation(fields: [featureId], references: [id])
+  itemId      String?
+  item        BusinessItem?  @relation(fields: [itemId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([invoiceId])
+}
+
+// =====================
+// BILLING — COMMISSIONS
+// =====================
+
+model AgentCommission {
+  id            String           @id @default(uuid())
+  agentId       String
+  agent         Agent            @relation(fields: [agentId], references: [id])
+  tenantId      String
+  tenantName    String           // snapshot
+  invoiceId     String
+  invoice       TenantInvoice    @relation(fields: [invoiceId], references: [id])
+  featureId     String?
+  feature       FeatureModule?   @relation(fields: [featureId], references: [id])
+  itemId        String?
+  item          BusinessItem?    @relation(fields: [itemId], references: [id])
+  description   String
+  saleAmount    Float            // invoice line amount commission was computed on
+  commissionRate Float
+  commissionAmount Float
+  status        CommissionStatus @default(PENDING)
+  paidAt        DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([agentId])
+  @@index([tenantId])
+  @@index([invoiceId])
+}
+
+// =====================
+// PAYROLL — DYNAMIC COMPONENTS
+// =====================
+
+// Tenant-level catalogue of allowance/deduction types
+model PayrollComponent {
+  id          String               @id @default(uuid())
+  tenantId    String
+  tenant      Tenant               @relation(fields: [tenantId], references: [id])
+  name        String
+  type        PayrollComponentType
+  subType     String?              // e.g. "TRANSPORT", "HOUSING", "LOAN_REPAYMENT"
+  isTaxable   Boolean              @default(false) // for ALLOWANCE: adds to taxable income
+  isBeforeTax Boolean              @default(true)  // for DEDUCTION: deducted before PAYE
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+
+  assignments EmployeePayrollComponent[]
+
+  @@index([tenantId])
+}
+
+// Assignment of a component to a specific employee with an amount
+model EmployeePayrollComponent {
+  id            String           @id @default(uuid())
+  employeeId    String
+  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  componentId   String
+  component     PayrollComponent @relation(fields: [componentId], references: [id])
+  amount        Float
+  isActive      Boolean          @default(true)
+  effectiveFrom DateTime         @default(now())
+  effectiveTo   DateTime?
+
+  @@index([employeeId])
+  @@index([componentId])
+}
+
+// Tenant-configurable statutory deduction rates (SSF, PAYE flags, etc.)
+model StatutoryDeduction {
+  id         String   @id @default(uuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  name       String
+  code       String                    // "SSF_EMPLOYEE" | "SSF_EMPLOYER"
+  rate       Float
+  appliesTo  String   @default("BASIC") // "BASIC" | "GROSS"
+  isActive   Boolean  @default(true)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+}
+
+// Employee loans tracked for automatic monthly deductions
+model EmployeeLoan {
+  id               String         @id @default(uuid())
+  tenantId         String
+  employeeId       String
+  employee         Employee       @relation(fields: [employeeId], references: [id])
+  description      String
+  principalAmount  Float
+  balanceAmount    Float
+  monthlyDeduction Float
+  startDate        DateTime
+  endDate          DateTime?
+  isActive         Boolean        @default(true)
+  createdAt        DateTime       @default(now())
+
+  repayments LoanRepayment[]
+
+  @@index([tenantId])
+  @@index([employeeId])
+}
+
+// One row per loan per payroll run (records repayment and reduces balance)
+model LoanRepayment {
+  id            String       @id @default(uuid())
+  loanId        String
+  loan          EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  payrollLineId String?
+  amount        Float
+  paidAt        DateTime     @default(now())
+
+  @@index([loanId])
 }

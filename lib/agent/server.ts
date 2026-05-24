@@ -2,7 +2,52 @@ import { getServerSession } from 'next-auth'
 import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
-import { Agent } from '@prisma/client'
+import { Agent, Prisma } from '@prisma/client'
+import { isUniqueConstraintError } from '@/lib/db/prismaErrors'
+
+/**
+ * Generate the next unique agent code in AGT-XXXX format.
+ * Uses the highest existing code rather than COUNT to avoid race conditions
+ * when two registrations happen concurrently.
+ */
+export async function generateAgentCode(): Promise<string> {
+  const last = await prisma.agent.findFirst({
+    orderBy: { agentCode: 'desc' },
+    select: { agentCode: true },
+  })
+  const lastNum = last ? parseInt(last.agentCode.replace('AGT-', ''), 10) : 0
+  return `AGT-${String(lastNum + 1).padStart(4, '0')}`
+}
+
+export async function createAgentWithGeneratedCode<T extends Prisma.AgentSelect>(params: {
+  data: Omit<Prisma.AgentCreateInput, 'agentCode'>
+  select: T
+  maxRetries?: number
+}) {
+  const { data, select, maxRetries = 5 } = params
+
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+    const agentCode = await generateAgentCode()
+
+    try {
+      return await prisma.agent.create({
+        data: {
+          agentCode,
+          ...data,
+        },
+        select,
+      })
+    } catch (error) {
+      if (isUniqueConstraintError(error, 'agentCode')) {
+        continue
+      }
+
+      throw error
+    }
+  }
+
+  throw new Error('Failed to allocate a unique agent code')
+}
 
 interface AgentContext {
   agent: Agent

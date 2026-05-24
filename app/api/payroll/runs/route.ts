@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
-import { computePayrollLine } from '@/lib/payroll/compute'
+import { computePayrollLine, DEFAULT_SSF_EMPLOYEE_RATE, DEFAULT_SSF_EMPLOYER_RATE } from '@/lib/payroll/compute'
+import type { AllowanceEntry, DeductionEntry } from '@/lib/payroll/compute'
+import { Prisma } from '@prisma/client'
 import { round2 } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
@@ -74,103 +76,187 @@ export async function POST(req: Request) {
       )
     }
 
+    const runDate = new Date(periodYear, periodMonth - 1, 1)
+
+    // Fetch employees with their active components and active loans
     const employees = await prisma.employee.findMany({
       where: { tenantId: context!.tenantId, isActive: true },
+      include: {
+        components: {
+          where: {
+            isActive: true,
+            effectiveFrom: { lte: runDate },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: runDate } }],
+          },
+          include: { component: true },
+        },
+        loans: {
+          where: {
+            tenantId: context!.tenantId,
+            isActive: true,
+            startDate: { lte: runDate },
+            OR: [{ endDate: null }, { endDate: { gte: runDate } }],
+          },
+        },
+      },
     })
+
     if (employees.length === 0) {
       return NextResponse.json({ error: 'No active employees found' }, { status: 400 })
     }
 
-    const unsupportedEmployees = employees.filter(employee => employee.ssfTier !== 'TIER1')
-    if (unsupportedEmployees.length > 0) {
-      const names = unsupportedEmployees.slice(0, 3).map(employee => employee.name).join(', ')
-      return NextResponse.json(
-        {
-          error: `Payroll currently supports Tier 1 employees only. Update these employee records first: ${names}${unsupportedEmployees.length > 3 ? ', …' : ''}`,
-        },
-        { status: 400 }
-      )
-    }
+    // Fetch SSF rates for this tenant (use defaults if none configured)
+    const statutoryDeductions = await prisma.statutoryDeduction.findMany({
+      where: { tenantId: context!.tenantId, isActive: true },
+    })
+    const ssfEmployeeRate = statutoryDeductions.find((d) => d.code === 'SSF_EMPLOYEE')?.rate ?? DEFAULT_SSF_EMPLOYEE_RATE
+    const ssfEmployerRate = statutoryDeductions.find((d) => d.code === 'SSF_EMPLOYER')?.rate ?? DEFAULT_SSF_EMPLOYER_RATE
 
-    // Per-employee overrides from request body (optional): { employeeId: { allowances, overtime, bonus, otherDeductions } }
-    const rawOverrides: Record<string, { allowances?: unknown; overtime?: unknown; bonus?: unknown; otherDeductions?: unknown }> =
-      body.overrides ?? {}
-    const parseOverrideAmount = (value: unknown, label: string): number => {
+    // Per-employee overrides from body: { employeeId: { overtime?, bonus? } }
+    const rawOverrides: Record<string, { overtime?: unknown; bonus?: unknown }> = body.overrides ?? {}
+
+    const parseAmt = (value: unknown): number => {
       if (value === undefined || value === null || value === '') return 0
-      const parsed = parseFloat(String(value))
-      if (!Number.isFinite(parsed) || parsed < 0) {
-        throw new Error(`${label} must be a non-negative number`)
+      const v = parseFloat(String(value))
+      return Number.isFinite(v) && v >= 0 ? v : 0
+    }
+
+    const computedLines: {
+      employee: typeof employees[0]
+      allowances: AllowanceEntry[]
+      deductions: DeductionEntry[]
+      result: ReturnType<typeof computePayrollLine>
+      loanDeductions: {
+        loanId: string
+        amount: number
+        nextBalance: number
+        shouldClose: boolean
+      }[]
+    }[] = []
+
+    for (const emp of employees) {
+      const ov = rawOverrides[emp.id] ?? {}
+
+      const allowances: AllowanceEntry[] = emp.components
+        .filter((a) => a.component.type === 'ALLOWANCE')
+        .map((a) => ({
+          name: a.component.name,
+          amount: a.amount,
+          isTaxable: a.component.isTaxable,
+        }))
+
+      const loanDeductions: { loanId: string; amount: number; nextBalance: number; shouldClose: boolean }[] = []
+      const deductions: DeductionEntry[] = []
+
+      for (const c of emp.components.filter((c) => c.component.type === 'DEDUCTION')) {
+        deductions.push({ name: c.component.name, amount: c.amount, isBeforeTax: c.component.isBeforeTax })
       }
-      return parsed
-    }
 
-    let lines
-    try {
-      lines = employees.map(emp => {
-        const ov = rawOverrides[emp.id] ?? {}
-        return {
-          employee: emp,
-          result: computePayrollLine({
-            basicSalary:      emp.basicSalary,
-            allowances:       parseOverrideAmount(ov.allowances, `${emp.name}: allowances`),
-            overtime:         parseOverrideAmount(ov.overtime, `${emp.name}: overtime`),
-            bonus:            parseOverrideAmount(ov.bonus, `${emp.name}: bonus`),
-            otherDeductions:  parseOverrideAmount(ov.otherDeductions, `${emp.name}: other deductions`),
-            isExemptFromPAYE: emp.isExemptFromPAYE,
-          }),
+      // Add loan repayments as after-tax deductions
+      for (const loan of emp.loans) {
+        const amount = round2(Math.min(loan.monthlyDeduction, loan.balanceAmount))
+        if (amount > 0) {
+          const nextBalance = round2(Math.max(loan.balanceAmount - amount, 0))
+          deductions.push({ name: loan.description, amount, isBeforeTax: false })
+          loanDeductions.push({
+            loanId: loan.id,
+            amount,
+            nextBalance,
+            shouldClose: nextBalance <= 0,
+          })
         }
+      }
+
+      const result = computePayrollLine({
+        basicSalary: emp.basicSalary,
+        allowances,
+        deductions,
+        overtime: parseAmt(ov.overtime),
+        bonus: parseAmt(ov.bonus),
+        isExemptFromPAYE: emp.isExemptFromPAYE,
+        ssfEmployeeRate,
+        ssfEmployerRate,
       })
-    } catch (error) {
-      return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid payroll overrides supplied' },
-        { status: 400 }
-      )
+
+      computedLines.push({ employee: emp, allowances, deductions, result, loanDeductions })
     }
 
-    const totalGross        = round2(lines.reduce((s, l) => s + l.result.grossPay,        0))
-    const totalSSFEmployee  = round2(lines.reduce((s, l) => s + l.result.ssfEmployee,     0))
-    const totalSSFEmployer  = round2(lines.reduce((s, l) => s + l.result.ssfEmployer,     0))
-    const totalPAYE         = round2(lines.reduce((s, l) => s + l.result.paye,            0))
-    const totalOtherDed     = round2(lines.reduce((s, l) => s + l.result.otherDeductions, 0))
-    const totalNetPay       = round2(lines.reduce((s, l) => s + l.result.netPay,          0))
+    const totalGross       = round2(computedLines.reduce((s, l) => s + l.result.grossPay,       0))
+    const totalSSFEmployee = round2(computedLines.reduce((s, l) => s + l.result.ssfEmployee,    0))
+    const totalSSFEmployer = round2(computedLines.reduce((s, l) => s + l.result.ssfEmployer,    0))
+    const totalPAYE        = round2(computedLines.reduce((s, l) => s + l.result.paye,           0))
+    const totalDeductions  = round2(computedLines.reduce((s, l) => s + l.result.deductionsTotal, 0))
+    const totalNetPay      = round2(computedLines.reduce((s, l) => s + l.result.netPay,         0))
+    const loanRepayments = computedLines.flatMap(({ loanDeductions }) => loanDeductions)
 
-    const run = await prisma.$transaction(async tx => {
+    const run = await prisma.$transaction(async (tx) => {
       const payrollRun = await tx.payrollRun.create({
         data: {
-          tenantId:         context!.tenantId,
+          tenantId:        context!.tenantId,
           periodYear,
           periodMonth,
-          status:           'DRAFT',
+          status:          'DRAFT',
           totalGross,
           totalSSFEmployee,
           totalSSFEmployer,
           totalPAYE,
-          totalOtherDeductions: totalOtherDed,
+          totalDeductions,
           totalNetPay,
-          createdById:      context!.user.id,
+          createdById:     context!.user.id,
           lines: {
-            create: lines.map(({ employee: emp, result }) => ({
-              employeeId:      emp.id,
-              basicSalary:     result.basicSalary,
-              allowances:      result.allowances,
-              overtime:        result.overtime,
-              bonus:           result.bonus,
-              grossPay:        result.grossPay,
-              ssfEmployee:     result.ssfEmployee,
-              ssfEmployer:     result.ssfEmployer,
-              taxableIncome:   result.taxableIncome,
-              paye:            result.paye,
-              otherDeductions: result.otherDeductions,
-              netPay:          result.netPay,
+            create: computedLines.map(({ employee: emp, result }) => ({
+              employeeId:        emp.id,
+              basicSalary:       result.basicSalary,
+              overtime:          result.overtime,
+              bonus:             result.bonus,
+              allowancesSnapshot: result.allowancesSnapshot as unknown as Prisma.InputJsonValue,
+              deductionsSnapshot: result.deductionsSnapshot as unknown as Prisma.InputJsonValue,
+              allowancesTotal:   result.allowancesTotal,
+              deductionsTotal:   result.deductionsTotal,
+              grossPay:          result.grossPay,
+              ssfEmployee:       result.ssfEmployee,
+              ssfEmployer:       result.ssfEmployer,
+              taxableIncome:     result.taxableIncome,
+              paye:              result.paye,
+              netPay:            result.netPay,
             })),
           },
         },
-        include: {
-          lines: { include: { employee: { select: { id: true, name: true, staffId: true, position: true, department: true } } } },
-          createdBy: { select: { name: true } },
+        select: {
+          id: true,
+          periodYear: true,
+          periodMonth: true,
+          status: true,
+          totalGross: true,
+          totalSSFEmployee: true,
+          totalSSFEmployer: true,
+          totalPAYE: true,
+          totalDeductions: true,
+          totalNetPay: true,
+          createdAt: true,
         },
       })
+
+      if (loanRepayments.length > 0) {
+        await tx.loanRepayment.createMany({
+          data: loanRepayments.map(({ loanId, amount }) => ({ loanId, amount })),
+        })
+
+        for (const { loanId, nextBalance, shouldClose } of loanRepayments) {
+          await tx.employeeLoan.update({
+            where: { id: loanId },
+            data: {
+              balanceAmount: nextBalance,
+              isActive: !shouldClose,
+            },
+          })
+        }
+      }
+
       return payrollRun
+    }, {
+      maxWait: 10_000,
+      timeout: 60_000,
     })
 
     return NextResponse.json({ run }, { status: 201 })

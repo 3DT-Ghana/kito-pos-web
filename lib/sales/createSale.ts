@@ -57,6 +57,8 @@ export interface CreateSaleInput {
   approvalGrant?: string
   items: SaleRequestItem[]
   sourceQuotationId?: string
+  /** 'sales' = regular sale form (discount approval enforced); 'pos' = POS terminal (no discount approval) */
+  source?: 'sales' | 'pos'
 }
 
 interface CreateSaleOptions {
@@ -262,11 +264,16 @@ export async function createSaleFromInput(
 
   const accountingEnabled = context.features.enableAccounting
   const canSelfApprove = hasPermission(context, 'approve_transactions')
+  const canApplyDiscount = hasPermission(context, 'apply_discount')
   const approvalRequired = context.features.requireApproval && !canSelfApprove
 
+  // On the sales form, a discount by a user without apply_discount always needs approval.
+  // On the POS terminal (source === 'pos' or unset), discount approval is not enforced.
+  const discountApprovalRequired = body.source === 'sales' && !canSelfApprove && !canApplyDiscount
+
   let approvalFlags: ApprovalFlag[] = []
-  if (approvalRequired) {
-    approvalFlags = detectSaleFlags({
+  if (approvalRequired || discountApprovalRequired) {
+    const allFlags = detectSaleFlags({
       items: body.items.map((saleItem) => {
         const item = items.find((candidate) => candidate.id === saleItem.itemId)!
         return {
@@ -282,6 +289,12 @@ export async function createSaleFromInput(
       orderDiscountAmount: 0,
       creditAmount,
     })
+    if (approvalRequired) {
+      approvalFlags = allFlags
+    } else {
+      // Only flag DISCOUNT — not PRICE_OVERRIDE or CREDIT_SALE — when it's purely a discount-permission issue
+      approvalFlags = allFlags.filter(f => f === 'DISCOUNT')
+    }
   }
 
   let defaultSalesRevenueId: string | null = null
@@ -377,7 +390,7 @@ export async function createSaleFromInput(
   if (
     typeof body.approvalGrant === 'string' &&
     !approvalGrant &&
-    approvalRequired &&
+    (approvalRequired || discountApprovalRequired) &&
     approvalFlags.length > 0
   ) {
     throw new SaleOperationError(
@@ -386,10 +399,11 @@ export async function createSaleFromInput(
     )
   }
 
+  const anyApprovalRequired = approvalRequired || (discountApprovalRequired && approvalFlags.length > 0)
   const inlineApproval =
-    approvalRequired && approvalFlags.length > 0 ? approvalGrant : null
+    anyApprovalRequired && approvalFlags.length > 0 ? approvalGrant : null
   const needsApproval =
-    approvalRequired && approvalFlags.length > 0 && !inlineApproval
+    anyApprovalRequired && approvalFlags.length > 0 && !inlineApproval
 
   const sale = await prisma.$transaction(async (tx) => {
     const createdSale = await tx.sale.create({

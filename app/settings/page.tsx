@@ -10,8 +10,9 @@ import { SmsSettings } from './SmsSettings'
 import { FeaturesSettings } from './FeaturesSettings'
 import { RolePermissionsSettings } from './RolePermissionsSettings'
 import { TaxSettings } from './TaxSettings'
+import { ApprovalPinSettings } from './ApprovalPinSettings'
 import { Settings as SettingsIcon } from 'lucide-react'
-import { type RolePermissionsMap } from '@/lib/permissions/rbac'
+import { type RolePermissionsMap, hasPermission, type Role } from '@/lib/permissions/rbac'
 
 /**
  * Settings Page
@@ -72,6 +73,11 @@ export default async function SettingsPage() {
   if (!tenant) {
     redirect('/dashboard')
   }
+
+  const canSetApprovalPin = hasPermission(
+    { role: user.role as Role, rolePermissions: (tenant.rolePermissions as RolePermissionsMap) ?? null },
+    'approve_transactions'
+  )
 
   return (
     <AppLayout>
@@ -163,6 +169,9 @@ export default async function SettingsPage() {
             requireApproval: tenant.requireApproval ?? false,
           }}
         />
+
+        {/* Approval PIN — only shown to users with approve_transactions permission */}
+        {canSetApprovalPin && <ApprovalPinSettings />}
 
         {/* Role Permissions */}
         <RolePermissionsSettings
