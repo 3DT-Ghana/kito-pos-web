@@ -169,7 +169,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
       <div className="max-w-2xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/purchases')} className="p-2 hover:bg-gray-100 rounded-xl">
+          <button onClick={() => router.push('/purchases')} className="p-2 hover:bg-gray-100">
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -185,7 +185,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
           <div className="grid grid-cols-2 gap-3">
             {(['CASH', 'CREDIT'] as const).map(type => (
               <button key={type} type="button" onClick={() => setPurchaseType(type)}
-                className={`py-4 rounded-2xl font-bold text-base transition-all border-2 flex flex-col items-center gap-1 ${
+                className={`py-4 font-bold text-base transition-all border-2 flex flex-col items-center gap-1 ${
                   purchaseType === type
                     ? type === 'CASH' ? 'bg-green-600 text-white border-green-600 shadow-lg' : 'bg-amber-500 text-white border-amber-500 shadow-lg'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
@@ -203,8 +203,8 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
           <div ref={supplierSearchRef} className="relative">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Supplier <span className="text-red-500">*</span></label>
             {selectedSupplier ? (
-              <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border-2 border-green-200 rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-green-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-green-50 border-2 border-green-200">
+                <div className="w-9 h-9 bg-green-600 flex items-center justify-center text-white font-bold flex-shrink-0">
                   {selectedSupplier.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -222,14 +222,14 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                   value={supplierSearch}
                   onChange={e => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true) }}
                   onFocus={() => setShowSupplierDropdown(true)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-base" />
+                  className="w-full px-4 py-3 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-base" />
                 {showSupplierDropdown && filteredSuppliers.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                     {filteredSuppliers.map(s => (
                       <button key={s.id} type="button"
                         onClick={() => { setSelectedSupplier(s); setSupplierSearch(''); setShowSupplierDropdown(false) }}
                         className="w-full px-4 py-3 text-left hover:bg-green-50 flex items-center gap-3 border-b border-gray-100 last:border-0">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${s.balance > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                        <div className={`w-8 h-8 flex items-center justify-center font-bold text-sm flex-shrink-0 ${s.balance > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
                           {s.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -255,10 +255,10 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                 value={itemSearch}
                 onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
                 onFocus={() => setShowItemDropdown(true)}
-                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-base" />
+                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-base" />
             </div>
             {showItemDropdown && filteredItems.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
                 {filteredItems.map(item => {
                   const inCart = cart.find(c => c.itemId === item.id)
                   return (
@@ -282,7 +282,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
 
           {/* Cart */}
           {cart.length > 0 && (
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border border-gray-200 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Order ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
                 <button type="button" onClick={() => setCart([])} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear all</button>
@@ -301,7 +301,7 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Qty</label>
-                        <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
+                        <div className="flex items-center border-2 border-gray-200 overflow-hidden bg-white">
                           <button type="button" onClick={() => updateQty(item.itemId, item.quantity - 1)}
                             className="px-2.5 py-2 text-gray-600 hover:bg-gray-100 font-bold text-base">−</button>
                           <input type="number" value={item.quantity}
@@ -316,11 +316,11 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                         <input type="number" value={item.costPrice}
                           onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
                           step="0.01" min="0"
-                          className="w-full px-2 py-2 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none" />
+                          className="w-full px-2 py-2 border-2 border-gray-200 text-sm font-bold bg-white focus:border-green-500 focus:outline-none" />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Subtotal</label>
-                        <div className="px-2 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm font-bold text-right text-gray-900">
+                        <div className="px-2 py-2 bg-white border-2 border-gray-200 text-sm font-bold text-right text-gray-900">
                           {formatCurrency(item.costPrice * item.quantity)}
                         </div>
                       </div>
@@ -333,13 +333,13 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
 
           {/* Payment */}
           {cart.length > 0 && (
-            <div className={`rounded-2xl border-2 p-5 space-y-4 ${purchaseType === 'CASH' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+            <div className={`border-2 p-5 space-y-4 ${purchaseType === 'CASH' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
               <div className="flex justify-between items-center">
                 <span className="text-base font-bold text-gray-800">Total</span>
                 <span className="text-3xl font-bold text-gray-900">{formatCurrency(totalAmount)}</span>
               </div>
               {purchaseType === 'CASH' ? (
-                <div className="flex items-center gap-3 bg-green-100 rounded-xl p-3">
+                <div className="flex items-center gap-3 bg-green-100 p-3">
                   <span className="text-green-700 text-xl">✓</span>
                   <div>
                     <p className="text-sm font-bold text-green-800">Paying in full — {formatCurrency(totalAmount)}</p>
@@ -352,9 +352,9 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Deposit / Part Payment (GH₵) <span className="text-gray-400 font-normal">optional</span></label>
                     <input type="number" value={depositPaid} onChange={e => setDepositPaid(e.target.value)}
                       step="0.01" min="0" max={totalAmount} placeholder="0.00"
-                      className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:border-amber-500 focus:outline-none text-xl font-bold bg-white" />
+                      className="w-full px-4 py-3 border-2 border-amber-200 focus:border-amber-500 focus:outline-none text-xl font-bold bg-white" />
                   </div>
-                  <div className="flex justify-between items-center bg-amber-100 rounded-xl p-3">
+                  <div className="flex justify-between items-center bg-amber-100 p-3">
                     <span className="text-sm font-semibold text-amber-800">Owed to supplier:</span>
                     <span className="text-xl font-bold text-amber-700">{formatCurrency(Math.max(0, owedToSupplier))}</span>
                   </div>
@@ -364,16 +364,16 @@ export default function EditPurchasePage({ params }: { params: Promise<{ id: str
           )}
 
           {formError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">⚠ {formError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">⚠ {formError}</div>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3 pt-1">
             <button type="submit" disabled={isSubmitting || cart.length === 0 || !selectedSupplier}
-              className={`flex-1 py-4 text-white text-base font-bold rounded-xl disabled:opacity-50 transition-all shadow-md ${purchaseType === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
+              className={`flex-1 py-4 text-white text-base font-bold disabled:opacity-50 transition-all shadow-md ${purchaseType === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-600'}`}>
               {isSubmitting ? 'Saving…' : `Save Changes — ${formatCurrency(totalAmount)}`}
             </button>
             <button type="button" onClick={() => router.push('/purchases')} disabled={isSubmitting}
-              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
               Cancel
             </button>
           </div>

@@ -9,8 +9,8 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white rounded-2xl shadow-sm ring-1 ring-black/5">
-      <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+    <div className="flex flex-col items-center justify-center py-20 gap-4 bg-white shadow-sm ring-1 ring-black/5">
+      <div className="w-14 h-14 bg-gray-100 flex items-center justify-center">
         <Icon className="w-7 h-7 text-gray-400" strokeWidth={1.5} />
       </div>
       <div className="text-center">

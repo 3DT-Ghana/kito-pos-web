@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ArrowLeftRight, Plus, X } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
+import { Pagination } from '@/components/ui/Pagination'
 
 type PartyType = 'CUSTOMER' | 'SUPPLIER' | 'ACCOUNT'
 
@@ -56,6 +57,8 @@ export default function TransfersPage() {
   const [showForm, setShowForm]       = useState(false)
   const [submitting, setSubmitting]   = useState(false)
   const [formError, setFormError]     = useState('')
+  const [page, setPage]               = useState(1)
+  const PAGE_SIZE = 20
 
   // Reference data
   const [customers, setCustomers]     = useState<Party[]>([])
@@ -165,7 +168,7 @@ export default function TransfersPage() {
         <select
           value={partyType}
           onChange={e => setForm(f => ({ ...f, [typeKey]: e.target.value as PartyType, [idKeys.CUSTOMER]: '', [idKeys.SUPPLIER]: '', [idKeys.ACCOUNT]: '' }))}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
         >
           {(Object.keys(PARTY_LABELS) as PartyType[]).map(t => (
             <option key={t} value={t}>{PARTY_LABELS[t]}</option>
@@ -176,7 +179,7 @@ export default function TransfersPage() {
             value={customerId}
             onChange={e => setForm(f => ({ ...f, [idKeys.CUSTOMER]: e.target.value }))}
             required
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
           >
             <option value="">Select customer…</option>
             {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -187,7 +190,7 @@ export default function TransfersPage() {
             value={supplierId}
             onChange={e => setForm(f => ({ ...f, [idKeys.SUPPLIER]: e.target.value }))}
             required
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
           >
             <option value="">Select supplier…</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -198,7 +201,7 @@ export default function TransfersPage() {
             value={accountId}
             onChange={e => setForm(f => ({ ...f, [idKeys.ACCOUNT]: e.target.value }))}
             required
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
           >
             <option value="">Select account…</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.code} — {a.name}</option>)}
@@ -215,7 +218,7 @@ export default function TransfersPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+            <div className="w-10 h-10 bg-indigo-600 flex items-center justify-center">
               <ArrowLeftRight className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -225,7 +228,7 @@ export default function TransfersPage() {
           </div>
           <button
             onClick={() => { setShowForm(true); setFormError('') }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700"
           >
             <Plus className="w-4 h-4" /> New Transfer
           </button>
@@ -233,16 +236,16 @@ export default function TransfersPage() {
 
         {/* New Transfer Form */}
         {showForm && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+          <div className="bg-white border border-gray-200 p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-gray-900">New Ledger Transfer</h2>
-              <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowForm(false)} className="p-1.5 hover:bg-gray-100">
                 <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
 
             {formError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
                 {formError}
               </div>
             )}
@@ -259,7 +262,7 @@ export default function TransfersPage() {
                     value={form.amount}
                     onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
                     placeholder="0.00"
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                 </div>
                 <div>
@@ -269,7 +272,7 @@ export default function TransfersPage() {
                     required
                     value={form.date}
                     onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                   />
                 </div>
               </div>
@@ -282,12 +285,12 @@ export default function TransfersPage() {
                   value={form.description}
                   onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                   placeholder="Reason for transfer…"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                <div className="bg-red-50 border border-red-100 p-4">
                   <p className="text-xs font-bold text-red-600 uppercase mb-2">Debit (from)</p>
                   <PartySelector
                     label="Party Type"
@@ -295,7 +298,7 @@ export default function TransfersPage() {
                     idKeys={{ CUSTOMER: 'debitCustomerId', SUPPLIER: 'debitSupplierId', ACCOUNT: 'debitAccountId' }}
                   />
                 </div>
-                <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                <div className="bg-green-50 border border-green-100 p-4">
                   <p className="text-xs font-bold text-green-600 uppercase mb-2">Credit (to)</p>
                   <PartySelector
                     label="Party Type"
@@ -309,14 +312,14 @@ export default function TransfersPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50"
+                  className="px-5 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50"
                 >
                   {submitting ? 'Posting…' : 'Post Transfer'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-5 py-2 border border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50"
+                  className="px-5 py-2 border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50"
                 >
                   Cancel
                 </button>
@@ -326,7 +329,7 @@ export default function TransfersPage() {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="bg-white border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="flex justify-center items-center py-16 text-gray-400 text-sm">Loading…</div>
           ) : error ? (
@@ -346,7 +349,7 @@ export default function TransfersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {transfers.map(t => (
+                  {transfers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(t => (
                     <tr key={t.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(t.date)}</td>
                       <td className="px-4 py-3 text-gray-900 max-w-[220px] truncate" title={t.description}>{t.description}</td>
@@ -369,6 +372,12 @@ export default function TransfersPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {transfers.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-400">{total} transfer{total !== 1 ? 's' : ''}</span>
+              <Pagination page={page} totalPages={Math.ceil(transfers.length / PAGE_SIZE)} onPageChange={setPage} totalItems={transfers.length} pageSize={PAGE_SIZE} />
             </div>
           )}
         </div>

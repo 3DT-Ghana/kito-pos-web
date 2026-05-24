@@ -146,7 +146,7 @@ export function BottomNav() {
             {/* Handle + header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-slate-800 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                <div className="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-sm shrink-0">
                   {initials}
                 </div>
                 <div>
@@ -156,7 +156,7 @@ export function BottomNav() {
               </div>
               <button
                 onClick={() => setDrawerOpen(false)}
-                className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 transition-colors"
+                className="p-2 text-gray-400 hover:bg-gray-100 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -177,7 +177,7 @@ export function BottomNav() {
                           key={link.href}
                           href={link.href}
                           onClick={() => setDrawerOpen(false)}
-                          className={`flex flex-col items-center gap-2 py-3 px-2 rounded-xl text-center transition-colors ${
+                          className={`flex flex-col items-center gap-2 py-3 px-2 text-center transition-colors ${
                             active
                               ? 'bg-blue-600 text-white'
                               : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
@@ -197,7 +197,7 @@ export function BottomNav() {
                 <Link
                   href="/api/auth/signout"
                   onClick={() => setDrawerOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl transition-colors font-medium"
+                  className="flex items-center gap-3 px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
                 >
                   <LogOut className="w-4 h-4" />
                   Sign out

@@ -116,7 +116,7 @@ export default function AdminRegisterAgentPage() {
           <div className="flex justify-center gap-3">
             <Link
               href="/admin/agents"
-              className="px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+              className="px-5 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors"
             >
               Back to Agents
             </Link>
@@ -130,7 +130,7 @@ export default function AdminRegisterAgentPage() {
                   status: kyc.requireAgentGhanaCardUpload ? 'PENDING' : 'APPROVED',
                 })
               }}
-              className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+              className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
             >
               Register Another
             </button>
@@ -152,7 +152,7 @@ export default function AdminRegisterAgentPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-100">
+          <div className="bg-red-50 text-red-700 text-sm px-4 py-3 border border-red-100">
             {error}
           </div>
         )}
@@ -216,7 +216,7 @@ export default function AdminRegisterAgentPage() {
                   placeholder={kyc.requireAgentGhanaCardNumber ? 'GHA-XXXXXXXXX-X' : 'GHA-XXXXXXXXX-X (optional)'} className={inputCls} />
               </InputWithIcon>
             </Field>
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+            <div className="bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700">
               {kyc.requireAgentGhanaCardUpload
                 ? 'A Ghana Card image is required before approval. After account creation, the agent must upload it from their profile before you can approve the account.'
                 : 'Ghana Card image upload is available on the agent&apos;s profile page after account creation.'}
@@ -264,7 +264,7 @@ export default function AdminRegisterAgentPage() {
               </select>
             </Field>
             {kyc.requireAgentGhanaCardUpload && (
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 px-3 py-2">
                 The current KYC settings require an image upload, so this new account should stay pending until the agent uploads their Ghana Card.
               </p>
             )}
@@ -272,11 +272,11 @@ export default function AdminRegisterAgentPage() {
 
           <div className="flex justify-end gap-3 pt-2">
             <Link href="/admin/agents"
-              className="px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-5 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
               Cancel
             </Link>
             <button type="submit" disabled={loading}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors">
+              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors">
               {loading ? 'Registering…' : 'Register Agent'}
             </button>
           </div>
@@ -287,11 +287,11 @@ export default function AdminRegisterAgentPage() {
 }
 
 const inputCls =
-  'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+  'w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
 
 function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+    <div className="bg-white border border-gray-200 p-6 space-y-4">
       <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
         {icon}{title}
       </h2>

@@ -122,10 +122,10 @@ export default function PayrollRunDetailPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/payroll/runs')} className="p-2 hover:bg-gray-100 rounded-lg transition">
+          <button onClick={() => router.push('/payroll/runs')} className="p-2 hover:bg-gray-100 transition">
             <ArrowLeft className="w-5 h-5 text-gray-600" />
           </button>
-          <div className="bg-green-100 p-3 rounded-lg"><Briefcase className="w-8 h-8 text-green-700" /></div>
+          <div className="bg-green-100 p-3"><Briefcase className="w-8 h-8 text-green-700" /></div>
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-gray-900">Payroll — {periodLabel}</h1>
@@ -141,7 +141,7 @@ export default function PayrollRunDetailPage() {
         </div>
 
         {actionError && (
-          <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-red-700 font-medium text-sm">{actionError}</div>
+          <div className="bg-red-50 border-2 border-red-200 p-4 text-red-700 font-medium text-sm">{actionError}</div>
         )}
 
         {/* Totals summary */}
@@ -154,7 +154,7 @@ export default function PayrollRunDetailPage() {
             { label: 'Deductions',   value: run.totalDeductions,  color: 'text-gray-500' },
             { label: 'Net Pay',      value: run.totalNetPay,      color: 'text-green-700 font-extrabold' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-xl border-2 border-gray-200 p-4 text-center shadow-sm">
+            <div key={label} className="bg-white border-2 border-gray-200 p-4 text-center shadow-sm">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{label}</p>
               <p className={`text-lg font-bold ${color}`}>{formatCurrency(value)}</p>
             </div>
@@ -167,12 +167,12 @@ export default function PayrollRunDetailPage() {
             {run.status === 'DRAFT' && (
               <>
                 <button onClick={() => doAction('approve')} disabled={actioning}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50 active:scale-95">
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition disabled:opacity-50 active:scale-95">
                   <CheckCircle className="w-4 h-4" />
                   {actioning ? 'Approving…' : 'Approve Run'}
                 </button>
                 <button onClick={() => setConfirmDelete(true)} disabled={actioning}
-                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold rounded-lg transition disabled:opacity-50">
+                  className="flex items-center gap-2 px-4 py-2.5 border-2 border-red-200 text-red-600 hover:bg-red-50 font-semibold transition disabled:opacity-50">
                   <Trash2 className="w-4 h-4" /> Delete Draft
                 </button>
               </>
@@ -180,13 +180,13 @@ export default function PayrollRunDetailPage() {
             {run.status === 'APPROVED' && (
               <div className="flex flex-wrap items-center gap-3">
                 <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod)} disabled={actioning}
-                  className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:border-green-500 disabled:opacity-50">
+                  className="border-2 border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 focus:outline-none focus:border-green-500 disabled:opacity-50">
                   <option value="BANK">Disburse from Bank</option>
                   <option value="MOMO">Disburse from MoMo</option>
                   <option value="CASH">Disburse from Cash</option>
                 </select>
                 <button onClick={() => doAction('pay')} disabled={actioning}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50 active:scale-95">
+                  className="flex items-center gap-2 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold shadow transition disabled:opacity-50 active:scale-95">
                   <DollarSign className="w-4 h-4" />
                   {actioning ? 'Processing…' : 'Disburse Payroll'}
                 </button>
@@ -196,14 +196,14 @@ export default function PayrollRunDetailPage() {
         )}
 
         {run.status === 'PAID' && run.journalEntryId && (
-          <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-sm text-green-800">
+          <div className="bg-green-50 border-2 border-green-200 p-4 text-sm text-green-800">
             Payroll disbursed and journal entry posted ·{' '}
             <Link href={`/accounting/journal/${run.journalEntryId}`} className="font-mono underline underline-offset-2">View entry</Link>
           </div>
         )}
 
         {/* Per-employee breakdown */}
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white shadow-sm border-2 border-gray-200 overflow-hidden">
           <div className="px-4 py-3 bg-gray-50 border-b-2 border-gray-200">
             <h2 className="font-bold text-gray-900">Employee Breakdown</h2>
           </div>
@@ -303,7 +303,7 @@ export default function PayrollRunDetailPage() {
           </div>
         </div>
 
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+        <div className="bg-amber-50 border-2 border-amber-200 p-4 text-sm text-amber-800">
           <p className="font-semibold mb-1">Employer SSF Contribution (not deducted from employee pay)</p>
           <p className="text-xs text-amber-700">
             Total employer SSF for {periodLabel}: <span className="font-bold">{formatCurrency(run.totalSSFEmployer)}</span> (13% of basic salaries).
@@ -313,12 +313,12 @@ export default function PayrollRunDetailPage() {
 
       {confirmDelete && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+          <div className="bg-white shadow-2xl w-full max-w-sm p-6 space-y-4">
             <h2 className="text-xl font-bold text-gray-900">Delete Draft Run?</h2>
             <p className="text-sm text-gray-600">This will permanently delete the {periodLabel} payroll draft and all computed lines.</p>
             <div className="flex items-center justify-end gap-3">
-              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">Cancel</button>
-              <button onClick={doDelete} disabled={deleting} className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50">
+              <button onClick={() => setConfirmDelete(false)} className="px-4 py-2 border-2 border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition">Cancel</button>
+              <button onClick={doDelete} disabled={deleting} className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold shadow transition disabled:opacity-50">
                 {deleting ? 'Deleting…' : 'Yes, Delete'}
               </button>
             </div>

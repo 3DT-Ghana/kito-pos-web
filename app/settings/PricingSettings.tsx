@@ -91,9 +91,9 @@ export function PricingSettings({ initialSettings, tenantId }: PricingSettingsPr
   ]
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-blue-100 p-3 rounded-lg">
+        <div className="bg-blue-100 p-3">
           <span className="text-2xl">💰</span>
         </div>
         <div>
@@ -108,7 +108,7 @@ export function PricingSettings({ initialSettings, tenantId }: PricingSettingsPr
         {tiers.map(({ key, label, icon, desc }) => (
           <div
             key={key}
-            className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors"
+            className="border-2 border-gray-200 p-4 hover:border-blue-200 transition-colors"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3 flex-1">
@@ -129,7 +129,7 @@ export function PricingSettings({ initialSettings, tenantId }: PricingSettingsPr
 
         {/* Discounts */}
         <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mt-2">Discounts</p>
-        <div className="border-2 border-gray-200 rounded-lg p-4 hover:border-blue-200 transition-colors">
+        <div className="border-2 border-gray-200 p-4 hover:border-blue-200 transition-colors">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 flex-1">
               <span className="text-2xl mt-0.5">✂️</span>
@@ -150,7 +150,7 @@ export function PricingSettings({ initialSettings, tenantId }: PricingSettingsPr
 
         {/* Info box when any tier is enabled */}
         {(settings.enableRetailPrice || settings.enableWholesalePrice || settings.enablePromoPrice) && (
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+          <div className="bg-blue-50 border-2 border-blue-200 p-4 text-sm text-blue-800">
             <p className="font-semibold mb-1">📋 How price tiers work:</p>
             <ul className="space-y-1 text-xs list-disc list-inside text-blue-700">
               <li>Go to each item and set the additional price(s) once enabled.</li>
@@ -171,7 +171,7 @@ export function PricingSettings({ initialSettings, tenantId }: PricingSettingsPr
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {saving ? 'Saving...' : 'Save Settings'}
             </button>

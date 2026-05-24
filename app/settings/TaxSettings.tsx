@@ -87,25 +87,25 @@ function Toggle({
 function LoadingSkeleton() {
   return (
     <div className="space-y-6 animate-pulse">
-      <div className="rounded-xl border-2 border-gray-200 bg-white p-6">
+      <div className="border-2 border-gray-200 bg-white p-6">
         <div className="mb-6 flex items-center gap-3">
-          <div className="h-14 w-14 rounded-lg bg-gray-200" />
+          <div className="h-14 w-14 bg-gray-200" />
           <div className="space-y-2">
             <div className="h-6 w-40 rounded bg-gray-200" />
             <div className="h-4 w-64 rounded bg-gray-100" />
           </div>
         </div>
         <div className="space-y-4">
-          <div className="h-20 rounded-lg bg-gray-100" />
-          <div className="h-16 rounded-lg bg-gray-100" />
-          <div className="h-16 rounded-lg bg-gray-100" />
+          <div className="h-20 bg-gray-100" />
+          <div className="h-16 bg-gray-100" />
+          <div className="h-16 bg-gray-100" />
         </div>
       </div>
-      <div className="rounded-xl border-2 border-gray-200 bg-white p-6">
+      <div className="border-2 border-gray-200 bg-white p-6">
         <div className="mb-4 h-6 w-32 rounded bg-gray-200" />
         <div className="space-y-3">
-          <div className="h-24 rounded-xl bg-gray-100" />
-          <div className="h-24 rounded-xl bg-gray-100" />
+          <div className="h-24 bg-gray-100" />
+          <div className="h-24 bg-gray-100" />
         </div>
       </div>
     </div>
@@ -390,9 +390,9 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
   return (
     <div className="space-y-6">
       {/* Global Tax Settings */}
-      <div className="rounded-xl border-2 border-gray-200 bg-white p-6">
+      <div className="border-2 border-gray-200 bg-white p-6">
         <div className="mb-6 flex items-center gap-3">
-          <div className="rounded-lg bg-emerald-100 p-3">
+          <div className="bg-emerald-100 p-3">
             <Receipt className="h-6 w-6 text-emerald-600" />
           </div>
           <div>
@@ -404,7 +404,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-lg border-2 border-gray-200 p-4">
+          <div className="border-2 border-gray-200 p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <label htmlFor="taxEnabled" className="text-base font-bold text-gray-900">
@@ -424,7 +424,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
             </div>
           </div>
 
-          <div className="rounded-lg border-2 border-gray-200 p-4">
+          <div className="border-2 border-gray-200 p-4">
             <label className="mb-2 block text-sm font-semibold text-gray-700">
               Default Tax Calculation
             </label>
@@ -436,7 +436,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   defaultTaxCalculationType: event.target.value as TenantTaxSetting['defaultTaxCalculationType'],
                 }))
               }
-              className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
             >
               <option value="ADD_TO_PRICE">Tax Added to Price — tax is calculated on top of the item price</option>
               <option value="INCLUSIVE">Tax Inclusive / Reverse Tax — item price already includes tax</option>
@@ -447,7 +447,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
           </div>
 
           {defaultTaxes.length > 0 && (
-            <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4">
+            <div className="border-2 border-blue-200 bg-blue-50 p-4">
               <p className="text-sm font-semibold text-blue-900">Active default tax bundle</p>
               <p className="mt-1 text-xs text-blue-700">
                 All taxable items use these rates by default. Mark more than one active tax as default to combine rates (e.g. VAT + NHIL + GETFund).
@@ -469,13 +469,13 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
           )}
 
           {settingsError && (
-            <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <div className="flex items-center gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
               <TriangleAlert className="h-4 w-4 shrink-0" />
               {settingsError}
             </div>
           )}
           {settingsMessage && (
-            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+            <div className="flex items-center gap-2 border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
               <Check className="h-4 w-4 shrink-0" />
               {settingsMessage}
             </div>
@@ -486,7 +486,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
               type="button"
               onClick={saveSettings}
               disabled={settingsSaving}
-              className="rounded-lg bg-blue-600 px-6 py-3 font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="bg-blue-600 px-6 py-3 font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {settingsSaving ? 'Saving…' : 'Save Tax Settings'}
             </button>
@@ -495,7 +495,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
       </div>
 
       {/* Tax Rates */}
-      <div className="rounded-xl border-2 border-gray-200 bg-white p-6">
+      <div className="border-2 border-gray-200 bg-white p-6">
         <div className="mb-6 flex items-center justify-between gap-3">
           <div>
             <h3 className="text-xl font-bold text-gray-900">Tax Rates</h3>
@@ -506,20 +506,20 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
           <button
             type="button"
             onClick={resetRateForm}
-            className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            className="border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
             + New Tax Rate
           </button>
         </div>
 
         {rateMessage && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
+          <div className="mb-4 flex items-center gap-2 border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
             <Check className="h-4 w-4 shrink-0" />
             {rateMessage}
           </div>
         )}
         {rateError && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="mb-4 flex items-center gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             <TriangleAlert className="h-4 w-4 shrink-0" />
             {rateError}
           </div>
@@ -529,8 +529,8 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
           {/* Rate list */}
           <div className="space-y-4">
             {taxRates.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
-                <div className="rounded-xl bg-gray-200 p-3">
+              <div className="flex flex-col items-center gap-3 border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
+                <div className="bg-gray-200 p-3">
                   <Percent className="h-6 w-6 text-gray-500" />
                 </div>
                 <p className="text-sm font-semibold text-gray-700">No tax rates yet</p>
@@ -548,7 +548,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                 return (
                   <div
                     key={rate.id}
-                    className={`rounded-xl border-2 p-4 transition-colors ${
+                    className={`border-2 p-4 transition-colors ${
                       isEditing
                         ? 'border-blue-400 bg-blue-50'
                         : rate.isActive
@@ -614,7 +614,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
 
                       {/* Actions */}
                       {isPendingDelete ? (
-                        <div className="flex shrink-0 flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+                        <div className="flex shrink-0 flex-col gap-2 border border-red-200 bg-red-50 p-3">
                           <p className="text-xs font-semibold text-red-800">
                             Delete <span className="font-bold">{rate.name}</span>? This cannot be undone.
                           </p>
@@ -623,14 +623,14 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                               type="button"
                               onClick={() => confirmDelete(rate)}
                               disabled={isDeleting}
-                              className="flex-1 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
+                              className="flex-1 bg-red-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60"
                             >
                               {isDeleting ? 'Deleting…' : 'Yes, delete'}
                             </button>
                             <button
                               type="button"
                               onClick={() => setPendingDeleteId(null)}
-                              className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                              className="flex-1 border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                             >
                               Cancel
                             </button>
@@ -641,7 +641,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                           <button
                             type="button"
                             onClick={() => editTaxRate(rate)}
-                            className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                            className="border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                           >
                             Edit
                           </button>
@@ -649,14 +649,14 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                             type="button"
                             onClick={() => toggleActiveState(rate)}
                             disabled={isToggling}
-                            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                            className="border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-60"
                           >
                             {isToggling ? '…' : rate.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setPendingDeleteId(rate.id)}
-                            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+                            className="border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
                           >
                             Delete
                           </button>
@@ -670,7 +670,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
           </div>
 
           {/* Rate form */}
-          <div ref={formRef} className="rounded-xl border-2 border-gray-200 bg-gray-50 p-5">
+          <div ref={formRef} className="border-2 border-gray-200 bg-gray-50 p-5">
             <div className="mb-1 flex items-center justify-between">
               <h4 className="text-lg font-bold text-gray-900">
                 {editingTaxRateId ? 'Edit Tax Rate' : 'New Tax Rate'}
@@ -700,7 +700,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   value={taxRateForm.name}
                   onChange={(event) => updateRateForm('name', event.target.value)}
                   placeholder="e.g. VAT, NHIL, GETFund Levy"
-                  className={`w-full rounded-lg border px-4 py-2 text-sm focus:outline-none focus:ring-2 ${
+                  className={`w-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 ${
                     formErrors.name
                       ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
                       : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
@@ -724,7 +724,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                     value={taxRateForm.ratePercentage}
                     onChange={(event) => updateRateForm('ratePercentage', event.target.value)}
                     placeholder="0.00"
-                    className={`w-full rounded-lg border py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 ${
+                    className={`w-full border py-2 pl-4 pr-10 text-sm focus:outline-none focus:ring-2 ${
                       formErrors.ratePercentage
                         ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
                         : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
@@ -758,7 +758,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   onChange={(event) => updateRateForm('description', event.target.value)}
                   rows={2}
                   placeholder="Optional note about this tax"
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                 />
               </div>
 
@@ -769,7 +769,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                     type="date"
                     value={taxRateForm.effectiveFrom}
                     onChange={(event) => updateRateForm('effectiveFrom', event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                   />
                 </div>
                 <div>
@@ -778,7 +778,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                     type="date"
                     value={taxRateForm.effectiveTo}
                     onChange={(event) => updateRateForm('effectiveTo', event.target.value)}
-                    className={`w-full rounded-lg border px-4 py-2 text-sm focus:outline-none focus:ring-2 ${
+                    className={`w-full border px-4 py-2 text-sm focus:outline-none focus:ring-2 ${
                       formErrors.effectiveTo
                         ? 'border-red-400 focus:border-red-400 focus:ring-red-200'
                         : 'border-gray-300 focus:border-blue-500 focus:ring-blue-200'
@@ -799,7 +799,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   <select
                     value={taxRateForm.taxPayableAccountId}
                     onChange={(event) => updateRateForm('taxPayableAccountId', event.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
                   >
                     <option value="">Auto-create / use default Tax Payable (2110)</option>
                     {liabilityAccounts.map((account) => (
@@ -811,7 +811,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                 </div>
               )}
 
-              <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              <div className="space-y-3 border border-gray-200 bg-white p-4">
                 <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700">
                   <input
                     type="checkbox"
@@ -837,7 +837,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   type="button"
                   onClick={saveTaxRate}
                   disabled={rateSaving}
-                  className="flex-1 rounded-lg bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {rateSaving
                     ? 'Saving…'
@@ -849,7 +849,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                   <button
                     type="button"
                     onClick={resetRateForm}
-                    className="rounded-lg border border-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-white"
+                    className="border border-gray-200 px-4 py-3 font-semibold text-gray-700 hover:bg-white"
                   >
                     Cancel
                   </button>

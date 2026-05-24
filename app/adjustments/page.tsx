@@ -62,7 +62,7 @@ function StatCard({
   label, value, sub, color,
 }: { label: string; value: string | number; sub?: string; color: string }) {
   return (
-    <div className={`rounded-xl border-2 p-4 ${color}`}>
+    <div className={`border-2 p-4 ${color}`}>
       <p className="text-xs font-bold uppercase tracking-wide opacity-70">{label}</p>
       <p className="text-2xl font-black mt-1">{value}</p>
       {sub && <p className="text-xs mt-0.5 opacity-60">{sub}</p>}
@@ -200,7 +200,7 @@ export default function StockAdjustmentsPage() {
           </div>
           <button
             onClick={() => { setShowForm(v => !v); setFormError(null); setFormSuccess(false) }}
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 transition-all ${
+            className={`px-5 py-2.5 font-bold text-sm flex items-center gap-2 transition-all ${
               showForm
                 ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 : 'bg-blue-600 text-white hover:bg-blue-700'
@@ -224,7 +224,7 @@ export default function StockAdjustmentsPage() {
 
         {/* ── New Adjustment Form ──────────────────────────────────────────── */}
         {showForm && (
-          <div className="bg-white rounded-2xl border-2 border-gray-100 p-6 space-y-6">
+          <div className="bg-white border-2 border-gray-100 p-6 space-y-6">
             <h2 className="text-lg font-bold text-gray-900">New Stock Adjustment</h2>
 
             {/* Item + Type */}
@@ -234,7 +234,7 @@ export default function StockAdjustmentsPage() {
                 <select
                   value={form.itemId}
                   onChange={e => setForm(prev => ({ ...prev, itemId: e.target.value }))}
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
                 >
                   <option value="">Select item…</option>
                   {stockItems.map(item => (
@@ -252,7 +252,7 @@ export default function StockAdjustmentsPage() {
                       key={t}
                       type="button"
                       onClick={() => setForm(prev => ({ ...prev, type: t }))}
-                      className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                      className={`flex-1 py-2.5 border-2 font-bold text-sm transition-all ${
                         form.type === t
                           ? t === 'INCREASE'
                             ? 'border-green-500 bg-green-600 text-white'
@@ -276,10 +276,10 @@ export default function StockAdjustmentsPage() {
                 value={form.quantity}
                 onChange={e => setForm(prev => ({ ...prev, quantity: e.target.value }))}
                 placeholder="Enter quantity"
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-xl font-bold focus:border-blue-500 focus:outline-none"
+                className="w-full px-4 py-3 border-2 border-gray-200 text-xl font-bold focus:border-blue-500 focus:outline-none"
               />
               {selectedItem && form.quantity && Number(form.quantity) > 0 && (
-                <div className="mt-2 bg-gray-50 border-2 border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div className="mt-2 bg-gray-50 border-2 border-gray-200 px-4 py-3 flex items-center justify-between">
                   <span className="text-sm text-gray-600">
                     <span className="font-bold">{selectedItem.quantity}</span>
                     {form.type === 'INCREASE'
@@ -306,7 +306,7 @@ export default function StockAdjustmentsPage() {
                     key={r.key}
                     type="button"
                     onClick={() => setForm(prev => ({ ...prev, category: r.key }))}
-                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left text-sm font-semibold transition-all ${
+                    className={`flex items-center gap-2 px-3 py-2.5 border-2 text-left text-sm font-semibold transition-all ${
                       form.category === r.key
                         ? 'border-blue-500 bg-blue-50 text-blue-800'
                         : 'border-gray-200 text-gray-600 hover:border-blue-200'
@@ -330,23 +330,23 @@ export default function StockAdjustmentsPage() {
                   value={form.reason}
                   onChange={e => setForm(prev => ({ ...prev, reason: e.target.value }))}
                   placeholder={formReasonMeta?.placeholder ?? 'Describe the reason…'}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none resize-none"
+                  className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none resize-none"
                 />
               </div>
             )}
 
             {formError && (
-              <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
+              <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 text-sm font-semibold">
                 {formError}
               </div>
             )}
             {formNotice && (
-              <div className="bg-amber-50 border-2 border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm font-semibold">
+              <div className="bg-amber-50 border-2 border-amber-200 text-amber-700 px-4 py-3 text-sm font-semibold">
                 {formNotice}
               </div>
             )}
             {formSuccess && (
-              <div className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2">
+              <div className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 text-sm font-semibold flex items-center gap-2">
                 ✓ Adjustment saved successfully!
               </div>
             )}
@@ -356,7 +356,7 @@ export default function StockAdjustmentsPage() {
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
               >
                 {isSubmitting ? 'Saving…' : 'Save Adjustment'}
               </button>
@@ -365,19 +365,19 @@ export default function StockAdjustmentsPage() {
         )}
 
         {/* ── Filters ─────────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border-2 border-gray-100 p-4">
+        <div className="bg-white border-2 border-gray-100 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="text"
               placeholder="Search item, reason, user…"
               value={filters.search}
               onChange={e => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="lg:col-span-2 px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+              className="lg:col-span-2 px-3 py-2 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
             />
             <select
               value={filters.type}
               onChange={e => setFilters(prev => ({ ...prev, type: e.target.value }))}
-              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+              className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">All types</option>
               <option value="INCREASE">▲ Increase</option>
@@ -386,7 +386,7 @@ export default function StockAdjustmentsPage() {
             <select
               value={filters.category}
               onChange={e => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+              className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
             >
               <option value="">All categories</option>
               {ADJUSTMENT_REASONS.map(r => (
@@ -398,13 +398,13 @@ export default function StockAdjustmentsPage() {
                 type="date"
                 value={filters.startDate}
                 onChange={e => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                className="flex-1 min-w-0 px-2 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+                className="flex-1 min-w-0 px-2 py-2 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
               />
               <input
                 type="date"
                 value={filters.endDate}
                 onChange={e => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                className="flex-1 min-w-0 px-2 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none"
+                className="flex-1 min-w-0 px-2 py-2 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none"
               />
             </div>
           </div>
@@ -419,7 +419,7 @@ export default function StockAdjustmentsPage() {
         </div>
 
         {/* ── Table ───────────────────────────────────────────────────────── */}
-        <div className="bg-white rounded-2xl border-2 border-gray-100 overflow-hidden">
+        <div className="bg-white border-2 border-gray-100 overflow-hidden">
           {isLoading ? (
             <div className="flex justify-center items-center py-16 text-gray-400">Loading…</div>
           ) : visible.length === 0 ? (
@@ -458,7 +458,7 @@ export default function StockAdjustmentsPage() {
                           {adj.item.name}
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold border ${
                             isIncrease
                               ? 'bg-green-50 border-green-200 text-green-800'
                               : 'bg-red-50 border-red-200 text-red-800'
@@ -480,7 +480,7 @@ export default function StockAdjustmentsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`inline-flex px-2.5 py-1 rounded-lg text-xs font-bold ${
+                          <span className={`inline-flex px-2.5 py-1 text-xs font-bold ${
                             adj.approvalStatus === 'PENDING'
                               ? 'bg-amber-50 text-amber-700 border border-amber-200'
                               : adj.approvalStatus === 'REJECTED'

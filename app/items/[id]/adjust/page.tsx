@@ -128,7 +128,7 @@ export default function AdjustQuantityPage() {
   if (error && !item) {
     return (
       <AppLayout>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">{error}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">{error}</div>
       </AppLayout>
     )
   }
@@ -140,7 +140,7 @@ export default function AdjustQuantityPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push(`/items/${itemId}`)}
-              className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              className="p-2 hover:bg-gray-100 transition-colors"
             >
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -152,7 +152,7 @@ export default function AdjustQuantityPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sky-900">
+          <div className="border border-sky-200 bg-sky-50 p-5 text-sky-900">
             <p className="font-semibold">{itemTypeLabel(item.itemType)} items do not use stock adjustments.</p>
             <p className="mt-1 text-sm text-sky-800">
               This item stays in the catalog, but quantity on hand is only tracked for inventory items.
@@ -171,7 +171,7 @@ export default function AdjustQuantityPage() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => router.push(`/items/${itemId}`)}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 transition-colors"
           >
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -184,7 +184,7 @@ export default function AdjustQuantityPage() {
         </div>
 
         {/* Current stock card */}
-        <div className="bg-white rounded-2xl border-2 border-gray-100 p-5 flex items-center justify-between">
+        <div className="bg-white border-2 border-gray-100 p-5 flex items-center justify-between">
           <div>
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Current Stock</p>
             <p className="text-4xl font-black text-gray-900 mt-1">{item?.quantity ?? 0}</p>
@@ -200,7 +200,7 @@ export default function AdjustQuantityPage() {
         </div>
 
         {/* Main form */}
-        <div className="bg-white rounded-2xl border-2 border-gray-100 p-6 space-y-6">
+        <div className="bg-white border-2 border-gray-100 p-6 space-y-6">
 
           {/* Step 1 — Type */}
           <div>
@@ -213,7 +213,7 @@ export default function AdjustQuantityPage() {
                   key={t}
                   type="button"
                   onClick={() => { setAdjustType(t); setError(null) }}
-                  className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 font-semibold text-sm transition-all ${
+                  className={`flex flex-col items-center gap-1 py-3 px-2 border-2 font-semibold text-sm transition-all ${
                     adjustType === t ? TYPE_CONFIG[t].activeColor : TYPE_CONFIG[t].color
                   }`}
                 >
@@ -237,12 +237,12 @@ export default function AdjustQuantityPage() {
               value={quantity}
               onChange={e => { setQuantity(e.target.value); setError(null) }}
               placeholder={adjustType === 'set' ? 'Enter exact stock count' : 'Enter quantity'}
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-2xl font-bold focus:border-blue-500 focus:outline-none"
+              className="w-full px-4 py-3 border-2 border-gray-200 text-2xl font-bold focus:border-blue-500 focus:outline-none"
             />
 
             {/* Live preview */}
             {isValidQty && previewQty !== null && (
-              <div className={`mt-3 rounded-xl p-4 flex items-center justify-between border-2 ${
+              <div className={`mt-3 p-4 flex items-center justify-between border-2 ${
                 previewQty < 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
               }`}>
                 <div className="text-sm text-gray-600 font-medium">
@@ -278,7 +278,7 @@ export default function AdjustQuantityPage() {
                   key={r.key}
                   type="button"
                   onClick={() => setSelectedCategory(r.key)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border-2 text-left text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2 px-3 py-2.5 border-2 text-left text-sm font-semibold transition-all ${
                     selectedCategory === r.key
                       ? 'border-blue-500 bg-blue-50 text-blue-800'
                       : 'border-gray-200 text-gray-600 hover:border-blue-200 hover:bg-blue-50/40'
@@ -302,26 +302,26 @@ export default function AdjustQuantityPage() {
                 value={reason}
                 onChange={e => setReason(e.target.value)}
                 placeholder={selectedReasonMeta?.placeholder ?? 'Describe the reason…'}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-500 focus:outline-none resize-none"
+                className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-blue-500 focus:outline-none resize-none"
               />
               <p className="text-xs text-gray-400 mt-1">{reason.trim().length} characters (min 3)</p>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
+            <div className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 text-sm font-semibold">
               {error}
             </div>
           )}
 
           {submissionState === 'success' && (
-            <div className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2">
+            <div className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 text-sm font-semibold flex items-center gap-2">
               <span>✓</span> Stock updated! Redirecting…
             </div>
           )}
 
           {submissionState === 'pending' && (
-            <div className="bg-amber-50 border-2 border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm font-semibold flex items-center gap-2">
+            <div className="bg-amber-50 border-2 border-amber-200 text-amber-700 px-4 py-3 text-sm font-semibold flex items-center gap-2">
               <span>⏳</span> Adjustment submitted for approval. Stock will update after approval.
             </div>
           )}
@@ -331,7 +331,7 @@ export default function AdjustQuantityPage() {
             <button
               type="button"
               onClick={() => router.push(`/items/${itemId}`)}
-              className="flex-1 py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+              className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
@@ -339,7 +339,7 @@ export default function AdjustQuantityPage() {
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className={`flex-1 py-3 rounded-xl font-bold text-white transition-all active:scale-95 ${
+              className={`flex-1 py-3 font-bold text-white transition-all active:scale-95 ${
                 !canSubmit
                   ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   : adjustType === 'add'

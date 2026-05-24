@@ -106,7 +106,7 @@ export default function CommissionsPage() {
             <select
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="">All statuses</option>
               <option value="PENDING">Pending</option>
@@ -117,7 +117,7 @@ export default function CommissionsPage() {
               <button
                 onClick={markPaid}
                 disabled={paying}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 transition-colors"
               >
                 <Check className="w-4 h-4" />
                 {paying ? 'Paying…' : `Pay ${selected.size} (GHS ${totalSelected.toFixed(2)})`}
@@ -127,7 +127,7 @@ export default function CommissionsPage() {
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          <div className={`text-sm px-4 py-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
             {message.text}
           </div>
         )}
@@ -138,7 +138,7 @@ export default function CommissionsPage() {
             { label: 'Total Records', value: total, color: '' },
             { label: 'Pending Amount', value: `GHS ${totalPending.toFixed(2)}`, color: 'text-amber-600' },
           ].map((s) => (
-            <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-4">
+            <div key={s.label} className="bg-white border border-gray-200 p-4">
               <p className="text-xs text-gray-400">{s.label}</p>
               <p className={`text-lg font-bold mt-0.5 ${s.color || 'text-gray-900'}`}>{s.value}</p>
             </div>
@@ -150,12 +150,12 @@ export default function CommissionsPage() {
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : commissions.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="bg-white border border-gray-200 p-12 text-center">
             <TrendingUp className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm text-gray-400">No commission records found.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50">
               <input
                 type="checkbox"
@@ -204,7 +204,7 @@ export default function CommissionsPage() {
               <button
                 key={p}
                 onClick={() => { setPage(p); load(p, status) }}
-                className={`w-8 h-8 text-sm rounded-lg transition-colors ${p === page ? 'bg-indigo-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                className={`w-8 h-8 text-sm transition-colors ${p === page ? 'bg-indigo-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
               >
                 {p}
               </button>

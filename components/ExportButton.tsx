@@ -40,7 +40,7 @@ export function ExportButton({ getData, filename, label = 'Export' }: ExportButt
       <button
         onClick={() => setOpen(o => !o)}
         disabled={loading}
-        className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
       >
         {loading ? (
           <svg className="w-4 h-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -61,7 +61,7 @@ export function ExportButton({ getData, filename, label = 'Export' }: ExportButt
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-100 rounded-xl shadow-xl z-20 overflow-hidden">
+          <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-100 shadow-xl z-20 overflow-hidden">
             <button
               onClick={() => handle('excel')}
               className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"

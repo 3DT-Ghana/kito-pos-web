@@ -287,7 +287,7 @@ export default function NewApplicationPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-100">
+        <div className="bg-red-50 text-red-700 text-sm px-4 py-3 border border-red-100">
           {error}
           {createdId && (
             <div className="mt-2">
@@ -301,7 +301,7 @@ export default function NewApplicationPage() {
 
       {/* ── Step 1: Business Information ── */}
       {step === 1 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <Building2 className="w-4 h-4 text-indigo-500" /> Business Information
           </h2>
@@ -346,7 +346,7 @@ export default function NewApplicationPage() {
 
           <div className="flex justify-end pt-2">
             <button type="button" onClick={handleNext}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
               Continue
             </button>
           </div>
@@ -356,7 +356,7 @@ export default function NewApplicationPage() {
       {/* ── Step 2: Directors / Owners ── */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <div className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <User className="w-4 h-4 text-indigo-500" /> Primary Director / Owner
             </h2>
@@ -387,10 +387,10 @@ export default function NewApplicationPage() {
 
           {/* Additional directors */}
           {form.directors.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white border border-gray-200 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-gray-800">Additional Directors</h2>
               {form.directors.map((d, i) => (
-                <div key={i} className="flex gap-3 items-start border border-gray-100 rounded-lg p-3">
+                <div key={i} className="flex gap-3 items-start border border-gray-100 p-3">
                   <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input
                       value={d.fullName}
@@ -425,11 +425,11 @@ export default function NewApplicationPage() {
 
           <div className="flex justify-between gap-3 pt-2">
             <button type="button" onClick={() => { setError(null); setStep(1) }}
-              className="px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-5 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
               Back
             </button>
             <button type="button" onClick={handleNext}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
               Continue
             </button>
           </div>
@@ -438,7 +438,7 @@ export default function NewApplicationPage() {
 
       {/* ── Step 3: Documents ── */}
       {step === 3 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+        <div className="bg-white border border-gray-200 p-6 space-y-6">
           <div>
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-500" /> Supporting Documents
@@ -482,7 +482,7 @@ export default function NewApplicationPage() {
             onChange={(f) => setOwnerCardFile(f)}
           />
 
-          <div className="bg-amber-50 border border-amber-100 rounded-lg p-3 text-xs text-amber-700">
+          <div className="bg-amber-50 border border-amber-100 p-3 text-xs text-amber-700">
             <strong>Tip:</strong>{' '}
             {kyc.requireBusinessCertUpload || kyc.requireDirectorGhanaCardUpload
               ? 'The current KYC settings require the uploads marked above before this application can move forward.'
@@ -491,11 +491,11 @@ export default function NewApplicationPage() {
 
           <div className="flex justify-between gap-3">
             <button type="button" onClick={() => { setError(null); setStep(2) }}
-              className="px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-5 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
               Back
             </button>
             <button type="button" onClick={handleNext}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
               Review & Submit
             </button>
           </div>
@@ -505,7 +505,7 @@ export default function NewApplicationPage() {
       {/* ── Step 4: Review & Submit ── */}
       {step === 4 && (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+          <div className="bg-white border border-gray-200 p-6 space-y-3">
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-indigo-500" /> Review Details
             </h2>
@@ -542,13 +542,13 @@ export default function NewApplicationPage() {
 
           <div className="flex justify-between gap-3">
             <button type="button" onClick={() => { setError(null); setStep(3) }}
-              className="px-5 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-5 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors">
               Back
             </button>
             <button
               type="submit"
               disabled={loading || uploading}
-              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+              className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
             >
               {uploading ? 'Uploading documents…' : loading ? 'Submitting…' : 'Submit Application'}
             </button>
@@ -560,7 +560,7 @@ export default function NewApplicationPage() {
 }
 
 const inputCls =
-  'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+  'w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
 
 function Field({
   label,
@@ -615,7 +615,7 @@ function DocUploadField({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm hover:bg-gray-50 transition-colors"
         >
           <Upload className="w-4 h-4 text-gray-400" />
           {file ? 'Change file' : 'Choose file'}

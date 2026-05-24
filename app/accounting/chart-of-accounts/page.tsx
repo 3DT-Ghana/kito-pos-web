@@ -97,7 +97,7 @@ export default function ChartOfAccountsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-3 rounded-lg">
+            <div className="bg-blue-100 p-3">
               <List className="w-7 h-7 text-blue-700" />
             </div>
             <div>
@@ -107,7 +107,7 @@ export default function ChartOfAccountsPage() {
           </div>
           <button
             onClick={() => setShowNewForm(v => !v)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow transition-all"
           >
             <Plus className="w-4 h-4" />
             New Account
@@ -115,18 +115,18 @@ export default function ChartOfAccountsPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 p-4 text-red-700 text-sm">{error}</div>
         )}
 
         {/* New Account Form */}
         {showNewForm && (
-          <div className="bg-white border-2 border-blue-200 rounded-xl p-5 shadow-sm">
+          <div className="bg-white border-2 border-blue-200 p-5 shadow-sm">
             <h3 className="font-bold text-gray-900 mb-4">Create Custom Account</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Account Code *</label>
                 <input
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   placeholder="e.g. 7100"
                   value={newAccount.code}
                   onChange={e => setNewAccount(p => ({ ...p, code: e.target.value }))}
@@ -135,7 +135,7 @@ export default function ChartOfAccountsPage() {
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Account Name *</label>
                 <input
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   placeholder="e.g. Office Supplies Expense"
                   value={newAccount.name}
                   onChange={e => setNewAccount(p => ({ ...p, name: e.target.value }))}
@@ -144,7 +144,7 @@ export default function ChartOfAccountsPage() {
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Type</label>
                 <select
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   value={newAccount.type}
                   onChange={e => {
                     const t = e.target.value
@@ -158,7 +158,7 @@ export default function ChartOfAccountsPage() {
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Normal Balance</label>
                 <select
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   value={newAccount.normalBalance}
                   onChange={e => setNewAccount(p => ({ ...p, normalBalance: e.target.value }))}
                 >
@@ -169,7 +169,7 @@ export default function ChartOfAccountsPage() {
               <div className="col-span-2">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">Description</label>
                 <input
-                  className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
                   placeholder="Optional description"
                   value={newAccount.description}
                   onChange={e => setNewAccount(p => ({ ...p, description: e.target.value }))}
@@ -181,13 +181,13 @@ export default function ChartOfAccountsPage() {
               <button
                 onClick={handleCreate}
                 disabled={saving}
-                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all disabled:opacity-50"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold transition-all disabled:opacity-50"
               >
                 {saving ? 'Creating…' : 'Create Account'}
               </button>
               <button
                 onClick={() => setShowNewForm(false)}
-                className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all"
+                className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
               >
                 Cancel
               </button>
@@ -202,7 +202,7 @@ export default function ChartOfAccountsPage() {
           const isOpen = expandedTypes[type]
 
           return (
-            <div key={type} className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div key={type} className="bg-white border-2 border-gray-200 overflow-hidden shadow-sm">
               <button
                 className="w-full flex items-center justify-between px-5 py-3 bg-gray-50 hover:bg-gray-100 transition-colors"
                 onClick={() => setExpandedTypes(p => ({ ...p, [type]: !p[type] }))}

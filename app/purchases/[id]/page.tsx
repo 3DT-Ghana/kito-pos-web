@@ -78,7 +78,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/purchases')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={() => router.push('/purchases')} className="p-2 hover:bg-gray-100 transition-colors">
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </button>
           <div className="flex-1">
@@ -88,14 +88,14 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex gap-3">
             <button
               onClick={() => setShowReturnModal(true)}
-              className="px-5 py-3 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg font-semibold hover:bg-orange-100 transition-colors flex items-center gap-2"
+              className="px-5 py-3 bg-orange-50 text-orange-700 border border-orange-200 font-semibold hover:bg-orange-100 transition-colors flex items-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               Process Return
             </button>
             <button
               onClick={() => router.push(`/purchases/${id}/edit`)}
-              className="px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
+              className="px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
             >
               <Pencil className="w-4 h-4" />
               Edit Purchase
@@ -104,7 +104,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Purchase Summary Card */}
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+        <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Purchase Summary</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -147,7 +147,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Items Table */}
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white shadow-sm border-2 border-gray-200 overflow-hidden">
           <div className="p-6 border-b-2 border-gray-200">
             <h2 className="text-xl font-bold text-gray-900">Items Purchased</h2>
           </div>
@@ -264,7 +264,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div className="bg-white shadow-2xl w-full max-w-md">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
           <div>
@@ -273,7 +273,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
               Purchase #{purchase.id.slice(0, 8).toUpperCase()} · {purchase.supplier.name}
             </p>
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 transition-colors">
             <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -287,7 +287,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
             <select
               value={selectedItemId}
               onChange={e => { setSelectedItemId(e.target.value); setQuantity(1); setAmount('') }}
-              className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-sm"
+              className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-orange-500 focus:outline-none text-sm"
             >
               {purchase.items.map(pi => (
                 <option key={pi.item.id} value={pi.item.id}>
@@ -305,7 +305,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
                 <span className="text-xs font-normal text-gray-400 ml-2">max {selectedItem.quantity}</span>
               )}
             </label>
-            <div className="flex items-center border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+            <div className="flex items-center border-2 border-gray-200 overflow-hidden bg-white">
               <button type="button" onClick={() => setQuantity(q => Math.max(1, q - 1))}
                 className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 font-bold text-lg border-r border-gray-200">−</button>
               <input
@@ -325,7 +325,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
             <div className="grid grid-cols-3 gap-2">
               {(['CASH', 'CREDIT', 'EXCHANGE'] as const).map(t => (
                 <button key={t} type="button" onClick={() => setReturnType(t)}
-                  className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-colors ${
+                  className={`py-2.5 text-xs font-bold border-2 transition-colors ${
                     returnType === t
                       ? t === 'CASH' ? 'bg-green-600 text-white border-green-600'
                         : t === 'CREDIT' ? 'bg-blue-600 text-white border-blue-600'
@@ -354,7 +354,7 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
                 value={amount}
                 placeholder={autoAmount}
                 onChange={e => setAmount(e.target.value)}
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-orange-500 focus:outline-none text-lg font-bold"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-orange-500 focus:outline-none text-lg font-bold"
               />
               {autoAmount && !amount && (
                 <button type="button" onClick={() => setAmount(autoAmount)}
@@ -366,18 +366,18 @@ function SupplierReturnModal({ purchase, onClose, onSuccess }: SupplierReturnMod
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 text-sm">
               ⚠ {error}
             </div>
           )}
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">
+              className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50">
               Cancel
             </button>
             <button type="submit" disabled={isSubmitting}
-              className="flex-1 py-3 bg-orange-600 text-white font-bold rounded-xl hover:bg-orange-700 disabled:opacity-50 transition-colors">
+              className="flex-1 py-3 bg-orange-600 text-white font-bold hover:bg-orange-700 disabled:opacity-50 transition-colors">
               {isSubmitting ? 'Processing…' : 'Confirm Return'}
             </button>
           </div>

@@ -101,7 +101,7 @@ export default function PurchaseOrderDetailPage() {
   }
 
   if (isLoading) {
-    return <AppLayout><div className="max-w-3xl mx-auto space-y-4">{[1,2,3].map(i => <div key={i} className="bg-white rounded-2xl h-32 animate-pulse border border-gray-200" />)}</div></AppLayout>
+    return <AppLayout><div className="max-w-3xl mx-auto space-y-4">{[1,2,3].map(i => <div key={i} className="bg-white h-32 animate-pulse border border-gray-200" />)}</div></AppLayout>
   }
 
   if (!order) {
@@ -120,7 +120,7 @@ export default function PurchaseOrderDetailPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 print:hidden">
           <div className="flex items-center gap-3 flex-1">
-            <button onClick={() => router.push('/purchase-orders')} className="p-2 hover:bg-gray-100 rounded-xl print:hidden">
+            <button onClick={() => router.push('/purchase-orders')} className="p-2 hover:bg-gray-100 print:hidden">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -136,29 +136,29 @@ export default function PurchaseOrderDetailPage() {
           <div className="flex flex-wrap gap-2 print:hidden">
             {canSend && (
               <button onClick={() => updateStatus('SENT')} disabled={isUpdating}
-                className="px-3 py-2 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50">
+                className="px-3 py-2 bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 disabled:opacity-50">
                 Mark as Sent
               </button>
             )}
             {canReceive && (
               <button onClick={() => { setPaidAmount(order.totalAmount.toFixed(2)); setShowReceiveModal(true) }} disabled={isUpdating}
-                className="px-3 py-2 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700 disabled:opacity-50">
+                className="px-3 py-2 bg-green-600 text-white font-semibold text-sm hover:bg-green-700 disabled:opacity-50">
                 Receive Goods
               </button>
             )}
             {canCancel && (
               <button onClick={() => updateStatus('CANCELLED')} disabled={isUpdating}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-200 disabled:opacity-50">
+                className="px-3 py-2 bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 disabled:opacity-50">
                 Cancel
               </button>
             )}
             <button onClick={() => window.print()}
-              className="px-3 py-2 bg-purple-600 text-white rounded-xl font-semibold text-sm hover:bg-purple-700">
+              className="px-3 py-2 bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700">
               Print PO
             </button>
             {canDelete && (
               <button onClick={handleDelete}
-                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 rounded-xl font-semibold text-sm hover:bg-red-100">
+                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 font-semibold text-sm hover:bg-red-100">
                 Delete
               </button>
             )}
@@ -166,7 +166,7 @@ export default function PurchaseOrderDetailPage() {
         </div>
 
         {/* Printable PO document */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 print:border-0 print:rounded-none print:p-8 print:shadow-none">
+        <div className="bg-white border border-gray-200 p-6 print:border-0 print:rounded-none print:p-8 print:shadow-none">
           {/* Print header */}
           <div className="hidden print:flex items-start justify-between mb-8">
             <div>
@@ -241,7 +241,7 @@ export default function PurchaseOrderDetailPage() {
         {/* Receive Goods Modal */}
         {showReceiveModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 space-y-4">
+            <div className="bg-white w-full max-w-md p-6 space-y-4">
               <h3 className="text-lg font-bold text-gray-900">Receive Goods</h3>
               <p className="text-sm text-gray-600">
                 This will create a purchase record, update stock levels, and mark the PO as received.
@@ -258,7 +258,7 @@ export default function PurchaseOrderDetailPage() {
                   min="0"
                   max={order.totalAmount}
                   placeholder={order.totalAmount.toFixed(2)}
-                  className="w-full px-4 py-3 border-2 border-green-200 rounded-xl focus:border-green-500 focus:outline-none text-xl font-bold"
+                  className="w-full px-4 py-3 border-2 border-green-200 focus:border-green-500 focus:outline-none text-xl font-bold"
                 />
                 <p className="text-xs text-gray-500 mt-1">Total order value: {formatCurrency(order.totalAmount)}</p>
                 {(parseFloat(paidAmount) || 0) < order.totalAmount && (
@@ -268,17 +268,17 @@ export default function PurchaseOrderDetailPage() {
                 )}
               </div>
               {convertError && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
                   {convertError}
                 </div>
               )}
               <div className="flex gap-3">
                 <button type="button" onClick={() => { setShowReceiveModal(false); setConvertError('') }}
-                  className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">
+                  className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50">
                   Cancel
                 </button>
                 <button onClick={handleReceive} disabled={isConverting}
-                  className="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50">
+                  className="flex-1 py-3 bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50">
                   {isConverting ? 'Processing...' : 'Confirm Receive'}
                 </button>
               </div>

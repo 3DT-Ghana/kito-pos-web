@@ -144,7 +144,7 @@ export default function ReturnsPage() {
 
         {/* Tabs + Search */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1 shrink-0">
+          <div className="flex gap-1 bg-gray-100 p-1 shrink-0">
             {([
               ['customers', 'Customer Returns'],
               ['suppliers', 'Supplier Returns'],
@@ -152,7 +152,7 @@ export default function ReturnsPage() {
               <button
                 key={t}
                 onClick={() => switchTab(t)}
-                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                className={`px-4 py-2 text-sm font-semibold transition-colors ${
                   tab === t
                     ? 'bg-white text-blue-700 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -174,7 +174,7 @@ export default function ReturnsPage() {
               }
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button
@@ -189,7 +189,7 @@ export default function ReturnsPage() {
 
         {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
             {error}
           </div>
         )}
@@ -198,7 +198,7 @@ export default function ReturnsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 animate-pulse h-28" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 p-5 animate-pulse h-28" />
             ))}
           </div>
         ) : tab === 'customers' ? (
@@ -262,7 +262,7 @@ function CustomerReturnsTable({
             <div
               key={r.id}
               onClick={() => onViewSale(r.saleId)}
-              className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+              className="bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -291,7 +291,7 @@ function CustomerReturnsTable({
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+      <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50/80 border-b border-gray-100">
             <tr>
@@ -320,7 +320,7 @@ function CustomerReturnsTable({
                     {r.sale.customer?.name || 'Walk-in Customer'}
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 text-gray-700">
                       #{r.saleId.slice(0, 8).toUpperCase()}
                     </span>
                   </td>
@@ -383,7 +383,7 @@ function SupplierReturnsTable({
             <div
               key={r.id}
               onClick={() => onViewPurchase(r.purchaseId)}
-              className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+              className="bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
@@ -410,7 +410,7 @@ function SupplierReturnsTable({
       </div>
 
       {/* Desktop Table */}
-      <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+      <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
         <table className="w-full">
           <thead className="bg-gray-50/80 border-b border-gray-100">
             <tr>
@@ -437,7 +437,7 @@ function SupplierReturnsTable({
                   <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{r.item.name}</td>
                   <td className="px-5 py-3.5 text-sm text-gray-600">{r.purchase.supplier.name}</td>
                   <td className="px-5 py-3.5">
-                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-700">
+                    <span className="font-mono text-xs bg-gray-100 px-2 py-1 text-gray-700">
                       #{r.purchaseId.slice(0, 8).toUpperCase()}
                     </span>
                   </td>
@@ -577,7 +577,7 @@ function ProcessReturnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+      <div className="bg-white rounded-t-3xl sm:shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl sm:rounded-t-2xl z-10">
           <div>
@@ -593,7 +593,7 @@ function ProcessReturnModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-1.5 hover:bg-gray-100 transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5 text-gray-500" />
@@ -616,25 +616,25 @@ function ProcessReturnModal({
                 onKeyDown={e => e.key === 'Enter' && handleLookup()}
                 placeholder="Paste the full ID here…"
                 autoFocus
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm font-mono bg-gray-50"
+                className="w-full px-4 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm font-mono bg-gray-50"
               />
             </div>
             {lookupError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 text-sm">
                 {lookupError}
               </div>
             )}
             <div className="flex gap-3 pt-1">
               <button
                 onClick={onClose}
-                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleLookup}
                 disabled={isLooking}
-                className={`flex-1 py-2.5 ${accentColor} text-white font-bold rounded-xl disabled:opacity-50 transition-colors text-sm`}
+                className={`flex-1 py-2.5 ${accentColor} text-white font-bold disabled:opacity-50 transition-colors text-sm`}
               >
                 {isLooking ? 'Looking up…' : 'Find Transaction'}
               </button>
@@ -643,11 +643,11 @@ function ProcessReturnModal({
         ) : (
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
             {/* Context banner */}
-            <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm border border-gray-100">
+            <div className="bg-gray-50 px-4 py-3 text-sm border border-gray-100">
               {kind === 'customer' ? (
                 <p className="font-medium text-gray-700">
                   Sale{' '}
-                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5 rounded-md">
+                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5">
                     #{sale!.id.slice(0, 8).toUpperCase()}
                   </span>
                   {' · '}
@@ -656,7 +656,7 @@ function ProcessReturnModal({
               ) : (
                 <p className="font-medium text-gray-700">
                   Purchase{' '}
-                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5 rounded-md">
+                  <span className="font-mono text-xs bg-white border border-gray-200 px-1.5 py-0.5">
                     #{purchase!.id.slice(0, 8).toUpperCase()}
                   </span>
                   {' · '}
@@ -671,7 +671,7 @@ function ProcessReturnModal({
               <select
                 value={selectedItemId}
                 onChange={e => { setSelectedItemId(e.target.value); setQuantity(1); setAmount('') }}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm bg-gray-50"
+                className="w-full px-3 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm bg-gray-50"
               >
                 {items.map(i => (
                   <option key={i.id} value={i.id}>
@@ -689,7 +689,7 @@ function ProcessReturnModal({
                   <span className="text-xs font-normal text-gray-400 ml-1.5">max {selectedItem.qty}</span>
                 )}
               </label>
-              <div className="flex items-center border border-gray-200 rounded-xl overflow-hidden bg-white">
+              <div className="flex items-center border border-gray-200 overflow-hidden bg-white">
                 <button
                   type="button"
                   onClick={() => setQuantity(q => Math.max(1, q - 1))}
@@ -724,7 +724,7 @@ function ProcessReturnModal({
                     key={t}
                     type="button"
                     onClick={() => setReturnType(t)}
-                    className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-colors ${
+                    className={`py-2.5 text-xs font-bold border-2 transition-colors ${
                       returnType === t
                         ? t === 'CASH'     ? 'bg-emerald-600 text-white border-emerald-600'
                           : t === 'CREDIT' ? 'bg-blue-600 text-white border-blue-600'
@@ -749,7 +749,7 @@ function ProcessReturnModal({
                   value={amount}
                   placeholder={autoAmount || '0.00'}
                   onChange={e => setAmount(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-lg font-bold bg-gray-50"
+                  className="w-full px-4 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-lg font-bold bg-gray-50"
                 />
                 {autoAmount && !amount && (
                   <button
@@ -764,7 +764,7 @@ function ProcessReturnModal({
             </div>
 
             {submitError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 text-sm">
                 {submitError}
               </div>
             )}
@@ -773,14 +773,14 @@ function ProcessReturnModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`flex-1 py-2.5 ${accentColor} text-white font-bold rounded-xl disabled:opacity-50 transition-colors text-sm`}
+                className={`flex-1 py-2.5 ${accentColor} text-white font-bold disabled:opacity-50 transition-colors text-sm`}
               >
                 {isSubmitting ? 'Processing…' : 'Confirm Return'}
               </button>

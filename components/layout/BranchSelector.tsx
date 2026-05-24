@@ -28,7 +28,7 @@ export function BranchSelector() {
           value={currentBranchId ?? '__all__'}
           onChange={e => setBranchId(e.target.value === '__all__' ? null : e.target.value)}
           disabled={isBranchLocked}
-          className="appearance-none pl-3 pr-7 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
+          className="appearance-none pl-3 pr-7 py-1.5 bg-gray-100 border border-gray-200 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
         >
           {canViewAllBranches && <option value="__all__">All Branches</option>}
           {branches.map(b => (

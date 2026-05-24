@@ -11,6 +11,7 @@ import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   FileText, Search, X, CheckCircle, XCircle,
   Clock, Send, Plus, ChevronRight,
@@ -72,6 +73,8 @@ export default function QuotationsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   useEffect(() => { fetchQuotations() }, [])
 
@@ -86,6 +89,8 @@ export default function QuotationsPage() {
     }
   }
 
+  useEffect(() => setPage(1), [search, statusFilter])
+
   const filtered = quotations.filter(q => {
     const qStr = search.toLowerCase()
     const matchSearch = !qStr
@@ -95,6 +100,8 @@ export default function QuotationsPage() {
     const matchStatus = statusFilter === 'all' || q.status === statusFilter
     return matchSearch && matchStatus
   })
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const statusCounts = quotations.reduce((acc, q) => {
     acc[q.status] = (acc[q.status] || 0) + 1
@@ -148,11 +155,11 @@ export default function QuotationsPage() {
               <button
                 key={status}
                 onClick={() => setStatusFilter(isActive ? 'all' : status)}
-                className={`rounded-2xl p-4 border text-left transition-all shadow-sm ring-1 ${
+                className={`p-4 border text-left transition-all shadow-sm ring-1 ${
                   isActive ? 'ring-blue-400 ring-2' : 'ring-black/5'
                 } ${accent.bg} ${accent.border}`}
               >
-                <div className={`w-8 h-8 rounded-xl ${accent.bg} border ${accent.border} flex items-center justify-center mb-2`}>
+                <div className={`w-8 h-8 ${accent.bg} border ${accent.border} flex items-center justify-center mb-2`}>
                   <Icon className={`w-4 h-4 ${accent.icon}`} strokeWidth={1.75} />
                 </div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{status}</p>
@@ -194,7 +201,7 @@ export default function QuotationsPage() {
               placeholder="Search customer, item, or ID…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button
@@ -211,7 +218,7 @@ export default function QuotationsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-20 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-20 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -233,7 +240,7 @@ export default function QuotationsPage() {
           <>
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
-              {filtered.map(q => {
+              {paginated.map(q => {
                 const { variant, label } = STATUS_BADGE[q.status]
                 const name = q.customer?.name || 'Walk-in'
                 const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -242,10 +249,10 @@ export default function QuotationsPage() {
                   <div
                     key={q.id}
                     onClick={() => router.push(`/quotations/${q.id}`)}
-                    className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+                    className="bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                      <div className={`w-10 h-10 ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -277,9 +284,10 @@ export default function QuotationsPage() {
                 )
               })}
             </div>
+            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
 
             {/* Desktop Table */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
@@ -293,7 +301,7 @@ export default function QuotationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.map(q => {
+                  {paginated.map(q => {
                     const { variant, label } = STATUS_BADGE[q.status]
                     const name = q.customer?.name || 'Walk-in'
                     const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -306,7 +314,7 @@ export default function QuotationsPage() {
                       >
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-lg ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                            <div className={`w-8 h-8 ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                               {initials}
                             </div>
                             <div>
@@ -352,6 +360,10 @@ export default function QuotationsPage() {
                   </tr>
                 </tfoot>
               </table>
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{filtered.length} of {quotations.length} results</span>
+                <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
+              </div>
             </div>
           </>
         )}

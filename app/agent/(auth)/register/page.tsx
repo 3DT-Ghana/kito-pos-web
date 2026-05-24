@@ -170,9 +170,9 @@ export default function AgentRegisterPage() {
           })}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white shadow-sm border border-gray-200 p-8">
           {error && (
-            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg border border-red-100 mb-5">
+            <div className="bg-red-50 text-red-700 text-sm px-4 py-3 border border-red-100 mb-5">
               {error}
             </div>
           )}
@@ -240,7 +240,7 @@ export default function AgentRegisterPage() {
               <button
                 type="button"
                 onClick={handleNext}
-                className="w-full py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors mt-2"
+                className="w-full py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors mt-2"
               >
                 Continue
               </button>
@@ -302,7 +302,7 @@ export default function AgentRegisterPage() {
                 />
               </FormField>
 
-              <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+              <div className="bg-blue-50 border border-blue-100 p-3 text-xs text-blue-700">
                 {kyc.requireAgentGhanaCardUpload
                   ? 'A Ghana Card image is required before approval. You will upload it from your profile page immediately after registration.'
                   : 'You can upload your Ghana Card image after registration from your profile page if the admin requests it.'}
@@ -312,14 +312,14 @@ export default function AgentRegisterPage() {
                 <button
                   type="button"
                   onClick={() => { setError(null); setStep(1) }}
-                  className="flex-1 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
                 >
                   Continue
                 </button>
@@ -361,14 +361,14 @@ export default function AgentRegisterPage() {
                 <button
                   type="button"
                   onClick={() => { setError(null); setStep(2) }}
-                  className="flex-1 py-2.5 border border-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 py-2.5 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                  className="flex-1 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
                 >
                   {loading ? 'Creating account…' : 'Create Account'}
                 </button>
@@ -389,7 +389,7 @@ export default function AgentRegisterPage() {
 }
 
 const inputCls =
-  'w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
+  'w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent'
 
 function FormField({
   label,

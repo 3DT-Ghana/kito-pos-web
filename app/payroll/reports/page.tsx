@@ -74,46 +74,46 @@ export default function PayrollReportsPage() {
           <h1 className="text-xl font-bold text-gray-900">Payroll Reports</h1>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-5 flex flex-wrap gap-3 items-end">
+        <div className="bg-white border border-gray-200 p-5 flex flex-wrap gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Month</label>
             <select value={month} onChange={(e) => setMonth(Number(e.target.value))}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
               {MONTH_NAMES.slice(1).map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
             <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Report Type</label>
             <select value={reportType} onChange={(e) => setReportType(e.target.value as ReportType)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              className="text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
               {(Object.entries(REPORT_LABELS) as [ReportType, string][]).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
           </div>
           <button onClick={load} disabled={loading}
-            className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors">
+            className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors">
             {loading ? 'Loading…' : 'Generate Report'}
           </button>
         </div>
 
-        {error && <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-lg">{error}</p>}
+        {error && <p className="text-sm text-red-600 bg-red-50 px-4 py-3">{error}</p>}
 
         {run && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between print:hidden">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">{REPORT_LABELS[reportType]}</h2>
                 <p className="text-xs text-gray-500">{MONTH_NAMES[run.periodMonth]} {run.periodYear} · Status: {run.status}</p>
               </div>
-              <button onClick={() => window.print()} className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50">
+              <button onClick={() => window.print()} className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-300 px-3 py-1.5 hover:bg-gray-50">
                 <Printer className="w-4 h-4" /> Print
               </button>
             </div>

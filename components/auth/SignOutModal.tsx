@@ -25,12 +25,12 @@ export function SignOutConfirmModal({ open, onClose }: SignOutConfirmProps) {
     <>
       {/* Icon + close row */}
       <div className="flex items-start justify-between mb-4">
-        <div className="w-12 h-12 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+        <div className="w-12 h-12 bg-red-50 flex items-center justify-center shrink-0">
           <LogOut className="w-6 h-6 text-red-500" strokeWidth={1.75} />
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -44,14 +44,14 @@ export function SignOutConfirmModal({ open, onClose }: SignOutConfirmProps) {
       <div className="mt-6 flex gap-3">
         <button
           onClick={onClose}
-          className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          className="flex-1 h-11 border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
         >
           Cancel
         </button>
         <button
           onClick={handleSignOut}
           disabled={loading}
-          className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-semibold text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+          className="flex-1 h-11 bg-red-600 hover:bg-red-700 text-sm font-semibold text-white transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
         >
           {loading
             ? <><Spinner /> Signing out…</>
@@ -79,7 +79,7 @@ export function SignOutConfirmModal({ open, onClose }: SignOutConfirmProps) {
 
       {/* Desktop: centered modal */}
       <div className="hidden sm:flex absolute inset-0 items-center justify-center p-4">
-        <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 p-6">
+        <div className="relative w-full max-w-sm bg-white shadow-2xl ring-1 ring-black/5 p-6">
           {inner}
         </div>
       </div>
@@ -131,9 +131,9 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
 
   return (
     <Backdrop onClose={onStaySignedIn}>
-      <div className="relative w-full max-w-sm rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 p-6">
+      <div className="relative w-full max-w-sm bg-white shadow-2xl ring-1 ring-black/5 p-6">
         {/* Icon */}
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${urgent ? 'bg-red-50' : 'bg-amber-50'}`}>
+        <div className={`w-12 h-12 flex items-center justify-center mb-4 ${urgent ? 'bg-red-50' : 'bg-amber-50'}`}>
           <AlertTriangle className={`w-6 h-6 ${urgent ? 'text-red-500' : 'text-amber-500'}`} strokeWidth={1.75} />
         </div>
 
@@ -153,7 +153,7 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
 
         <button
           onClick={onStaySignedIn}
-          className="mt-5 w-full h-10 rounded-xl bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2"
+          className="mt-5 w-full h-10 bg-blue-600 hover:bg-blue-700 text-sm font-semibold text-white transition-colors flex items-center justify-center gap-2"
         >
           Stay signed in
         </button>

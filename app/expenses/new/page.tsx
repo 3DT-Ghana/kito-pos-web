@@ -54,7 +54,7 @@ export default function NewExpensePage() {
 
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/expenses')} className="p-2 hover:bg-gray-100 rounded-xl">
+          <button onClick={() => router.push('/expenses')} className="p-2 hover:bg-gray-100">
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -66,12 +66,12 @@ export default function NewExpensePage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-gray-200 p-5 space-y-5">
+        <form onSubmit={handleSubmit} className="bg-white border border-gray-200 p-5 space-y-5">
 
           {/* Category selector */}
           <div>
@@ -82,7 +82,7 @@ export default function NewExpensePage() {
                   key={cat.value}
                   type="button"
                   onClick={() => setCategory(cat.value)}
-                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 border-2 text-sm font-semibold transition-all ${
                     category === cat.value
                       ? 'border-red-500 bg-red-50 text-red-700'
                       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
@@ -107,7 +107,7 @@ export default function NewExpensePage() {
                 min="0.01"
                 step="0.01"
                 placeholder="0.00"
-                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:outline-none"
+                className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 text-sm focus:border-red-500 focus:outline-none"
               />
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function NewExpensePage() {
               onChange={e => setDescription(e.target.value)}
               rows={3}
               placeholder="e.g. Monthly shop rent, Driver salary for January..."
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:outline-none resize-none"
+              className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-red-500 focus:outline-none resize-none"
             />
           </div>
 
@@ -132,7 +132,7 @@ export default function NewExpensePage() {
               value={paidBy}
               onChange={e => setPaidBy(e.target.value)}
               placeholder="e.g. John, Petty cash, Bank"
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-red-500 focus:outline-none"
+              className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-red-500 focus:outline-none"
             />
           </div>
 
@@ -140,7 +140,7 @@ export default function NewExpensePage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isSubmitting ? 'Saving…' : 'Save Expense'}
           </button>

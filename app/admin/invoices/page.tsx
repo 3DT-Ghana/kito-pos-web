@@ -73,7 +73,7 @@ function InvoicesPageContent() {
             <select
               value={status}
               onChange={(e) => { setStatus(e.target.value); setPage(1) }}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {STATUSES.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
             </select>
@@ -85,12 +85,12 @@ function InvoicesPageContent() {
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : invoices.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="bg-white border border-gray-200 p-12 text-center">
             <FileText className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm text-gray-400">No invoices found.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+          <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
             {invoices.map((inv) => (
               <Link
                 key={inv.id}
@@ -125,7 +125,7 @@ function InvoicesPageContent() {
               <button
                 key={p}
                 onClick={() => changePage(p)}
-                className={`w-8 h-8 text-sm rounded-lg transition-colors ${p === page ? 'bg-indigo-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                className={`w-8 h-8 text-sm transition-colors ${p === page ? 'bg-indigo-600 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
               >
                 {p}
               </button>

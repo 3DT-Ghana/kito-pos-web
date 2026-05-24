@@ -4,6 +4,9 @@ import { useEffect, useState, useCallback } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useRolePermissions } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { Pagination } from '@/components/ui/Pagination'
+import { Bell } from 'lucide-react'
 
 type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 type ApprovalFlag = 'DISCOUNT' | 'PRICE_OVERRIDE' | 'CREDIT_SALE' | 'STOCK_ADJUSTMENT'
@@ -61,12 +64,25 @@ export default function ApprovalsPage() {
   const [tab, setTab] = useState<ApprovalStatus>('PENDING')
   const [approvals, setApprovals] = useState<ApprovalRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [pendingCount, setPendingCount] = useState(0)
   const [actionState, setActionState] = useState<{ id: string; type: 'approve' | 'reject' } | null>(null)
   const [noteInput, setNoteInput] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const canApprove = hasTenantPermission(user?.role, 'approve_transactions')
+
+  const loadPendingCount = useCallback(async () => {
+    try {
+      const res = await fetch('/api/approvals?status=PENDING')
+      if (res.ok) {
+        const data = await res.json()
+        setPendingCount((data.approvals ?? []).length)
+      }
+    } catch { /* non-critical */ }
+  }, [])
 
   const load = useCallback(async (status: ApprovalStatus) => {
     setIsLoading(true)
@@ -74,7 +90,9 @@ export default function ApprovalsPage() {
       const res = await fetch(`/api/approvals?status=${status}`)
       if (res.ok) {
         const data = await res.json()
-        setApprovals(data.approvals ?? [])
+        const list = data.approvals ?? []
+        setApprovals(list)
+        if (status === 'PENDING') setPendingCount(list.length)
       }
     } finally {
       setIsLoading(false)
@@ -82,6 +100,11 @@ export default function ApprovalsPage() {
   }, [])
 
   useEffect(() => { load(tab) }, [tab, load])
+  useEffect(() => setPage(1), [tab])
+  useEffect(() => {
+    // Keep pending count fresh when viewing other tabs
+    if (tab !== 'PENDING') loadPendingCount()
+  }, [tab, loadPendingCount])
 
   const handleAction = async () => {
     if (!actionState) return
@@ -111,6 +134,7 @@ export default function ApprovalsPage() {
       setActionState(null)
       setNoteInput('')
       load('PENDING')
+      loadPendingCount()
     } else {
       const err = await res.json()
       setErrorMsg(err.error ?? 'Action failed')
@@ -125,49 +149,69 @@ export default function ApprovalsPage() {
 
   if (permissionsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 max-w-md text-center">
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Loading approvals</h2>
-          <p className="text-gray-500 text-sm">Checking your current approval permissions.</p>
+      <AppLayout>
+        <div className="flex items-center justify-center p-6">
+          <div className="bg-white border-2 border-gray-200 p-8 max-w-md text-center">
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Loading approvals</h2>
+            <p className="text-gray-500 text-sm">Checking your current approval permissions.</p>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   if (!canApprove) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border-2 border-gray-200 p-8 max-w-md text-center">
-          <div className="text-5xl mb-4">🔒</div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h2>
-          <p className="text-gray-500 text-sm">You do not have permission to view or manage transaction approvals.</p>
+      <AppLayout>
+        <div className="flex items-center justify-center p-6">
+          <div className="bg-white border-2 border-gray-200 p-8 max-w-md text-center">
+            <div className="text-5xl mb-4">🔒</div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h2>
+            <p className="text-gray-500 text-sm">You do not have permission to view or manage transaction approvals.</p>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AppLayout>
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transaction Approvals</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Review and approve flagged transactions from your team.</p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Transaction Approvals</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Review and approve flagged transactions from your team.</p>
+          </div>
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setTab('PENDING')}
+              title={pendingCount > 0 ? `${pendingCount} transaction${pendingCount !== 1 ? 's' : ''} awaiting approval` : 'No pending approvals'}
+              className="relative inline-flex items-center justify-center w-10 h-10 border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors"
+            >
+              <Bell className={`w-5 h-5 ${pendingCount > 0 ? 'text-amber-500' : 'text-gray-400'}`} />
+              {pendingCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                  {pendingCount > 99 ? '99+' : pendingCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {successMsg && (
-          <div className="bg-green-50 border border-green-200 text-green-800 text-sm font-semibold rounded-xl px-4 py-3">
+          <div className="bg-green-50 border border-green-200 text-green-800 text-sm font-semibold px-4 py-3">
             ✓ {successMsg}
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border-2 border-gray-200 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-white border-2 border-gray-200 p-1 w-fit">
           {tabs.map(t => (
             <button
               key={t.key}
               onClick={() => { setTab(t.key); setApprovals([]) }}
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+              className={`px-4 py-2 text-sm font-bold transition-colors ${
                 tab === t.key
                   ? 'bg-indigo-600 text-white shadow-sm'
                   : 'text-gray-600 hover:bg-gray-100'
@@ -182,11 +226,11 @@ export default function ApprovalsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-32 bg-white rounded-2xl border-2 border-gray-100 animate-pulse" />
+              <div key={i} className="h-32 bg-white border-2 border-gray-100 animate-pulse" />
             ))}
           </div>
         ) : approvals.length === 0 ? (
-          <div className="bg-white rounded-2xl border-2 border-gray-200 p-12 text-center">
+          <div className="bg-white border-2 border-gray-200 p-12 text-center">
             <div className="text-4xl mb-3">{tab === 'PENDING' ? '✅' : '📋'}</div>
             <p className="text-gray-500 font-semibold">
               {tab === 'PENDING' ? 'No pending transactions' : `No ${tab.toLowerCase()} transactions`}
@@ -194,13 +238,13 @@ export default function ApprovalsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {approvals.map(record => {
+            {approvals.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(record => {
               const sale = record.sale
               const stockAdjustment = record.stockAdjustment
               const flags = sale?.approvalFlags ?? [record.flag]
 
               return (
-                <div key={record.id} className={`bg-white rounded-2xl border-2 overflow-hidden ${
+                <div key={record.id} className={`bg-white border-2 overflow-hidden ${
                   record.status === 'PENDING' ? 'border-amber-200' : record.status === 'APPROVED' ? 'border-green-200' : 'border-red-200'
                 }`}>
                   {/* Header row */}
@@ -315,13 +359,13 @@ export default function ApprovalsPage() {
                               value={noteInput}
                               onChange={e => setNoteInput(e.target.value)}
                               placeholder={`Optional note for ${actionState.type === 'approve' ? 'approval' : 'rejection'}...`}
-                              className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none"
+                              className="w-full px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-400 focus:outline-none"
                             />
                             {errorMsg && <p className="text-xs text-red-600">{errorMsg}</p>}
                             <div className="flex gap-2">
                               <button
                                 onClick={handleAction}
-                                className={`flex-1 py-2 rounded-xl text-sm font-bold text-white transition-colors ${
+                                className={`flex-1 py-2 text-sm font-bold text-white transition-colors ${
                                   actionState.type === 'approve'
                                     ? 'bg-green-600 hover:bg-green-700'
                                     : 'bg-red-500 hover:bg-red-600'
@@ -331,7 +375,7 @@ export default function ApprovalsPage() {
                               </button>
                               <button
                                 onClick={() => { setActionState(null); setNoteInput(''); setErrorMsg('') }}
-                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200"
+                                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
                               >
                                 Cancel
                               </button>
@@ -341,13 +385,13 @@ export default function ApprovalsPage() {
                           <>
                             <button
                               onClick={() => { setActionState({ id: record.id, type: 'approve' }); setErrorMsg('') }}
-                              className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl transition-colors"
+                              className="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm transition-colors"
                             >
                               ✓ Approve
                             </button>
                             <button
                               onClick={() => { setActionState({ id: record.id, type: 'reject' }); setErrorMsg('') }}
-                              className="flex-1 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-sm rounded-xl border-2 border-red-200 transition-colors"
+                              className="flex-1 py-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-sm border-2 border-red-200 transition-colors"
                             >
                               ✗ Reject
                             </button>
@@ -359,9 +403,10 @@ export default function ApprovalsPage() {
                 </div>
               )
             })}
+            <Pagination page={page} totalPages={Math.ceil(approvals.length / PAGE_SIZE)} onPageChange={setPage} totalItems={approvals.length} pageSize={PAGE_SIZE} />
           </div>
         )}
       </div>
-    </div>
+    </AppLayout>
   )
 }

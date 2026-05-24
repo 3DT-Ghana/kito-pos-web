@@ -62,7 +62,22 @@ export async function GET(req: Request, { params }: RouteParams) {
       }
     }
 
-    const [supplier, purchases, payments, metrics] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const transfersWhere: any = {
+      tenantId: context!.tenantId,
+      OR: [{ debitSupplierId: id }, { creditSupplierId: id }],
+    }
+    if (startDate || endDate) {
+      transfersWhere.date = {}
+      if (startDate) transfersWhere.date.gte = new Date(startDate)
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        transfersWhere.date.lte = end
+      }
+    }
+
+    const [supplier, purchases, payments, transfers, metrics] = await Promise.all([
       prisma.supplier.findFirst({
         where: { id, tenantId: context!.tenantId },
         select: {
@@ -87,6 +102,26 @@ export async function GET(req: Request, { params }: RouteParams) {
         where: paymentsWhere,
         orderBy: { createdAt: 'desc' },
       }),
+      prisma.ledgerTransfer.findMany({
+        where: transfersWhere,
+        orderBy: { date: 'desc' },
+        select: {
+          id: true,
+          date: true,
+          amount: true,
+          description: true,
+          debitPartyType: true,
+          debitSupplierId: true,
+          creditPartyType: true,
+          creditSupplierId: true,
+          debitCustomer:  { select: { id: true, name: true } },
+          creditCustomer: { select: { id: true, name: true } },
+          debitSupplier:  { select: { id: true, name: true } },
+          creditSupplier: { select: { id: true, name: true } },
+          debitAccount:   { select: { id: true, name: true, code: true } },
+          creditAccount:  { select: { id: true, name: true, code: true } },
+        },
+      }),
       getScopedSupplierMetrics(context!, [id]),
     ])
 
@@ -107,6 +142,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       balance: scopedBalance,
       purchases,
       payments,
+      transfers,
       _count: {
         purchases: metric?.transactionCount ?? purchases.length,
       },

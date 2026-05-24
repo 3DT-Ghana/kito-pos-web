@@ -114,13 +114,13 @@ export default function SettingsPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">
             {error}
           </div>
         )}
 
         {/* Business Settings */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Business Information</h2>
             <p className="text-sm text-gray-500 mt-1">
@@ -139,7 +139,7 @@ export default function SettingsPage() {
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 placeholder="Your Business Name"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 disabled={isSubmitting}
               />
             </div>
@@ -153,7 +153,7 @@ export default function SettingsPage() {
                 type="text"
                 value={tenant?.id || ''}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 font-mono text-sm"
+                className="w-full px-4 py-2 border border-gray-300 bg-gray-50 text-gray-500 font-mono text-sm"
               />
             </div>
 
@@ -166,7 +166,7 @@ export default function SettingsPage() {
                 type="text"
                 value={tenant?.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : ''}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 bg-gray-50 text-gray-500"
               />
             </div>
 
@@ -175,7 +175,7 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                className="px-6 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
               >
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
               </button>
@@ -184,7 +184,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Account Information */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="bg-white shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Your Account</h2>
             <p className="text-sm text-gray-500 mt-1">
@@ -202,7 +202,7 @@ export default function SettingsPage() {
                 type="text"
                 value={user?.name || ''}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 bg-gray-50 text-gray-500"
               />
             </div>
 
@@ -215,7 +215,7 @@ export default function SettingsPage() {
                 type="email"
                 value={user?.email || ''}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 bg-gray-50 text-gray-500"
               />
             </div>
 
@@ -228,14 +228,14 @@ export default function SettingsPage() {
                 type="text"
                 value={user?.role || ''}
                 disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                className="w-full px-4 py-2 border border-gray-300 bg-gray-50 text-gray-500"
               />
             </div>
           </div>
         </div>
 
         {/* Danger Zone */}
-        <div className="bg-white rounded-lg shadow-sm border border-red-200">
+        <div className="bg-white shadow-sm border border-red-200">
           <div className="p-6 border-b border-red-200">
             <h2 className="text-lg font-semibold text-red-900">Danger Zone</h2>
             <p className="text-sm text-red-600 mt-1">
@@ -253,7 +253,7 @@ export default function SettingsPage() {
               </div>
               <button
                 onClick={() => alert('Account deletion is not implemented in this demo')}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                className="px-4 py-2 bg-red-600 text-white font-medium hover:bg-red-700"
               >
                 Delete Account
               </button>

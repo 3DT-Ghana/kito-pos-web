@@ -120,7 +120,7 @@ export default function BarcodesPage() {
         />
 
         {/* Instruction banner */}
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 flex items-start gap-3">
+        <div className="bg-blue-50 border border-blue-100 px-5 py-4 flex items-start gap-3">
           <Printer className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" strokeWidth={1.75} />
           <div>
             <p className="text-sm font-semibold text-blue-800">How to print labels</p>
@@ -134,13 +134,13 @@ export default function BarcodesPage() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
           {/* Stock filter tabs */}
-          <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+          <div className="flex gap-1 bg-gray-100 p-1">
             {stockTabs.map(t => (
               <button
                 key={t.value}
                 type="button"
                 onClick={() => setStockFilter(t.value)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-2 text-sm font-medium transition-all ${
                   stockFilter === t.value
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
@@ -159,7 +159,7 @@ export default function BarcodesPage() {
               placeholder="Search by name, manufacturer, or barcode..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -172,7 +172,7 @@ export default function BarcodesPage() {
           <button
             type="button"
             onClick={toggleAll}
-            className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors shrink-0"
+            className="flex items-center gap-2 px-3 py-2.5 bg-white border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors shrink-0"
           >
             {allSelected ? (
               <CheckSquare className="w-4 h-4 text-blue-600" />
@@ -203,7 +203,7 @@ export default function BarcodesPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {[1,2,3,4,5,6,7,8].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-24 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-24 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -222,7 +222,7 @@ export default function BarcodesPage() {
                   key={item.id}
                   type="button"
                   onClick={() => toggleItem(item.id)}
-                  className={`group text-left bg-white rounded-2xl shadow-sm ring-1 transition-all p-4 ${
+                  className={`group text-left bg-white shadow-sm ring-1 transition-all p-4 ${
                     isSelected
                       ? 'ring-blue-500 ring-2 bg-blue-50/30'
                       : 'ring-black/5 hover:ring-blue-200 hover:shadow-md'
@@ -235,7 +235,7 @@ export default function BarcodesPage() {
                         <p className="text-xs text-gray-400 mt-0.5 truncate">{item.manufacturer.name}</p>
                       )}
                     </div>
-                    <div className={`w-5 h-5 rounded-md shrink-0 flex items-center justify-center transition-all ${
+                    <div className={`w-5 h-5 shrink-0 flex items-center justify-center transition-all ${
                       isSelected ? 'bg-blue-600' : 'bg-gray-100 group-hover:bg-gray-200'
                     }`}>
                       {isSelected && (
@@ -262,7 +262,7 @@ export default function BarcodesPage() {
                   <div className="mt-2 flex items-center justify-between">
                     {item.category ? (
                       <span
-                        className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold text-white truncate max-w-28"
+                        className="inline-flex items-center px-2 py-0.5 text-xs font-semibold text-white truncate max-w-28"
                         style={{ backgroundColor: item.category.color ?? '#6366f1' }}
                       >
                         {item.category.name}
@@ -287,7 +287,7 @@ export default function BarcodesPage() {
         {/* Sticky bottom bar when items selected */}
         {selected.size > 0 && (
           <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-40">
-            <div className="bg-slate-900 text-white rounded-2xl shadow-xl px-5 py-3 flex items-center gap-4">
+            <div className="bg-slate-900 text-white shadow-xl px-5 py-3 flex items-center gap-4">
               <div>
                 <p className="text-sm font-semibold">{selected.size} item{selected.size !== 1 ? 's' : ''} selected</p>
                 <p className="text-xs text-slate-400">Ready to print labels</p>
@@ -302,7 +302,7 @@ export default function BarcodesPage() {
               <button
                 type="button"
                 onClick={() => setShowGenerator(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl text-sm transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-colors"
               >
                 <Printer className="w-4 h-4" strokeWidth={1.75} />
                 Print Labels

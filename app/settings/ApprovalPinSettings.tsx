@@ -101,7 +101,7 @@ export function ApprovalPinSettings() {
   const displayDigits = activeDigits
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center gap-3 mb-4">
         <ShieldCheck className="w-6 h-6 text-amber-500" />
         <div>
@@ -117,14 +117,14 @@ export function ApprovalPinSettings() {
         <div className="flex gap-3">
           <button
             onClick={() => { setPhase('set'); setMessage(''); setIsError(false) }}
-            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl text-sm transition-colors"
+            className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-semibold text-sm transition-colors"
           >
             Set Approval PIN
           </button>
           <button
             onClick={handleClear}
             disabled={saving}
-            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
+            className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors disabled:opacity-50"
           >
             Remove PIN
           </button>
@@ -159,7 +159,7 @@ export function ApprovalPinSettings() {
                     key={key}
                     onClick={() => handleKey('backspace')}
                     disabled={saving}
-                    className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-600 flex items-center justify-center transition-all"
+                    className="h-14 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-600 flex items-center justify-center transition-all"
                   >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6H6a2 2 0 00-2 2v8a2 2 0 002 2h6l6-6-6-6z" />
@@ -172,7 +172,7 @@ export function ApprovalPinSettings() {
                   key={key}
                   onClick={() => handleKey(key)}
                   disabled={saving || displayDigits.length >= PIN_LENGTH}
-                  className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-xl font-semibold text-gray-800 transition-all disabled:opacity-40"
+                  className="h-14 bg-gray-100 hover:bg-gray-200 active:scale-95 text-xl font-semibold text-gray-800 transition-all disabled:opacity-40"
                 >
                   {key}
                 </button>
@@ -184,13 +184,13 @@ export function ApprovalPinSettings() {
             <button
               onClick={handleSave}
               disabled={saving || displayDigits.length < 4}
-              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-sm transition-colors"
             >
               {saving ? 'Saving…' : phase === 'set' ? 'Next →' : 'Save PIN'}
             </button>
             <button
               onClick={() => { setPhase('idle'); setFirstPin(''); setConfirmPin(''); setMessage(''); setIsError(false) }}
-              className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold"
+              className="px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold"
             >
               Cancel
             </button>

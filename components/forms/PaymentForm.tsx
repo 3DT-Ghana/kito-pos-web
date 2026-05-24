@@ -105,10 +105,10 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         </label>
 
         {selectedEntity ? (
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 ${
+          <div className={`flex items-center gap-3 px-4 py-3 border-2 ${
             type === 'customer' ? 'bg-blue-50 border-blue-200' : 'bg-green-50 border-green-200'
           }`}>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-lg shrink-0 ${
+            <div className={`w-10 h-10 flex items-center justify-center text-white font-bold text-lg shrink-0 ${
               type === 'customer' ? 'bg-blue-600' : 'bg-green-600'
             }`}>
               {selectedEntity.name.charAt(0).toUpperCase()}
@@ -145,11 +145,11 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                 value={search}
                 onChange={e => { setSearch(e.target.value); setShowDropdown(true) }}
                 onFocus={() => setShowDropdown(true)}
-                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
               />
             </div>
             {showDropdown && filteredEntities.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                 {filteredEntities.map(entity => (
                   <button
                     key={entity.id}
@@ -157,7 +157,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                     onClick={() => handleSelect(entity)}
                     className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
                   >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${
+                    <div className={`w-9 h-9 flex items-center justify-center font-bold text-sm shrink-0 ${
                       entity.balance > 0
                         ? type === 'customer' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                         : 'bg-gray-100 text-gray-600'
@@ -178,7 +178,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
               </div>
             )}
             {showDropdown && search.trim() && filteredEntities.length === 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl p-4 text-center text-sm text-gray-500">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
                 No {label.toLowerCase()}s found
               </div>
             )}
@@ -188,7 +188,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
 
       {/* Warning if entity has no balance */}
       {selectedEntity && selectedEntity.balance === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl text-sm font-medium">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 text-sm font-medium">
           ⚠ This {label.toLowerCase()} has no outstanding balance
         </div>
       )}
@@ -205,7 +205,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           step="0.01"
           min="0.01"
           max={selectedEntity?.balance}
-          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-xl font-bold"
+          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-xl font-bold"
         />
         {errors.amount && (
           <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
@@ -220,11 +220,11 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
       {/* Balance Preview */}
       {selectedEntity && selectedEntity.balance > 0 && amount > 0 && (
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+          <div className="bg-red-50 border border-red-100 p-3 text-center">
             <p className="text-xs text-gray-500 mb-1">Current Balance</p>
             <p className="text-lg font-bold text-red-600">{formatCurrency(selectedEntity.balance)}</p>
           </div>
-          <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+          <div className="bg-green-50 border border-green-100 p-3 text-center">
             <p className="text-xs text-gray-500 mb-1">After Payment</p>
             <p className="text-lg font-bold text-green-600">
               {formatCurrency(Math.max(0, selectedEntity.balance - amount))}
@@ -242,7 +242,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           {(['CASH', 'MOMO', 'BANK'] as const).map(method => (
             <label
               key={method}
-              className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 cursor-pointer font-semibold text-sm transition-all ${
+              className={`flex items-center justify-center gap-2 py-3 border-2 cursor-pointer font-semibold text-sm transition-all ${
                 watch('method') === method
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
@@ -261,7 +261,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
 
       {/* Error */}
       {formError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
           ⚠ {formError}
         </div>
       )}
@@ -271,7 +271,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         <button
           type="submit"
           disabled={isSubmitting || !selectedEntity || selectedEntity.balance === 0}
-          className="flex-1 py-4 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md"
+          className="flex-1 py-4 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md"
         >
           {isSubmitting ? 'Recording...' : `Record Payment — ${formatCurrency(amount)}`}
         </button>
@@ -280,7 +280,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="w-28 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+            className="w-28 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>

@@ -87,7 +87,7 @@ export default function InventoryReportsPage() {
             />
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 self-start sm:self-auto"
+              className="px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF
             </button>
@@ -102,13 +102,13 @@ export default function InventoryReportsPage() {
         </div>
 
         {/* Manufacturer filter */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-4 print:hidden">
+        <div className="bg-white border border-gray-200 p-4 print:hidden">
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm font-semibold text-gray-700 shrink-0">Filter by manufacturer:</span>
             <select
               value={manufacturerFilter}
               onChange={e => setManufacturerFilter(e.target.value)}
-              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-500 focus:outline-none bg-white"
+              className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none bg-white"
             >
               <option value="">All Manufacturers</option>
               {manufacturers.map(m => (
@@ -118,7 +118,7 @@ export default function InventoryReportsPage() {
             {manufacturerFilter && (
               <button
                 onClick={() => setManufacturerFilter('')}
-                className="px-3 py-2 text-sm text-gray-500 border-2 border-gray-200 rounded-xl hover:bg-gray-50"
+                className="px-3 py-2 text-sm text-gray-500 border-2 border-gray-200 hover:bg-gray-50"
               >
                 Clear
               </button>
@@ -128,23 +128,23 @@ export default function InventoryReportsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white border border-gray-200 p-4">
             <p className="text-xs font-semibold text-gray-500 uppercase">Total Items</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{totalItems}</p>
           </div>
-          <div className={`rounded-xl border p-4 ${lowStockItems > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
+          <div className={`border p-4 ${lowStockItems > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
             <p className="text-xs font-semibold text-gray-500 uppercase">Low Stock</p>
             <p className={`text-2xl font-bold mt-1 ${lowStockItems > 0 ? 'text-orange-600' : 'text-gray-900'}`}>{lowStockItems}</p>
           </div>
-          <div className={`rounded-xl border p-4 ${outOfStockItems > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
+          <div className={`border p-4 ${outOfStockItems > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}>
             <p className="text-xs font-semibold text-gray-500 uppercase">Out of Stock</p>
             <p className={`text-2xl font-bold mt-1 ${outOfStockItems > 0 ? 'text-red-600' : 'text-gray-900'}`}>{outOfStockItems}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white border border-gray-200 p-4">
             <p className="text-xs font-semibold text-gray-500 uppercase">Stock Value</p>
             <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(totalStockValue)}</p>
           </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
+          <div className="bg-white border border-gray-200 p-4">
             <p className="text-xs font-semibold text-gray-500 uppercase">Potential Profit</p>
             <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(potentialProfit)}</p>
           </div>
@@ -152,7 +152,7 @@ export default function InventoryReportsPage() {
 
         {/* Low Stock Alert */}
         {(lowStockItems > 0 || outOfStockItems > 0) && (
-          <div className="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 rounded-xl print:hidden">
+          <div className="bg-orange-50 border border-orange-200 text-orange-800 px-4 py-3 print:hidden">
             <p className="font-semibold">
               {outOfStockItems > 0 && `${outOfStockItems} item${outOfStockItems !== 1 ? 's' : ''} out of stock`}
               {outOfStockItems > 0 && lowStockItems > 0 && ' · '}
@@ -167,11 +167,11 @@ export default function InventoryReportsPage() {
             <div className="text-gray-500">Loading inventory...</div>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 px-5 py-10 text-center text-gray-500 text-sm">
+          <div className="bg-white border border-gray-200 px-5 py-10 text-center text-gray-500 text-sm">
             No items found{manufacturerFilter ? ' for this manufacturer' : ''}.
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b-2 border-gray-100">

@@ -607,7 +607,7 @@ export default function PosPage() {
   if (showReceipt && lastSaleData) {
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+        <div className="bg-white shadow-2xl max-w-sm w-full overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100">
             <span className="font-bold text-gray-800">Receipt #{lastSaleData.receiptNumber}</span>
             <button onClick={() => setShowReceipt(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
@@ -661,13 +661,13 @@ export default function PosPage() {
           <div className="px-4 pb-4 flex gap-2">
             <button
               onClick={() => window.open(`/sales/${lastSaleData.id}`, '_blank')}
-              className="flex-1 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm"
+              className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-sm"
             >
               Print Receipt
             </button>
             <button
               onClick={() => setShowReceipt(false)}
-              className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm"
+              className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold text-sm"
             >
               New Sale
             </button>
@@ -680,7 +680,7 @@ export default function PosPage() {
   // ── Holds modal ─────────────────────────────────────────────────────────────
   const HoldsModal = () => (
     <div className="fixed inset-0 bg-black/50 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-md overflow-hidden">
+      <div className="bg-white rounded-t-2xl sm:shadow-2xl w-full sm:max-w-md overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b">
           <span className="font-bold text-gray-800">Held Orders ({holds.length})</span>
           <button onClick={() => setShowHolds(false)} className="text-gray-400 text-xl">×</button>
@@ -695,8 +695,8 @@ export default function PosPage() {
                   <p className="font-semibold text-gray-900 text-sm truncate">{hold.label}</p>
                   <p className="text-xs text-gray-400">{hold.cart.length} items · {new Date(hold.savedAt).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
-                <button onClick={() => recallHold(hold)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg">Recall</button>
-                <button onClick={() => deleteHold(hold.id)} className="px-2 py-1.5 bg-red-50 text-red-500 text-xs font-bold rounded-lg">✕</button>
+                <button onClick={() => recallHold(hold)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold">Recall</button>
+                <button onClick={() => deleteHold(hold.id)} className="px-2 py-1.5 bg-red-50 text-red-500 text-xs font-bold">✕</button>
               </div>
             ))}
           </div>
@@ -710,7 +710,7 @@ export default function PosPage() {
     <div className={compact ? '' : 'px-3 pb-2'}>
       {!compact && <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">Customer</p>}
       {selectedCustomer ? (
-        <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
+        <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-2">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">{selectedCustomer.name}</p>
             {selectedCustomer.balance > 0 && (
@@ -731,10 +731,10 @@ export default function PosPage() {
             onChange={e => { setCustomerQuery(e.target.value); setShowCustomerSearch(true) }}
             onFocus={() => setShowCustomerSearch(true)}
             placeholder="Search customer..."
-            className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none"
+            className="w-full px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-400 focus:outline-none"
           />
           {showCustomerSearch && customerResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-30 max-h-40 overflow-y-auto">
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 shadow-xl z-30 max-h-40 overflow-y-auto">
               {customerResults.map(c => (
                 <button
                   key={c.id}
@@ -778,7 +778,7 @@ export default function PosPage() {
             <button
               onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
               title={numpadDrawer === 'docked' ? 'Make drawer' : 'Dock numpad'}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold transition-colors ${
                 numpadDrawer === 'docked'
                   ? 'bg-indigo-100 text-indigo-700'
                   : 'bg-gray-100 text-gray-600'
@@ -804,7 +804,7 @@ export default function PosPage() {
             <button
               onClick={() => setNumpadDrawer('hidden')}
               title="Hide numpad"
-              className="p-1.5 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
+              className="p-1.5 bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -817,7 +817,7 @@ export default function PosPage() {
       <div className="px-3 py-2">
         {/* Context label — desktop only (mobile shows it in the bar above) */}
         {!mobile && numpadTarget !== 'tendered' && (
-          <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+          <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1">
             {numpadTarget === 'qty'
               ? `Setting qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
               : numpadTarget === 'price'
@@ -830,14 +830,14 @@ export default function PosPage() {
             <button
               key={k}
               onClick={() => numpadPress(k)}
-              className="py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
+              className="py-3 bg-gray-100 hover:bg-gray-200 text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
             >
               {k}
             </button>
           ))}
-          <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 rounded-xl text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
-          <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 rounded-xl text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
-          <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 rounded-xl text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
+          <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
+          <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
+          <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
         </div>
       </div>
     </div>
@@ -909,18 +909,18 @@ export default function PosPage() {
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={() => updateQty(idx, line.qty - 1)}
-              className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-red-100 hover:text-red-600 transition-colors"
+              className="w-7 h-7 bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-red-100 hover:text-red-600 transition-colors"
             >−</button>
             <button
               onClick={() => { setSelectedCartIdx(isSelected ? null : idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)) }}
-              className="w-8 h-7 rounded-lg bg-gray-50 border border-gray-200 font-bold text-gray-800 text-sm flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
+              className="w-8 h-7 bg-gray-50 border border-gray-200 font-bold text-gray-800 text-sm flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
               title="Tap to set qty via numpad"
             >
               {line.qty}
             </button>
             <button
               onClick={() => updateQty(idx, line.qty + 1)}
-              className="w-7 h-7 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-green-100 hover:text-green-700 transition-colors"
+              className="w-7 h-7 bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-green-100 hover:text-green-700 transition-colors"
             >+</button>
           </div>
           {/* Line total */}
@@ -939,7 +939,7 @@ export default function PosPage() {
                   <button
                     key={t.key}
                     onClick={() => setLineTier(idx, t.key)}
-                    className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-colors ${
+                    className={`px-2.5 py-1 text-xs font-bold border transition-colors ${
                       line.activeTier === t.key ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200 hover:border-amber-300'
                     }`}
                   >
@@ -953,7 +953,7 @@ export default function PosPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-gray-500">Line disc.:</span>
                 {/* Mode toggle */}
-                <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex border border-gray-200 overflow-hidden">
                   <button
                     onClick={() => setLineDiscountMode(idx, 'pct')}
                     className={`px-2 py-1 text-xs font-bold transition-colors ${line.lineDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
@@ -971,7 +971,7 @@ export default function PosPage() {
                     onChange={e => setLineDiscount(idx, parseFloat(e.target.value) || 0)}
                     placeholder="0"
                     max={line.lineDiscountMode === 'pct' ? 100 : line.basePrice * line.qty}
-                    className="w-20 px-2 py-1 border border-gray-200 rounded-lg text-xs font-bold focus:border-indigo-400 focus:outline-none"
+                    className="w-20 px-2 py-1 border border-gray-200 text-xs font-bold focus:border-indigo-400 focus:outline-none"
                   />
                 ) : (
                   <button
@@ -981,7 +981,7 @@ export default function PosPage() {
                       setNumpadTarget('lineDiscount')
                       setSelectedCartIdx(idx)
                     }}
-                    className="px-2.5 py-1 text-xs font-bold rounded-lg border border-gray-200 hover:border-indigo-300 bg-white"
+                    className="px-2.5 py-1 text-xs font-bold border border-gray-200 hover:border-indigo-300 bg-white"
                   >
                     {line.lineDiscount > 0
                       ? line.lineDiscountMode === 'pct'
@@ -1008,11 +1008,11 @@ export default function PosPage() {
           <div className="flex gap-1.5">
             <button
               onClick={() => setOrderDiscountMode('pct')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
+              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
             >%</button>
             <button
               onClick={() => setOrderDiscountMode('fixed')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg border-2 transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
+              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
             >GHS</button>
             <input
               type="number"
@@ -1020,7 +1020,7 @@ export default function PosPage() {
               value={orderDiscountValue}
               onChange={e => setOrderDiscountValue(e.target.value)}
               placeholder={orderDiscountMode === 'pct' ? '0%' : '0.00'}
-              className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold focus:border-indigo-400 focus:outline-none"
+              className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
             />
           </div>
           {orderDiscountNum > 0 && (
@@ -1030,7 +1030,7 @@ export default function PosPage() {
       )}
 
       {/* Totals summary */}
-      <div className="bg-gray-50 rounded-xl px-3 py-2.5 mb-2 space-y-1">
+      <div className="bg-gray-50 px-3 py-2.5 mb-2 space-y-1">
         {cartSubtotal !== grandTotal && (
           <div className="flex justify-between text-xs text-gray-500">
             <span>Subtotal</span><span>{formatCurrency(cartSubtotal)}</span>
@@ -1052,7 +1052,7 @@ export default function PosPage() {
           <button
             key={m}
             onClick={() => setMethod(m)}
-            className={`py-2.5 rounded-xl text-xs font-bold border-2 transition-colors touch-manipulation ${
+            className={`py-2.5 text-xs font-bold border-2 transition-colors touch-manipulation ${
               method === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
             }`}
           >
@@ -1071,15 +1071,15 @@ export default function PosPage() {
             onChange={e => setTendered(e.target.value)}
             onFocus={() => setNumpadTarget('tendered')}
             placeholder={`Tendered (e.g. ${grandTotal > 0 ? grandTotal.toFixed(2) : '0.00'})`}
-            className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm font-bold focus:border-indigo-400 focus:outline-none"
+            className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
           />
           {tendered && change >= 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">
+            <div className="mt-1 flex justify-between text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5">
               <span>Change</span><span>{formatCurrency(change)}</span>
             </div>
           )}
           {tendered && change < 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-xl">
+            <div className="mt-1 flex justify-between text-sm font-bold text-red-600 bg-red-50 px-3 py-1.5">
               <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
             </div>
           )}
@@ -1088,7 +1088,7 @@ export default function PosPage() {
 
       {/* Credit sale indicator */}
       {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
-        <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl">
+        <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
           {formatCurrency(Math.abs(change))} will be added to {selectedCustomer.name}&apos;s balance
         </div>
       )}
@@ -1099,14 +1099,14 @@ export default function PosPage() {
         value={note}
         onChange={e => setNote(e.target.value)}
         placeholder="Sale note (optional)"
-        className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-xs focus:border-indigo-400 focus:outline-none mb-2"
+        className="w-full px-3 py-2 border-2 border-gray-200 text-xs focus:border-indigo-400 focus:outline-none mb-2"
       />
 
       {errorMsg && (
-        <p className="text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded-xl mb-2">{errorMsg}</p>
+        <p className="text-xs text-red-600 bg-red-50 px-2 py-1.5 mb-2">{errorMsg}</p>
       )}
       {noticeMsg && (
-        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 rounded-xl mb-2">{noticeMsg}</p>
+        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 mb-2">{noticeMsg}</p>
       )}
 
       <button
@@ -1120,7 +1120,7 @@ export default function PosPage() {
           }
         }}
         disabled={cart.length === 0 || isSubmitting}
-        className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-2xl text-base transition-colors active:scale-95 shadow-md touch-manipulation"
+        className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-base transition-colors active:scale-95 shadow-md touch-manipulation"
       >
         {isSubmitting ? 'Processing…' : `✓ Charge ${formatCurrency(grandTotal)}`}
       </button>
@@ -1136,7 +1136,7 @@ export default function PosPage() {
     return (
       <button
         onClick={() => addToCart(item)}
-        className={`relative flex flex-col items-center justify-center p-2 rounded-xl border-2 text-center transition-all active:scale-95 touch-manipulation ${
+        className={`relative flex flex-col items-center justify-center p-2 border-2 text-center transition-all active:scale-95 touch-manipulation ${
           inCart
             ? 'bg-indigo-50 border-indigo-400 shadow-md'
             : isLow
@@ -1150,7 +1150,7 @@ export default function PosPage() {
           </span>
         )}
         <div
-          className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-base mb-1 ${
+          className={`w-9 h-9 flex items-center justify-center font-bold text-base mb-1 ${
             isLow ? 'bg-amber-100 text-amber-700' : ''
           }`}
           style={!isLow && item.category?.color
@@ -1189,7 +1189,7 @@ export default function PosPage() {
           onChange={e => { setSearch(e.target.value); if (e.target.value) setActiveGroup('ALL') }}
           onKeyDown={handleSearchKey}
           placeholder="Search item or scan barcode…"
-          className={`w-full pl-9 pr-4 border-2 border-indigo-300 rounded-xl focus:border-indigo-500 focus:outline-none font-medium ${compact ? 'py-2 text-sm' : 'py-2.5 text-sm'}`}
+          className={`w-full pl-9 pr-4 border-2 border-indigo-300 focus:border-indigo-500 focus:outline-none font-medium ${compact ? 'py-2 text-sm' : 'py-2.5 text-sm'}`}
           autoComplete="off"
         />
       </div>
@@ -1205,7 +1205,7 @@ export default function PosPage() {
             <button
               key={t.key}
               onClick={() => setGlobalTier(t.key)}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg border-2 transition-colors ${
+              className={`px-2.5 py-1 text-xs font-bold border-2 transition-colors ${
                 globalTier === t.key ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-500 border-gray-200 hover:border-amber-300'
               }`}
             >
@@ -1223,7 +1223,7 @@ export default function PosPage() {
       {isLoadingItems ? (
         <div className={`grid ${cols} gap-3`}>
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-28 bg-white rounded-2xl animate-pulse border border-gray-200" />
+            <div key={i} className="h-28 bg-white animate-pulse border border-gray-200" />
           ))}
         </div>
       ) : (
@@ -1234,11 +1234,11 @@ export default function PosPage() {
               <button
                 key={cat.id}
                 onClick={() => setActiveGroup(cat.id)}
-                className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-transparent bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all"
+                className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-transparent bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all"
                 style={{ borderColor: (cat.color ?? '#6366f1') + '44' }}
               >
                 <div
-                  className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-sm"
+                  className="w-14 h-14 flex items-center justify-center text-3xl shadow-sm"
                   style={{ backgroundColor: (cat.color ?? '#6366f1') + '20' }}
                 >
                   {cat.icon ?? '📦'}
@@ -1255,9 +1255,9 @@ export default function PosPage() {
           {/* All items tile */}
           <button
             onClick={() => setActiveGroup('__ALL_ITEMS__')}
-            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-gray-300 bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all hover:border-indigo-300"
+            className="flex flex-col items-center justify-center gap-2 p-4 border-2 border-dashed border-gray-300 bg-white hover:shadow-md active:scale-95 touch-manipulation transition-all hover:border-indigo-300"
           >
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl bg-gray-100">
+            <div className="w-14 h-14 flex items-center justify-center text-3xl bg-gray-100">
               🏪
             </div>
             <div className="text-center">
@@ -1305,7 +1305,7 @@ export default function PosPage() {
             <button
               onClick={() => addAllToCart(displayItems)}
               style={{ backgroundColor: activeCat.color ?? '#6366f1' }}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold text-white active:scale-95 touch-manipulation transition-transform"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-white active:scale-95 touch-manipulation transition-transform"
             >
               + Add All
             </button>
@@ -1315,7 +1315,7 @@ export default function PosPage() {
           {isLoadingItems ? (
             <div className={`grid ${cols} gap-2`}>
               {Array.from({ length: 12 }).map((_, i) => (
-                <div key={i} className="h-24 bg-white rounded-xl animate-pulse border border-gray-200" />
+                <div key={i} className="h-24 bg-white animate-pulse border border-gray-200" />
               ))}
             </div>
           ) : displayItems.length === 0 ? (
@@ -1388,9 +1388,9 @@ export default function PosPage() {
     const numpadKeys = ['1','2','3','4','5','6','7','8','9','','0','backspace']
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs overflow-hidden">
+        <div className="bg-white shadow-2xl w-full max-w-xs overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
+            <div className="w-10 h-10 bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
             <div>
               <p className="font-bold text-gray-900">Manager Approval Required</p>
               <p className="text-xs text-gray-500">Enter a manager&apos;s approval PIN to proceed.</p>
@@ -1410,7 +1410,7 @@ export default function PosPage() {
               ))}
             </div>
             {pinError && (
-              <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mt-2 text-center">{pinError}</p>
+              <p className="text-xs text-red-600 bg-red-50 px-3 py-2 mt-2 text-center">{pinError}</p>
             )}
           </div>
 
@@ -1426,7 +1426,7 @@ export default function PosPage() {
                     key={key}
                     onClick={() => handlePinKey('backspace')}
                     disabled={isPinVerifying}
-                    className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-600 flex items-center justify-center transition-all disabled:opacity-40"
+                    className="h-14 bg-gray-100 hover:bg-gray-200 active:scale-95 text-gray-600 flex items-center justify-center transition-all disabled:opacity-40"
                   >
                     <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6H6a2 2 0 00-2 2v8a2 2 0 002 2h6l6-6-6-6z" />
@@ -1439,7 +1439,7 @@ export default function PosPage() {
                   key={key}
                   onClick={() => handlePinKey(key)}
                   disabled={isPinVerifying || pinDigits.length >= PIN_LENGTH}
-                  className="h-14 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-xl font-semibold text-gray-800 transition-all disabled:opacity-40"
+                  className="h-14 bg-gray-100 hover:bg-gray-200 active:scale-95 text-xl font-semibold text-gray-800 transition-all disabled:opacity-40"
                 >
                   {key}
                 </button>
@@ -1452,13 +1452,13 @@ export default function PosPage() {
             <button
               onClick={() => submitPin(pinDigits)}
               disabled={isPinVerifying || pinDigits.length < 4}
-              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
+              className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-bold text-sm transition-colors"
             >
               {isPinVerifying ? 'Verifying…' : 'Approve'}
             </button>
             <button
               onClick={() => { setShowPinModal(false); setPinDigits(''); setPinError('') }}
-              className="px-4 py-3 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200"
+              className="px-4 py-3 bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
             >
               Cancel
             </button>
@@ -1505,7 +1505,7 @@ export default function PosPage() {
             onClick={holdOrder}
             disabled={cart.length === 0}
             title="Hold order"
-            className="p-1.5 rounded-lg hover:bg-indigo-600 disabled:opacity-40 transition-colors text-xs font-bold"
+            className="p-1.5 hover:bg-indigo-600 disabled:opacity-40 transition-colors text-xs font-bold"
           >
             ⏸ Hold
           </button>
@@ -1514,7 +1514,7 @@ export default function PosPage() {
           <button
             onClick={() => setShowHolds(true)}
             title="Held orders"
-            className="relative p-1.5 rounded-lg hover:bg-indigo-600 transition-colors"
+            className="relative p-1.5 hover:bg-indigo-600 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
@@ -1531,7 +1531,7 @@ export default function PosPage() {
           <button
             onClick={() => router.push('/sales')}
             title="Exit POS"
-            className="p-1.5 rounded-lg hover:bg-indigo-600 transition-colors"
+            className="p-1.5 hover:bg-indigo-600 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1633,7 +1633,7 @@ export default function PosPage() {
                   </div>
                   <button
                     onClick={() => setMobileTab('cart')}
-                    className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm active:scale-95 transition-all"
+                    className="px-5 py-2.5 bg-indigo-600 text-white font-bold text-sm active:scale-95 transition-all"
                   >
                     View Cart →
                   </button>
@@ -1659,7 +1659,7 @@ export default function PosPage() {
                     <p className="text-sm">Cart is empty</p>
                     <button
                       onClick={() => setMobileTab('items')}
-                      className="mt-4 px-5 py-2 bg-indigo-50 text-indigo-600 font-semibold rounded-xl text-sm"
+                      className="mt-4 px-5 py-2 bg-indigo-50 text-indigo-600 font-semibold text-sm"
                     >
                       ← Browse Items
                     </button>

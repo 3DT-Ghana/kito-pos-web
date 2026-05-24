@@ -176,7 +176,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
       <div className="max-w-2xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push(`/sales/${id}`)} className="p-2 hover:bg-gray-100 rounded-xl">
+          <button onClick={() => router.push(`/sales/${id}`)} className="p-2 hover:bg-gray-100">
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -195,7 +195,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                 key={type}
                 type="button"
                 onClick={() => setPaymentType(type)}
-                className={`py-4 rounded-2xl font-bold text-base transition-all border-2 flex flex-col items-center gap-1 ${
+                className={`py-4 font-bold text-base transition-all border-2 flex flex-col items-center gap-1 ${
                   paymentType === type
                     ? type === 'CASH' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-orange-500 text-white border-orange-500 shadow-lg'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
@@ -214,8 +214,8 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
               {paymentType === 'CASH' && <span className="text-gray-400 font-normal"> (optional)</span>}
             </label>
             {selectedCustomer ? (
-              <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
+              <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border-2 border-blue-200">
+                <div className="w-9 h-9 bg-blue-600 flex items-center justify-center text-white font-bold flex-shrink-0">
                   {selectedCustomer.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -235,15 +235,15 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                   value={customerSearch}
                   onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
                   onFocus={() => setShowCustomerDropdown(true)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                  className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
                 />
                 {showCustomerDropdown && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                     {filteredCustomers.map(c => (
                       <button key={c.id} type="button"
                         onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setShowCustomerDropdown(false) }}
                         className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                        <div className={`w-8 h-8 flex items-center justify-center font-bold text-sm flex-shrink-0 ${c.balance > 0 ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
                           {c.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -271,11 +271,11 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                 value={itemSearch}
                 onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
                 onFocus={() => setShowItemDropdown(true)}
-                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
               />
             </div>
             {showItemDropdown && filteredItems.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
                 {filteredItems.map(item => {
                   const inCart = cart.find(c => c.itemId === item.id)
                   const outOfStock = item.quantity === 0 && !inCart
@@ -301,7 +301,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
 
           {/* Cart */}
           {cart.length > 0 && (
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-gray-50 border border-gray-200 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-100 border-b border-gray-200 flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Cart ({cart.length} item{cart.length !== 1 ? 's' : ''})</span>
                 <button type="button" onClick={() => setCart([])} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear all</button>
@@ -320,7 +320,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Qty</label>
-                        <div className="flex items-center border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
+                        <div className="flex items-center border-2 border-gray-200 overflow-hidden bg-white">
                           <button type="button" onClick={() => updateQty(item.itemId, item.quantity - 1)}
                             className="px-2.5 py-2 text-gray-600 hover:bg-gray-100 font-bold text-base">−</button>
                           <input type="number" value={item.quantity}
@@ -335,11 +335,11 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                         <input type="number" value={item.price}
                           onChange={e => updatePrice(item.itemId, parseFloat(e.target.value) || 0)}
                           step="0.01" min="0"
-                          className="w-full px-2 py-2 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-blue-500 focus:outline-none" />
+                          className="w-full px-2 py-2 border-2 border-gray-200 text-sm font-bold bg-white focus:border-blue-500 focus:outline-none" />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Subtotal (GH₵)</label>
-                        <div className="px-2 py-2 bg-white border-2 border-gray-200 rounded-lg text-sm font-bold text-right text-gray-900">
+                        <div className="px-2 py-2 bg-white border-2 border-gray-200 text-sm font-bold text-right text-gray-900">
                           {(item.price * item.quantity).toFixed(2)}
                         </div>
                       </div>
@@ -352,7 +352,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
 
           {/* Payment */}
           {cart.length > 0 && (
-            <div className={`rounded-2xl border-2 p-5 space-y-4 ${paymentType === 'CASH' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
+            <div className={`border-2 p-5 space-y-4 ${paymentType === 'CASH' ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
               <div className="flex justify-between items-center">
                 <span className="text-base font-bold text-gray-800">Total</span>
                 <span className="text-3xl font-bold text-gray-900">{formatCurrency(totalAmount)}</span>
@@ -363,10 +363,10 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Amount Received (GH₵)</label>
                     <input type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
                       step="0.01" min="0" placeholder={totalAmount > 0 ? totalAmount.toFixed(2) : '0.00'}
-                      className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none text-xl font-bold bg-white" />
+                      className="w-full px-4 py-3 border-2 border-blue-200 focus:border-blue-500 focus:outline-none text-xl font-bold bg-white" />
                   </div>
                   {amountPaid !== '' && change >= 0 && (
-                    <div className="flex justify-between items-center bg-green-100 rounded-xl p-3">
+                    <div className="flex justify-between items-center bg-green-100 p-3">
                       <span className="text-sm font-semibold text-green-800">Change:</span>
                       <span className="text-xl font-bold text-green-700">{formatCurrency(change)}</span>
                     </div>
@@ -378,9 +378,9 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Deposit / Part Payment (GH₵) <span className="text-gray-400 font-normal">optional</span></label>
                     <input type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)}
                       step="0.01" min="0" max={totalAmount} placeholder="0.00"
-                      className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:border-orange-400 focus:outline-none text-xl font-bold bg-white" />
+                      className="w-full px-4 py-3 border-2 border-orange-200 focus:border-orange-400 focus:outline-none text-xl font-bold bg-white" />
                   </div>
-                  <div className="flex justify-between items-center bg-orange-100 rounded-xl p-3">
+                  <div className="flex justify-between items-center bg-orange-100 p-3">
                     <span className="text-sm font-semibold text-orange-800">Credit owed:</span>
                     <span className="text-xl font-bold text-orange-700">{formatCurrency(Math.max(0, creditAmount))}</span>
                   </div>
@@ -390,16 +390,16 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
           )}
 
           {formError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">⚠ {formError}</div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">⚠ {formError}</div>
           )}
 
           <div className="flex flex-col sm:flex-row gap-3 pt-1">
             <button type="submit" disabled={isSubmitting || cart.length === 0}
-              className={`flex-1 py-4 text-white text-base font-bold rounded-xl disabled:opacity-50 transition-all shadow-md ${paymentType === 'CASH' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
+              className={`flex-1 py-4 text-white text-base font-bold disabled:opacity-50 transition-all shadow-md ${paymentType === 'CASH' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-orange-500 hover:bg-orange-600'}`}>
               {isSubmitting ? 'Saving…' : `Save Changes — ${formatCurrency(totalAmount)}`}
             </button>
             <button type="button" onClick={() => router.push(`/sales/${id}`)} disabled={isSubmitting}
-              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
               Cancel
             </button>
           </div>

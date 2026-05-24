@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Briefcase, Plus, X, ChevronRight } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
+import { Pagination } from '@/components/ui/Pagination'
 
 type RunStatus = 'DRAFT' | 'APPROVED' | 'PAID'
 
@@ -49,6 +50,8 @@ export default function PayrollRunsPage() {
   const [createError, setCreateError] = useState('')
   const [periodYear, setPeriodYear] = useState(now.getFullYear())
   const [periodMonth, setPeriodMonth] = useState(now.getMonth() + 1)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,7 +98,7 @@ export default function PayrollRunsPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-green-100 p-3 rounded-lg">
+            <div className="bg-green-100 p-3">
               <Briefcase className="w-8 h-8 text-green-700" />
             </div>
             <div>
@@ -105,14 +108,14 @@ export default function PayrollRunsPage() {
           </div>
           <button
             onClick={() => { setCreateError(''); setShowCreate(true) }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold shadow transition active:scale-95"
           >
             <Plus className="w-4 h-4" /> New Run
           </button>
         </div>
 
         {/* How it works note */}
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+        <div className="bg-blue-50 border-2 border-blue-200 p-4 text-sm text-blue-800">
           <p className="font-semibold mb-1">How payroll runs work</p>
           <p className="text-xs text-blue-700">
             1. Create a run for a month — it auto-computes PAYE and SSF for all active employees (DRAFT).
@@ -122,7 +125,7 @@ export default function PayrollRunsPage() {
         </div>
 
         {/* Runs list */}
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white shadow-sm border-2 border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-gray-400">Loading payroll runs…</div>
           ) : error ? (
@@ -149,7 +152,7 @@ export default function PayrollRunsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {runs.map(run => (
+                  {runs.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(run => (
                     <tr
                       key={run.id}
                       onClick={() => router.push(`/payroll/runs/${run.id}`)}
@@ -179,22 +182,27 @@ export default function PayrollRunsPage() {
           )}
         </div>
 
-        <p className="text-sm text-gray-400 text-center">{total} run{total !== 1 ? 's' : ''} total</p>
+        {runs.length > 0 && (
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-gray-400">{total} run{total !== 1 ? 's' : ''} total</span>
+            <Pagination page={page} totalPages={Math.ceil(runs.length / PAGE_SIZE)} onPageChange={setPage} totalItems={runs.length} pageSize={PAGE_SIZE} />
+          </div>
+        )}
       </div>
 
       {/* Create Run Modal */}
       {showCreate && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+          <div className="bg-white shadow-2xl w-full max-w-sm">
             <div className="flex items-center justify-between p-6 border-b-2 border-gray-200">
               <h2 className="text-xl font-bold text-gray-900">New Payroll Run</h2>
-              <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-gray-100 rounded-lg transition">
+              <button onClick={() => setShowCreate(false)} className="p-2 hover:bg-gray-100 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               {createError && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium">
+                <div className="bg-red-50 border-2 border-red-200 p-3 text-sm text-red-700 font-medium">
                   {createError}
                 </div>
               )}
@@ -203,7 +211,7 @@ export default function PayrollRunsPage() {
                 <select
                   value={periodMonth}
                   onChange={e => setPeriodMonth(parseInt(e.target.value))}
-                  className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                  className="w-full border-2 border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-green-500"
                 >
                   {MONTH_NAMES.map((m, i) => (
                     <option key={i + 1} value={i + 1}>{m}</option>
@@ -218,20 +226,20 @@ export default function PayrollRunsPage() {
                   onChange={e => setPeriodYear(parseInt(e.target.value))}
                   min="2000"
                   max="2100"
-                  className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-500"
+                  className="w-full border-2 border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-green-500"
                 />
               </div>
               <p className="text-xs text-gray-500">
                 This will compute PAYE and SSF deductions for all active employees and create a DRAFT run.
               </p>
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
+                <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 border-2 border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition">
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={creating}
-                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50"
+                  className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold shadow transition disabled:opacity-50"
                 >
                   {creating ? 'Creating…' : 'Create Run'}
                 </button>

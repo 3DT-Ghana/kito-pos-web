@@ -217,7 +217,7 @@ export default function ApplicationDetailPage() {
       </div>
 
       {/* Status banner */}
-      <div className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${cfg.className}`}>
+      <div className={`flex items-start gap-3 px-4 py-3 border ${cfg.className}`}>
         <Icon className="w-5 h-5 shrink-0 mt-0.5" />
         <div>
           <p className="text-sm font-medium">{cfg.label}</p>
@@ -235,7 +235,7 @@ export default function ApplicationDetailPage() {
 
       {uploadMessage && (
         <div
-          className={`text-sm px-4 py-3 rounded-lg border ${
+          className={`text-sm px-4 py-3 border ${
             uploadMessage.type === 'success'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
               : 'bg-red-50 text-red-700 border-red-100'
@@ -246,13 +246,13 @@ export default function ApplicationDetailPage() {
       )}
 
       {application.status === 'PENDING' && missingRequiredDocs.length > 0 && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
+        <div className="bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
           Required before approval: {missingRequiredDocs.join(', ')}.
         </div>
       )}
 
       {/* Business details */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      <div className="bg-white border border-gray-200 p-6 space-y-3">
         <h2 className="text-sm font-semibold text-gray-800">Business Details</h2>
         <Row label="Type" value={application.businessType.charAt(0) + application.businessType.slice(1).toLowerCase()} />
         <Row label="Address" value={application.businessAddress} />
@@ -267,7 +267,7 @@ export default function ApplicationDetailPage() {
       </div>
 
       {/* Directors */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+      <div className="bg-white border border-gray-200 p-6 space-y-3">
         <h2 className="text-sm font-semibold text-gray-800">
           Directors / Owners ({directors.length})
         </h2>
@@ -294,7 +294,7 @@ export default function ApplicationDetailPage() {
 
       {/* Documents */}
       {application.documents.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-500" />
             KYC Documents ({application.documents.length})
@@ -302,11 +302,11 @@ export default function ApplicationDetailPage() {
           {application.documents.map((doc) => (
             <div key={doc.id} className="flex items-center gap-3">
               {doc.fileUrl.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                <div className="relative w-24 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                <div className="relative w-24 h-16 overflow-hidden border border-gray-200 shrink-0">
                   <Image src={doc.fileUrl} alt={doc.label ?? doc.documentType} fill className="object-cover" />
                 </div>
               ) : (
-                <div className="w-24 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                <div className="w-24 h-16 border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
                   <FileText className="w-6 h-6 text-gray-400" />
                 </div>
               )}
@@ -332,7 +332,7 @@ export default function ApplicationDetailPage() {
       )}
 
       {application.status === 'PENDING' && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <Upload className="w-4 h-4 text-indigo-500" />
             Upload / Retry Documents
@@ -397,7 +397,7 @@ export default function ApplicationDetailPage() {
       )}
 
       {application.documents.length === 0 && application.status === 'PENDING' && !missingRequiredDocs.length && (
-        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
+        <div className="bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
           No documents uploaded yet. They are optional for this application, but adding them can speed up review.
         </div>
       )}
@@ -436,7 +436,7 @@ function UploadRow({
   onUpload: () => void
 }) {
   return (
-    <div className="rounded-lg border border-gray-100 p-4 space-y-3">
+    <div className="border border-gray-100 p-4 space-y-3">
       <div>
         <p className="text-sm font-medium text-gray-800">{label}</p>
         <p className="text-xs text-gray-400 mt-1">{helper}</p>
@@ -453,7 +453,7 @@ function UploadRow({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-4 py-2 border border-gray-300 text-sm hover:bg-gray-50 transition-colors"
         >
           {file ? 'Change file' : 'Choose file'}
         </button>
@@ -462,7 +462,7 @@ function UploadRow({
           type="button"
           onClick={onUpload}
           disabled={disabled}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+          className="px-4 py-2 bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-60 transition-colors"
         >
           {buttonLabel}
         </button>

@@ -184,13 +184,13 @@ export function Sidebar() {
             <button
               onClick={toggle}
               title="Expand sidebar"
-              className="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center hover:bg-blue-500 transition-colors"
+              className="w-9 h-9 bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors"
             >
               <LayoutDashboard className="w-4 h-4 text-white" />
             </button>
           ) : (
             <>
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 bg-blue-600 flex items-center justify-center shrink-0">
                 <LayoutDashboard className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ export function Sidebar() {
               <button
                 onClick={toggle}
                 title="Collapse sidebar"
-                className="p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
+                className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
@@ -226,7 +226,7 @@ export function Sidebar() {
                         key={item.href}
                         href={item.href}
                         title={`${group.label}: ${item.name}`}
-                        className={`flex items-center justify-center w-9 h-9 mx-auto rounded-lg transition-all ${
+                        className={`flex items-center justify-center w-9 h-9 mx-auto transition-all ${
                           active
                             ? 'bg-blue-600 text-white'
                             : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -245,7 +245,7 @@ export function Sidebar() {
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
-                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors mt-2 ${
+                  className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors mt-2 ${
                     groupActive ? 'text-slate-300' : 'text-slate-500 hover:text-slate-400'
                   }`}
                 >
@@ -263,7 +263,7 @@ export function Sidebar() {
                         <Link
                           key={item.href}
                           href={item.href}
-                          className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all ${
+                          className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-all ${
                             active
                               ? 'bg-blue-600 text-white'
                               : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -286,13 +286,13 @@ export function Sidebar() {
           {collapsed ? (
             <div
               title={`${user?.name} · ${roleLabel}`}
-              className="w-9 h-9 rounded-lg bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto"
+              className="w-9 h-9 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto"
             >
               {initials}
             </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs shrink-0">
+              <div className="w-8 h-8 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs shrink-0">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
@@ -301,7 +301,7 @@ export function Sidebar() {
               </div>
               <button
                 onClick={openSignOut}
-                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
+                className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors shrink-0"
                 title="Sign out"
               >
                 <LogOut className="w-4 h-4" />

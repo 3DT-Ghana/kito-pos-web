@@ -54,7 +54,7 @@ function Stepper({
   const borderCls = color === 'amber' ? 'border-amber-300' : color === 'green' ? 'border-green-300' : 'border-gray-200'
   const hoverCls = color === 'amber' ? 'hover:bg-amber-50' : color === 'green' ? 'hover:bg-green-50' : 'hover:bg-gray-100'
   return (
-    <div className={`flex items-center border-2 ${borderCls} rounded-lg overflow-hidden bg-white shrink-0`}>
+    <div className={`flex items-center border-2 ${borderCls} overflow-hidden bg-white shrink-0`}>
       <button type="button" onClick={onDecrement} disabled={min !== undefined && value <= min}
         className={`px-2 md:px-3 py-1.5 md:py-2 text-gray-600 ${hoverCls} font-bold text-sm disabled:opacity-30 transition-colors`}>−</button>
       <input type="number" value={value}
@@ -262,18 +262,18 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
 
       {/* Draft restore banner */}
       {hasDraft && (
-        <div className="flex items-center gap-3 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3 bg-amber-50 border-2 border-amber-300 px-4 py-3">
           <span className="text-xl shrink-0">📋</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-amber-900">You have an unsaved purchase draft</p>
             <p className="text-xs text-amber-700">Continue where you left off?</p>
           </div>
           <button type="button" onClick={restoreDraft}
-            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg shrink-0 transition-colors">
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shrink-0 transition-colors">
             Restore
           </button>
           <button type="button" onClick={discardDraft}
-            className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold rounded-lg shrink-0 transition-colors">
+            className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold shrink-0 transition-colors">
             Discard
           </button>
         </div>
@@ -286,7 +286,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
           const isCash = type === 'CASH'
           return (
             <button key={type} type="button" onClick={() => setPurchaseType(type)}
-              className={`py-3.5 rounded-xl font-bold text-sm transition-all border-2 flex items-center justify-center gap-2.5 ${
+              className={`py-3.5 font-bold text-sm transition-all border-2 flex items-center justify-center gap-2.5 ${
                 active
                   ? isCash
                     ? 'bg-green-600 text-white border-green-600 shadow-md'
@@ -313,8 +313,8 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
           Supplier <span className="text-red-500">*</span>
         </label>
         {selectedSupplier ? (
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-green-50 border-2 border-green-200 rounded-xl">
-            <div className="w-9 h-9 rounded-lg bg-green-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-green-50 border-2 border-green-200">
+            <div className="w-9 h-9 bg-green-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
               {selectedSupplier.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -332,15 +332,15 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
               value={supplierSearch}
               onChange={e => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true) }}
               onFocus={() => setShowSupplierDropdown(true)}
-              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm"
             />
             {showSupplierDropdown && filteredSuppliers.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                 {filteredSuppliers.map(s => (
                   <button key={s.id} type="button"
                     onClick={() => { setSelectedSupplier(s); setSupplierSearch(''); setShowSupplierDropdown(false) }}
                     className="w-full px-4 py-2.5 text-left hover:bg-green-50 flex items-center gap-3 border-b border-gray-100 last:border-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${s.balance > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
+                    <div className={`w-8 h-8 flex items-center justify-center font-bold text-sm shrink-0 ${s.balance > 0 ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>
                       {s.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -352,7 +352,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
               </div>
             )}
             {showSupplierDropdown && supplierSearch.trim() && filteredSuppliers.length === 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl p-4 text-center text-sm text-gray-500">No suppliers found</div>
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">No suppliers found</div>
             )}
           </>
         )}
@@ -371,11 +371,11 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
             value={itemSearch}
             onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
             onFocus={() => setShowItemDropdown(true)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm"
           />
         </div>
         {showItemDropdown && filteredItems.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
             {filteredItems.map(item => {
               const inCart = cart.find(c => c.itemId === item.id)
               const stockTracked = isInventoryItemType(item.itemType)
@@ -412,7 +412,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
           </div>
         )}
         {showItemDropdown && itemSearch.trim() && filteredItems.length === 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl p-4 text-center text-sm text-gray-500">
+          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
             No items found matching &ldquo;{itemSearch}&rdquo;
           </div>
         )}
@@ -420,7 +420,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
 
       {/* Cart */}
       {cart.length > 0 && (
-        <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white border-2 border-gray-200 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -500,7 +500,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                         <input type="number" value={item.costPrice}
                           onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
                           step="0.01" min="0"
-                          className="w-28 px-2.5 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right" />
+                          className="w-28 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right" />
                       </div>
                     </td>
                     {/* Subtotal */}
@@ -564,7 +564,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                         </p>
                         <div className="flex items-center gap-1">
                           <input type="number" value={item.costPrice} onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
-                            step="0.01" min="0" className="w-20 px-2 py-1 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                            step="0.01" min="0" className="w-20 px-2 py-1 border-2 border-gray-200 text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                           <span className="text-xs text-gray-400">/{item.unitName ?? 'ctn'}</span>
                         </div>
                       </div>
@@ -581,7 +581,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                       <div className="flex flex-col items-end">
                         <label className="text-[10px] text-gray-400 mb-0.5">Price/{item.unitName}</label>
                         <input type="number" value={item.costPrice} onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
-                          step="0.01" min="0" className="w-20 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                          step="0.01" min="0" className="w-20 px-2 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                       </div>
                     </div>
                   ) : (
@@ -591,7 +591,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                         onIncrement={() => updateQty(item.itemId, item.quantity + 1)}
                         onChange={v => updateQty(item.itemId, v)} />
                       <input type="number" value={item.costPrice} onChange={e => updateCostPrice(item.itemId, parseFloat(e.target.value) || 0)}
-                        step="0.01" min="0" className="w-20 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        step="0.01" min="0" className="w-20 px-2 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-green-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     </div>
                   )}
                 </div>
@@ -609,14 +609,14 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
 
       {/* Payment Section */}
       {cart.length > 0 && (
-        <div className={`rounded-2xl border-2 p-5 space-y-4 ${purchaseType === 'CASH' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div className={`border-2 p-5 space-y-4 ${purchaseType === 'CASH' ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
           <div className="flex justify-between items-center border-b border-gray-200 pb-3">
             <span className="text-base font-bold text-gray-700">Total</span>
             <span className="text-3xl font-bold text-gray-900">{formatCurrency(totalAmount)}</span>
           </div>
 
           {purchaseType === 'CASH' ? (
-            <div className="flex items-center gap-3 bg-green-100 rounded-xl p-3">
+            <div className="flex items-center gap-3 bg-green-100 p-3">
               <span className="text-green-700 text-xl">✓</span>
               <div>
                 <p className="text-sm font-bold text-green-800">Paying in full — {formatCurrency(totalAmount)}</p>
@@ -631,14 +631,14 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
                 </label>
                 <input type="number" value={depositPaid} onChange={e => setDepositPaid(e.target.value)}
                   step="0.01" min="0" max={totalAmount} placeholder="0.00"
-                  className="w-full px-4 py-3 border-2 border-amber-200 rounded-xl focus:border-amber-500 focus:outline-none text-xl font-bold bg-white" />
+                  className="w-full px-4 py-3 border-2 border-amber-200 focus:border-amber-500 focus:outline-none text-xl font-bold bg-white" />
               </div>
-              <div className="flex justify-between items-center bg-amber-100 rounded-xl p-3">
+              <div className="flex justify-between items-center bg-amber-100 p-3">
                 <span className="text-sm font-semibold text-amber-800">Owed to supplier:</span>
                 <span className="text-xl font-bold text-amber-700">{formatCurrency(Math.max(0, owedToSupplier))}</span>
               </div>
               {selectedSupplier && selectedSupplier.balance > 0 && (
-                <p className="text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-lg font-medium">
+                <p className="text-xs text-amber-700 bg-amber-100 px-3 py-2 font-medium">
                   ℹ You already owe this supplier {formatCurrency(selectedSupplier.balance)}. Total after this order: {formatCurrency(selectedSupplier.balance + Math.max(0, owedToSupplier))}
                 </p>
               )}
@@ -648,14 +648,14 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
       )}
 
       {formError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
           ⚠ {formError}
         </div>
       )}
 
       <div className="flex flex-col sm:flex-row gap-3 pt-1">
         <button type="submit" disabled={isSubmitting || cart.length === 0 || !selectedSupplier}
-          className={`flex-1 py-4 text-white text-base font-bold rounded-xl disabled:opacity-50 transition-all shadow-md ${
+          className={`flex-1 py-4 text-white text-base font-bold disabled:opacity-50 transition-all shadow-md ${
             purchaseType === 'CASH' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-600'
           }`}>
           {isSubmitting
@@ -666,7 +666,7 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} disabled={isSubmitting}
-            className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+            className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors">
             Cancel
           </button>
         )}

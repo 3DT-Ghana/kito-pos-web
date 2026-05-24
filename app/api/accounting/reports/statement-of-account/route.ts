@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       dateFilter.lte = end
     }
 
-    // Opening balance = all sales and payments before startDate
+    // Opening balance = all sales, payments, and transfers before startDate
     let openingBalance = 0
     if (startDate) {
       const priorSales = await prisma.sale.findMany({
@@ -71,9 +71,22 @@ export async function GET(req: Request) {
         },
         select: { amount: true },
       })
-      const priorSaleTotal = priorSales.reduce((s, r) => s + r.totalAmount - r.paidAmount, 0)
-      const priorPayTotal  = priorPayments.reduce((s, r) => s + r.amount, 0)
-      openingBalance = round2(priorSaleTotal - priorPayTotal)
+      const priorTransfers = await prisma.ledgerTransfer.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          OR: [{ debitCustomerId: customerId }, { creditCustomerId: customerId }],
+          date: { lt: new Date(startDate) },
+        },
+        select: { amount: true, debitCustomerId: true, creditCustomerId: true },
+      })
+      const priorSaleTotal     = priorSales.reduce((s, r) => s + r.totalAmount - r.paidAmount, 0)
+      const priorPayTotal      = priorPayments.reduce((s, r) => s + r.amount, 0)
+      const priorTransferDelta = priorTransfers.reduce((s, t) => {
+        if (t.debitCustomerId === customerId)  return s + t.amount  // debit → owes more
+        if (t.creditCustomerId === customerId) return s - t.amount  // credit → owes less
+        return s
+      }, 0)
+      openingBalance = round2(priorSaleTotal - priorPayTotal + priorTransferDelta)
     }
 
     // Sales in period
@@ -111,15 +124,56 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'asc' },
     })
 
+    // Transfers in period involving this customer
+    const transfers = await prisma.ledgerTransfer.findMany({
+      where: {
+        tenantId: context!.tenantId,
+        OR: [{ debitCustomerId: customerId }, { creditCustomerId: customerId }],
+        ...(Object.keys(dateFilter).length ? { date: dateFilter } : {}),
+      },
+      select: {
+        id: true,
+        date: true,
+        amount: true,
+        description: true,
+        debitPartyType: true,
+        debitCustomerId: true,
+        creditPartyType: true,
+        creditCustomerId: true,
+        debitCustomer:  { select: { name: true } },
+        creditCustomer: { select: { name: true } },
+        debitSupplier:  { select: { name: true } },
+        creditSupplier: { select: { name: true } },
+        debitAccount:   { select: { name: true, code: true } },
+        creditAccount:  { select: { name: true, code: true } },
+      },
+      orderBy: { date: 'asc' },
+    })
+
     // Merge and sort by date
     type TxLine = {
       date: Date
-      type: 'SALE' | 'PAYMENT' | 'RETURN'
+      type: 'SALE' | 'PAYMENT' | 'RETURN' | 'TRANSFER'
       reference: string
       description: string
       debit: number    // amount owed (charge to customer)
       credit: number   // amount paid (payment from customer)
       balance: number
+    }
+
+    const counterpartyLabel = (t: typeof transfers[number]) => {
+      if (t.debitCustomerId === customerId) {
+        // customer is being debited — the credit side is the counterparty
+        if (t.creditCustomer) return t.creditCustomer.name
+        if (t.creditSupplier) return t.creditSupplier.name
+        if (t.creditAccount)  return `${t.creditAccount.code} ${t.creditAccount.name}`
+      } else {
+        // customer is being credited — the debit side is the counterparty
+        if (t.debitCustomer) return t.debitCustomer.name
+        if (t.debitSupplier) return t.debitSupplier.name
+        if (t.debitAccount)  return `${t.debitAccount.code} ${t.debitAccount.name}`
+      }
+      return ''
     }
 
     const lines: Omit<TxLine, 'balance'>[] = [
@@ -140,6 +194,15 @@ export async function GET(req: Request) {
         description: `Payment received (${p.method})`,
         debit: 0,
         credit: p.amount,
+      })),
+      ...transfers.map(t => ({
+        date: t.date,
+        type: 'TRANSFER' as const,
+        reference: t.id.slice(-8).toUpperCase(),
+        description: `Transfer: ${t.description}${counterpartyLabel(t) ? ` (${counterpartyLabel(t)})` : ''}`,
+        // debit the customer when they are the debit party (balance increases)
+        debit:  t.debitCustomerId  === customerId ? round2(t.amount) : 0,
+        credit: t.creditCustomerId === customerId ? round2(t.amount) : 0,
       })),
     ].sort((a, b) => a.date.getTime() - b.date.getTime())
 

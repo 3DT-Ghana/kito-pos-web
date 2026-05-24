@@ -164,7 +164,7 @@ export default function OnboardingPage() {
         </div>
 
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8">
+        <div className="bg-white shadow-2xl p-8">
           {/* Step 1: Shop Info */}
           {step === 1 && (
             <div>
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
                     value={formData.businessName}
                     onChange={handleChange}
                     placeholder="e.g. ABC Market, John's Store"
-                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
                     autoFocus
                   />
                 </div>
@@ -207,7 +207,7 @@ export default function OnboardingPage() {
                     value={formData.businessPhone}
                     onChange={handleChange}
                     placeholder="e.g. 0551234567"
-                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
                   />
                 </div>
               </div>
@@ -238,7 +238,7 @@ export default function OnboardingPage() {
                     value={formData.ownerName}
                     onChange={handleChange}
                     placeholder="e.g. Kwame Mensah"
-                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
                     autoFocus
                   />
                 </div>
@@ -253,7 +253,7 @@ export default function OnboardingPage() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder="e.g. kwame@example.com"
-                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
                   />
                   <p className="mt-1 text-sm text-gray-500">
                     You will use this email to log in
@@ -287,7 +287,7 @@ export default function OnboardingPage() {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="At least 8 characters"
-                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
+                    className="w-full px-4 py-4 text-lg border-2 border-gray-200 focus:border-blue-500 focus:ring-0 focus:outline-none transition-colors"
                     autoFocus
                   />
                   {formData.password.length > 0 && (
@@ -318,7 +318,7 @@ export default function OnboardingPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     placeholder="Type password again"
-                    className={`w-full px-4 py-4 text-lg border-2 rounded-xl focus:ring-0 focus:outline-none transition-colors ${
+                    className={`w-full px-4 py-4 text-lg border-2 focus:ring-0 focus:outline-none transition-colors ${
                       formData.confirmPassword &&
                       formData.password !== formData.confirmPassword
                         ? "border-red-400 focus:border-red-500"
@@ -337,7 +337,7 @@ export default function OnboardingPage() {
                 </div>
 
                 {/* Summary */}
-                <div className="bg-blue-50 rounded-xl p-4">
+                <div className="bg-blue-50 p-4">
                   <h3 className="font-semibold text-blue-900 mb-2">
                     Account Summary
                   </h3>
@@ -355,7 +355,7 @@ export default function OnboardingPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
               ⚠ {error}
             </div>
           )}
@@ -365,7 +365,7 @@ export default function OnboardingPage() {
             {step < 3 ? (
               <button
                 onClick={handleNext}
-                className="w-full py-4 bg-blue-600 text-white text-lg font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg"
+                className="w-full py-4 bg-blue-600 text-white text-lg font-bold hover:bg-blue-700 active:scale-95 transition-all shadow-lg"
               >
                 Continue →
               </button>
@@ -373,7 +373,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isLoading}
-                className="w-full py-4 bg-green-600 text-white text-lg font-bold rounded-xl hover:bg-green-700 active:scale-95 transition-all shadow-lg disabled:opacity-60"
+                className="w-full py-4 bg-green-600 text-white text-lg font-bold hover:bg-green-700 active:scale-95 transition-all shadow-lg disabled:opacity-60"
               >
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -407,7 +407,7 @@ export default function OnboardingPage() {
             {step > 1 && (
               <button
                 onClick={() => setStep((step - 1) as Step)}
-                className="w-full py-3 border-2 border-gray-200 text-gray-600 text-base font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                className="w-full py-3 border-2 border-gray-200 text-gray-600 text-base font-semibold hover:bg-gray-50 transition-colors"
               >
                 ← Go Back
               </button>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Btn } from '@/components/ui/Btn'
+import { Pagination } from '@/components/ui/Pagination'
 import { Tag, Plus } from 'lucide-react'
 
 interface Category {
@@ -54,7 +55,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (i: string) 
           key={icon}
           type="button"
           onClick={() => onChange(icon)}
-          className={`w-9 h-9 text-lg rounded-lg border-2 transition-colors ${value === icon ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
+          className={`w-9 h-9 text-lg border-2 transition-colors ${value === icon ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'}`}
         >
           {icon}
         </button>
@@ -78,6 +79,8 @@ export default function CategoriesPage() {
   const [error, setError] = useState('')
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const fetchCategories = async () => {
     try {
@@ -153,7 +156,7 @@ export default function CategoriesPage() {
 
         {/* Slide-in form */}
         {showForm && (
-          <div className="bg-white rounded-2xl border-2 border-indigo-200 shadow-lg p-5 space-y-4">
+          <div className="bg-white border-2 border-indigo-200 shadow-lg p-5 space-y-4">
             <h2 className="font-bold text-gray-800 text-base">{editingId ? 'Edit Category' : 'New Category'}</h2>
 
             <div className="grid sm:grid-cols-2 gap-4">
@@ -164,7 +167,7 @@ export default function CategoriesPage() {
                   value={name}
                   onChange={e => setName(e.target.value)}
                   placeholder="e.g. Beverages"
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none"
+                  className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm focus:border-indigo-400 focus:outline-none"
                   autoFocus
                 />
               </div>
@@ -175,7 +178,7 @@ export default function CategoriesPage() {
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   placeholder="Optional short description"
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-400 focus:outline-none"
+                  className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm focus:border-indigo-400 focus:outline-none"
                 />
               </div>
             </div>
@@ -194,26 +197,26 @@ export default function CategoriesPage() {
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span>Preview:</span>
               <span
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-white text-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 font-bold text-white text-xs"
                 style={{ backgroundColor: color }}
               >
                 {icon} {name || 'Category Name'}
               </span>
             </div>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-xl">{error}</p>}
+            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2">{error}</p>}
 
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                className="px-5 py-2.5 bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 disabled:opacity-60 transition-colors"
               >
                 {isSaving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Category'}
               </button>
               <button
                 onClick={() => setShowForm(false)}
-                className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors"
+                className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold text-sm hover:bg-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -224,11 +227,11 @@ export default function CategoriesPage() {
         {/* List */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-white rounded-2xl animate-pulse shadow-sm ring-1 ring-black/5" />)}
+            {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-white animate-pulse shadow-sm ring-1 ring-black/5" />)}
           </div>
         ) : categories.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 flex flex-col items-center py-16 gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 flex flex-col items-center py-16 gap-3">
+            <div className="w-14 h-14 bg-gray-100 flex items-center justify-center">
               <Tag className="w-7 h-7 text-gray-400" strokeWidth={1.5} />
             </div>
             <div className="text-center">
@@ -239,15 +242,15 @@ export default function CategoriesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {categories.map(cat => (
-              <div key={cat.id} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden group">
+            {categories.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(cat => (
+              <div key={cat.id} className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden group">
                 {/* Colour bar */}
                 <div className="h-1.5" style={{ backgroundColor: cat.color ?? DEFAULT_COLOR }} />
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+                        className="w-10 h-10 flex items-center justify-center text-xl shrink-0"
                         style={{ backgroundColor: (cat.color ?? DEFAULT_COLOR) + '22' }}
                       >
                         {cat.icon ?? DEFAULT_ICON}
@@ -260,7 +263,7 @@ export default function CategoriesPage() {
                       </div>
                     </div>
                     <span
-                      className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold text-white"
+                      className="shrink-0 px-2.5 py-1 text-xs font-bold text-white"
                       style={{ backgroundColor: cat.color ?? DEFAULT_COLOR }}
                     >
                       {cat._count.items} item{cat._count.items !== 1 ? 's' : ''}
@@ -269,14 +272,14 @@ export default function CategoriesPage() {
                   <div className="flex gap-2 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => openEdit(cat)}
-                      className="flex-1 py-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                      className="flex-1 py-1.5 text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDelete(cat)}
                       disabled={deletingId === cat.id}
-                      className="flex-1 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors disabled:opacity-50"
+                      className="flex-1 py-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 transition-colors disabled:opacity-50"
                     >
                       {deletingId === cat.id ? 'Deleting…' : 'Delete'}
                     </button>
@@ -285,6 +288,9 @@ export default function CategoriesPage() {
               </div>
             ))}
           </div>
+        )}
+        {categories.length > PAGE_SIZE && (
+          <Pagination page={page} totalPages={Math.ceil(categories.length / PAGE_SIZE)} onPageChange={setPage} totalItems={categories.length} pageSize={PAGE_SIZE} />
         )}
       </div>
     </AppLayout>

@@ -151,7 +151,7 @@ export default function EndOfDayReportPage() {
             />
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 self-start sm:self-auto"
+              className="px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF
             </button>
@@ -165,7 +165,7 @@ export default function EndOfDayReportPage() {
         </div>
 
         {/* Date Picker */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 print:hidden">
+        <div className="bg-white shadow-sm border border-gray-200 p-4 print:hidden">
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Select Date
           </label>
@@ -173,12 +173,12 @@ export default function EndOfDayReportPage() {
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>
 
         {/* Section 1: Daily Sales Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-blue-600 px-4 py-3">
             <h2 className="text-lg font-semibold text-white">Daily Sales Summary</h2>
           </div>
@@ -237,7 +237,7 @@ export default function EndOfDayReportPage() {
                 {/* Mobile cards */}
                 <div className="md:hidden space-y-2">
                   {data.salesSummary.topSellingItems.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50">
                       <div>
                         <span className="text-xs text-gray-400 mr-1">#{i + 1}</span>
                         <span className="font-medium text-sm">{item.name}</span>
@@ -255,7 +255,7 @@ export default function EndOfDayReportPage() {
         </div>
 
         {/* Section 2: Cash & Payments */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-green-600 px-4 py-3">
             <h2 className="text-lg font-semibold text-white">Cash & Payments</h2>
           </div>
@@ -288,7 +288,7 @@ export default function EndOfDayReportPage() {
         </div>
 
         {/* Section 3: Purchases & Restocking */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-purple-600 px-4 py-3">
             <h2 className="text-lg font-semibold text-white">Purchases & Restocking</h2>
           </div>
@@ -341,7 +341,7 @@ export default function EndOfDayReportPage() {
                 </div>
                 <div className="md:hidden space-y-2">
                   {data.purchasesSummary.restockedItems.map((item, i) => (
-                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                    <div key={i} className="flex justify-between items-center p-3 bg-gray-50">
                       <span className="font-medium text-sm">{item.name}</span>
                       <span className="text-sm text-gray-600">+{formatNumber(item.quantity)}</span>
                     </div>
@@ -353,7 +353,7 @@ export default function EndOfDayReportPage() {
         </div>
 
         {/* Section 4: Inventory Alerts */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-orange-500 px-4 py-3">
             <h2 className="text-lg font-semibold text-white">Inventory Alerts</h2>
           </div>
@@ -409,7 +409,7 @@ export default function EndOfDayReportPage() {
                 </div>
                 <div className="md:hidden space-y-2">
                   {data.inventoryAlerts.lowStockItems.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
+                    <div key={item.id} className="flex justify-between items-center p-3 bg-orange-50">
                       <span className="font-medium text-sm">{item.name}</span>
                       <span className="text-sm font-semibold text-orange-600">{formatNumber(item.quantity)} left</span>
                     </div>
@@ -421,7 +421,7 @@ export default function EndOfDayReportPage() {
         </div>
 
         {/* Section 5: Credit & Debt Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+        <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-red-600 px-4 py-3">
             <h2 className="text-lg font-semibold text-white">Credit & Debt Summary</h2>
           </div>
@@ -473,7 +473,7 @@ export default function EndOfDayReportPage() {
                 </div>
                 <div className="md:hidden space-y-2">
                   {data.creditAndDebt.topDebtors.map((debtor) => (
-                    <div key={debtor.id} className="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <div key={debtor.id} className="flex justify-between items-center p-3 bg-red-50">
                       <div>
                         <div className="font-medium text-sm">{debtor.name}</div>
                         {debtor.phone && <div className="text-xs text-gray-500">{debtor.phone}</div>}
@@ -489,7 +489,7 @@ export default function EndOfDayReportPage() {
 
         {/* Section 6: Profit Summary (conditional) */}
         {data.profitSummary && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
+          <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
             <div className="bg-emerald-600 px-4 py-3">
               <h2 className="text-lg font-semibold text-white">Profit Summary</h2>
             </div>

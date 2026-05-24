@@ -204,7 +204,7 @@ export function ItemForm({
         </label>
         <select
           {...register('manufacturerId')}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="">Select Manufacturer</option>
           {manufacturers.map((manufacturer) => (
@@ -226,7 +226,7 @@ export function ItemForm({
           </label>
           <select
             {...register('categoryId')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">No Category</option>
             {categories.map(c => (
@@ -247,7 +247,7 @@ export function ItemForm({
           type="text"
           {...register('name')}
           placeholder="e.g., Coca Cola 500ml"
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
         {errors.name && (
           <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
@@ -255,12 +255,12 @@ export function ItemForm({
       </div>
 
       {/* Item Type */}
-      <div className="border border-slate-200 bg-slate-50/70 rounded-lg p-4 space-y-3">
+      <div className="border border-slate-200 bg-slate-50/70 p-4 space-y-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Item Type</label>
           <select
             {...register('itemType')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-slate-500 focus:border-transparent text-sm"
           >
             <option value="INVENTORY">Inventory Item — tracks stock, value, COGS</option>
             <option value="NON_INVENTORY">Non-Inventory — sell/buy without stock tracking</option>
@@ -286,7 +286,7 @@ export function ItemForm({
               {...register('quantity', { valueAsNumber: true })}
               placeholder="0"
               min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             {errors.quantity && (
               <p className="mt-1 text-sm text-red-600">{errors.quantity.message}</p>
@@ -298,7 +298,7 @@ export function ItemForm({
         ) : (
           <>
             <input type="hidden" {...register('quantity', { valueAsNumber: true })} />
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            <div className="border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
               Stock quantity is not tracked for {itemTypeLabel(itemType).toLowerCase()} items.
             </div>
           </>
@@ -307,7 +307,7 @@ export function ItemForm({
 
       {/* Unit System Fields */}
       {useUnitSystem && (
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 space-y-4">
+        <div className="bg-amber-50 border-2 border-amber-200 p-4 space-y-4">
           <div className="flex items-center gap-2">
             <span className="text-xl">📦</span>
             <div>
@@ -334,11 +334,11 @@ export function ItemForm({
                   }}
                   onFocus={() => setShowUnitDropdown(true)}
                   placeholder="e.g. carton, bag, box"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                   autoComplete="off"
                 />
                 {showUnitDropdown && (filteredUnitNames.length > 0 || isNewUnitName) && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 shadow-lg overflow-hidden">
                     {filteredUnitNames.map(name => (
                       <button
                         key={name}
@@ -382,7 +382,7 @@ export function ItemForm({
                 placeholder="e.g. 12"
                 min="1"
                 step="1"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-amber-500 focus:border-transparent"
               />
               {errors.piecesPerUnit && (
                 <p className="mt-1 text-sm text-red-600">{errors.piecesPerUnit.message}</p>
@@ -406,7 +406,7 @@ export function ItemForm({
             placeholder="0.00"
             step="0.01"
             min="0"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           {errors.costPrice && (
             <p className="mt-1 text-sm text-red-600">{errors.costPrice.message}</p>
@@ -424,7 +424,7 @@ export function ItemForm({
             placeholder="0.00"
             step="0.01"
             min="0"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           {errors.sellingPrice && (
             <p className="mt-1 text-sm text-red-600">{errors.sellingPrice.message}</p>
@@ -434,7 +434,7 @@ export function ItemForm({
 
       {/* Additional Price Tiers */}
       {(enableRetailPrice || enableWholesalePrice || enablePromoPrice) && (
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 space-y-3">
+        <div className="bg-blue-50 border-2 border-blue-200 p-4 space-y-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">💰</span>
             <p className="font-semibold text-blue-900 text-sm">Additional Price Tiers</p>
@@ -451,7 +451,7 @@ export function ItemForm({
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {errors.retailPrice && (
                   <p className="mt-1 text-sm text-red-600">{errors.retailPrice.message}</p>
@@ -469,7 +469,7 @@ export function ItemForm({
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {errors.wholesalePrice && (
                   <p className="mt-1 text-sm text-red-600">{errors.wholesalePrice.message}</p>
@@ -487,7 +487,7 @@ export function ItemForm({
                   placeholder="0.00"
                   step="0.01"
                   min="0"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 {errors.promoPrice && (
                   <p className="mt-1 text-sm text-red-600">{errors.promoPrice.message}</p>
@@ -500,7 +500,7 @@ export function ItemForm({
 
       {/* Profit Calculation */}
       {costPrice > 0 && sellingPrice > 0 && (
-        <div className="bg-blue-50 p-4 rounded-lg space-y-2">
+        <div className="bg-blue-50 p-4 space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-sm font-medium text-gray-700">Profit per Unit:</span>
             <span className={`text-lg font-bold ${profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -517,7 +517,7 @@ export function ItemForm({
       )}
 
       {/* Tax Configuration */}
-      <div className="border border-emerald-200 bg-emerald-50/40 rounded-lg p-4 space-y-4">
+      <div className="border border-emerald-200 bg-emerald-50/40 p-4 space-y-4">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h3 className="text-sm font-bold text-emerald-900">Tax Configuration</h3>
@@ -537,7 +537,7 @@ export function ItemForm({
         </div>
 
         {!taxEnabled ? (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <div className="border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
             Tenant tax is currently disabled. You can still prepare product tax settings here, and they will start applying once tax is enabled in Settings.
           </div>
         ) : (
@@ -550,7 +550,7 @@ export function ItemForm({
                 {...register('taxCalculationType', {
                   setValueAs: (value) => value || undefined,
                 })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="">
                   Use tenant default ({defaultTaxCalculationType === 'INCLUSIVE' ? 'Tax Inclusive / Reverse Tax' : 'Tax Added to Price'})
@@ -563,7 +563,7 @@ export function ItemForm({
               </p>
             </div>
 
-            <label className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
+            <label className="flex items-start gap-3 border border-gray-200 bg-white px-4 py-3">
               <input
                 type="checkbox"
                 checked={useTenantDefaultTaxes}
@@ -585,7 +585,7 @@ export function ItemForm({
                     Specific Taxes for This Item
                   </label>
                   {taxRates.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
+                    <div className="border border-dashed border-gray-300 bg-white px-4 py-3 text-sm text-gray-500">
                       No active tax rates found. Create tax rates in Settings first.
                     </div>
                   ) : (
@@ -593,7 +593,7 @@ export function ItemForm({
                       {taxRates.map((taxRate) => (
                         <label
                           key={taxRate.id}
-                          className="flex items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 hover:border-emerald-300"
+                          className="flex items-start gap-3 border border-gray-200 bg-white px-4 py-3 hover:border-emerald-300"
                         >
                           <input
                             type="checkbox"
@@ -638,7 +638,7 @@ export function ItemForm({
             type="text"
             {...register('barcode')}
             placeholder="e.g. 6001234567890"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
           />
           <p className="mt-1 text-xs text-gray-500">Used for barcode scanning in the POS terminal</p>
         </div>
@@ -653,7 +653,7 @@ export function ItemForm({
           <input
             type="date"
             {...register('expiryDate')}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
           <p className="mt-1 text-xs text-gray-500">Leave blank if this item does not expire</p>
         </div>
@@ -661,7 +661,7 @@ export function ItemForm({
 
       {/* Accounting — Account Mapping */}
       {enableAccounting && (
-        <div className="border border-indigo-200 bg-indigo-50/40 rounded-lg p-4 space-y-4">
+        <div className="border border-indigo-200 bg-indigo-50/40 p-4 space-y-4">
           <h3 className="text-sm font-bold text-indigo-800">Accounting Mappings</h3>
 
           {/* Account selectors */}
@@ -670,7 +670,7 @@ export function ItemForm({
               <label className="block text-xs font-semibold text-gray-600 mb-1">Income / Sales Account</label>
               <select
                 {...register('incomeAccountId')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">Default (Sales Revenue 4100)</option>
                 {coaAccounts.filter(a => a.type === 'REVENUE').map(a => (
@@ -683,7 +683,7 @@ export function ItemForm({
               <select
                 {...register('cogsAccountId')}
                 disabled={!isInventoryItem}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">Default (COGS 5100)</option>
                 {coaAccounts.filter(a => a.type === 'COGS').map(a => (
@@ -699,7 +699,7 @@ export function ItemForm({
               <select
                 {...register('expenseAccountId')}
                 disabled={isInventoryItem}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-300 focus:ring-2 focus:ring-indigo-500 text-sm"
               >
                 <option value="">None</option>
                 {coaAccounts.filter(a => a.type === 'EXPENSE').map(a => (
@@ -721,7 +721,7 @@ export function ItemForm({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50"
+            className="px-6 py-2 border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -729,7 +729,7 @@ export function ItemForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+          className="px-6 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
         >
           {isSubmitting
             ? initialData

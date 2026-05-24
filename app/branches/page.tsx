@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { formatDate } from '@/lib/utils/format'
 import { useBranch } from '@/lib/branch/BranchContext'
 import { useUser } from '@/hooks/useUser'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface Branch {
   id: string
@@ -27,6 +28,8 @@ export default function BranchesPage() {
   const [formData, setFormData] = useState({ name: '', address: '', phone: '' })
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   useEffect(() => {
     if (!isUserLoading && !isOwner) {
@@ -139,7 +142,7 @@ export default function BranchesPage() {
           </div>
           <button
             onClick={() => { setShowForm(v => !v); setSaveError('') }}
-            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 text-sm"
+            className="px-4 py-2 bg-blue-600 text-white font-bold hover:bg-blue-700 text-sm"
           >
             {showForm ? 'Cancel' : '+ New Branch'}
           </button>
@@ -147,7 +150,7 @@ export default function BranchesPage() {
 
         {/* Create Form */}
         {showForm && (
-          <form onSubmit={handleCreate} className="bg-white rounded-2xl border-2 border-blue-200 p-5 space-y-4">
+          <form onSubmit={handleCreate} className="bg-white border-2 border-blue-200 p-5 space-y-4">
             <h2 className="text-base font-bold text-gray-900">New Branch</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -157,7 +160,7 @@ export default function BranchesPage() {
                   value={formData.name}
                   onChange={e => setFormData(v => ({ ...v, name: e.target.value }))}
                   placeholder="e.g. Main Shop, Accra Branch"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
               <div>
@@ -167,7 +170,7 @@ export default function BranchesPage() {
                   value={formData.phone}
                   onChange={e => setFormData(v => ({ ...v, phone: e.target.value }))}
                   placeholder="e.g. 0244123456"
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
             </div>
@@ -178,7 +181,7 @@ export default function BranchesPage() {
                 value={formData.address}
                 onChange={e => setFormData(v => ({ ...v, address: e.target.value }))}
                 placeholder="e.g. 12 Oxford St, Osu, Accra"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
               />
             </div>
             {saveError && (
@@ -188,14 +191,14 @@ export default function BranchesPage() {
               <button
                 type="button"
                 onClick={() => { setShowForm(false); setSaveError('') }}
-                className="flex-1 py-2.5 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+                className="flex-1 py-2.5 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 text-sm"
+                className="flex-1 py-2.5 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
               >
                 {isSaving ? 'Creating...' : 'Create Branch'}
               </button>
@@ -207,25 +210,25 @@ export default function BranchesPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2].map(i => (
-              <div key={i} className="bg-white rounded-2xl h-28 animate-pulse border border-gray-200" />
+              <div key={i} className="bg-white h-28 animate-pulse border border-gray-200" />
             ))}
           </div>
         ) : branches.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 py-16 text-center">
+          <div className="bg-white border border-gray-200 py-16 text-center">
             <p className="text-4xl mb-3">🏪</p>
             <p className="text-gray-500 font-medium">No branches yet</p>
             <p className="text-sm text-gray-400 mt-1">Create your first branch to get started</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {branches.map(branch => (
+            {branches.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(branch => (
               <div
                 key={branch.id}
-                className={`bg-white rounded-2xl border-2 p-5 ${branch.isDefault ? 'border-green-300' : 'border-gray-200'}`}
+                className={`bg-white border-2 p-5 ${branch.isDefault ? 'border-green-300' : 'border-gray-200'}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg shrink-0 ${branch.isDefault ? 'bg-green-100' : 'bg-blue-100'}`}>
+                    <div className={`w-10 h-10 flex items-center justify-center text-lg shrink-0 ${branch.isDefault ? 'bg-green-100' : 'bg-blue-100'}`}>
                       🏪
                     </div>
                     <div className="min-w-0">
@@ -247,7 +250,7 @@ export default function BranchesPage() {
                   <div className="flex gap-2 shrink-0">
                     <button
                       onClick={() => router.push(`/branches/${branch.id}`)}
-                      className="px-3 py-1.5 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-xs hover:bg-gray-50"
+                      className="px-3 py-1.5 border-2 border-gray-200 text-gray-700 font-semibold text-xs hover:bg-gray-50"
                     >
                       Manage
                     </button>
@@ -255,13 +258,13 @@ export default function BranchesPage() {
                       <>
                         <button
                           onClick={() => handleSetDefault(branch.id)}
-                          className="px-3 py-1.5 border-2 border-green-200 text-green-700 rounded-xl font-semibold text-xs hover:bg-green-50"
+                          className="px-3 py-1.5 border-2 border-green-200 text-green-700 font-semibold text-xs hover:bg-green-50"
                         >
                           Set Default
                         </button>
                         <button
                           onClick={() => handleDelete(branch.id, branch.name)}
-                          className="px-3 py-1.5 bg-red-50 text-red-600 border-2 border-red-100 rounded-xl font-semibold text-xs hover:bg-red-100"
+                          className="px-3 py-1.5 bg-red-50 text-red-600 border-2 border-red-100 font-semibold text-xs hover:bg-red-100"
                         >
                           Delete
                         </button>
@@ -273,9 +276,12 @@ export default function BranchesPage() {
             ))}
           </div>
         )}
+        {branches.length > PAGE_SIZE && (
+          <Pagination page={page} totalPages={Math.ceil(branches.length / PAGE_SIZE)} onPageChange={setPage} totalItems={branches.length} pageSize={PAGE_SIZE} />
+        )}
 
         {/* Info Card */}
-        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-sm text-blue-800 space-y-1.5">
+        <div className="bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800 space-y-1.5">
           <p className="font-bold">About Branches</p>
           <ul className="space-y-1 text-blue-700">
             <li>• Each branch has its own inventory, sales, and cash register</li>

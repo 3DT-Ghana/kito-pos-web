@@ -13,9 +13,10 @@ import { Badge } from '@/components/ui/Badge'
 import { Btn } from '@/components/ui/Btn'
 import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   ShoppingCart, Search, X, TrendingUp, CreditCard,
-  AlertCircle, CheckCircle, Plus, Download
+  AlertCircle, CheckCircle, Plus, Download, Bell
 } from 'lucide-react'
 
 type FilterStatus = 'all' | 'paid' | 'partial'
@@ -41,8 +42,23 @@ export default function SalesPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all')
+  const [sentQuotationsCount, setSentQuotationsCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
-  useEffect(() => { fetchSales() }, [currentBranchId])
+  useEffect(() => { fetchSales(); fetchSentQuotations() }, [currentBranchId])
+
+  const fetchSentQuotations = async () => {
+    try {
+      const res = await fetch('/api/quotations?status=SENT')
+      if (!res.ok) return
+      const data = await res.json()
+      const list = data.quotations ?? data.data ?? data ?? []
+      setSentQuotationsCount(Array.isArray(list) ? list.length : 0)
+    } catch {
+      // non-critical — ignore errors
+    }
+  }
 
   const fetchSales = async () => {
     try {
@@ -58,6 +74,8 @@ export default function SalesPage() {
     }
   }
 
+  useEffect(() => setPage(1), [search, filter, paymentFilter])
+
   const filtered = sales.filter(s => {
     const q = search.toLowerCase()
     const matchesSearch = !q
@@ -70,6 +88,8 @@ export default function SalesPage() {
       paymentFilter === 'all' ? true : s.paymentType === paymentFilter
     return matchesSearch && matchesFilter && matchesPayment
   })
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const totalRevenue = filtered.reduce((s, x) => s + x.paidAmount, 0)
   const totalCredit = filtered.reduce((s, x) => s + Math.max(0, x.totalAmount - x.paidAmount), 0)
@@ -109,6 +129,18 @@ export default function SalesPage() {
                   'Balance (GHS)': Math.max(0, s.totalAmount - s.paidAmount).toFixed(2),
                 }))}
               />
+              <button
+                onClick={() => router.push('/quotations?status=SENT')}
+                title={sentQuotationsCount > 0 ? `${sentQuotationsCount} sent quotation${sentQuotationsCount !== 1 ? 's' : ''} awaiting response` : 'No pending quotations'}
+                className="relative inline-flex items-center justify-center w-9 h-9 border-2 border-gray-200 bg-white hover:bg-gray-50 hover:border-gray-300 transition-colors"
+              >
+                <Bell className="w-4 h-4 text-gray-600" />
+                {sentQuotationsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                    {sentQuotationsCount > 99 ? '99+' : sentQuotationsCount}
+                  </span>
+                )}
+              </button>
               <Btn icon={Plus} href="/sales/new">New Sale</Btn>
             </>
           }
@@ -149,7 +181,7 @@ export default function SalesPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
         )}
 
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -162,7 +194,7 @@ export default function SalesPage() {
               placeholder="Search customer or ID..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -175,7 +207,7 @@ export default function SalesPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 animate-pulse h-32" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 p-5 animate-pulse h-32" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -191,7 +223,7 @@ export default function SalesPage() {
           <>
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
-              {filtered.map((sale, idx) => {
+              {paginated.map((sale, idx) => {
                 const credit = sale.totalAmount - sale.paidAmount
                 const name = sale.customer?.name || 'Walk-in Customer'
                 const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -199,10 +231,10 @@ export default function SalesPage() {
                   <div
                     key={sale.id}
                     onClick={() => router.push(`/sales/${sale.id}`)}
-                    className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
+                    className="bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 rounded-xl ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                      <div className={`w-10 h-10 ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
                         {initials}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -230,9 +262,10 @@ export default function SalesPage() {
                 )
               })}
             </div>
+            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
 
             {/* Desktop Table */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
@@ -247,7 +280,7 @@ export default function SalesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.map(sale => {
+                  {paginated.map(sale => {
                     const credit = sale.totalAmount - sale.paidAmount
                     const name = sale.customer?.name || 'Walk-in Customer'
                     const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
@@ -260,7 +293,7 @@ export default function SalesPage() {
                         <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(sale.createdAt)}</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 rounded-lg ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                            <div className={`w-8 h-8 ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                               {initials}
                             </div>
                             <div>
@@ -296,8 +329,9 @@ export default function SalesPage() {
                   })}
                 </tbody>
               </table>
-              <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100 text-xs text-gray-400 font-medium">
-                Showing {filtered.length} of {sales.length} sales
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{filtered.length} of {sales.length} results</span>
+                <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
               </div>
             </div>
           </>

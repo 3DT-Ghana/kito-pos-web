@@ -141,7 +141,7 @@ export default function AgentProfilePage() {
 
       {message && (
         <div
-          className={`text-sm px-4 py-3 rounded-lg border ${
+          className={`text-sm px-4 py-3 border ${
             message.type === 'success'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
               : 'bg-red-50 text-red-700 border-red-100'
@@ -153,7 +153,7 @@ export default function AgentProfilePage() {
 
       {/* Status banner */}
       <div
-        className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${
+        className={`flex items-center gap-3 px-4 py-3 border ${
           profile.status === 'APPROVED'
             ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
             : 'bg-amber-50 border-amber-200 text-amber-800'
@@ -186,7 +186,7 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Ghana Card section */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div className="bg-white border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">Ghana Card (KYC)</h2>
 
         <div>
@@ -207,7 +207,7 @@ export default function AgentProfilePage() {
                 ? 'GHA-XXXXXXXXX-X'
                 : 'GHA-XXXXXXXXX-X (optional)'
             }
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <p className="text-xs text-gray-400 mt-1">
             {profile.kycRequirements.requireAgentGhanaCardNumber
@@ -217,7 +217,7 @@ export default function AgentProfilePage() {
         </div>
 
         {profile.ghanaCardImageUrl && (
-          <div className="relative w-full h-40 rounded-lg overflow-hidden border border-gray-200">
+          <div className="relative w-full h-40 overflow-hidden border border-gray-200">
             <Image
               src={profile.ghanaCardImageUrl}
               alt="Ghana Card"
@@ -232,7 +232,7 @@ export default function AgentProfilePage() {
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2"
+            className="px-4 py-2 border border-gray-300 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
           >
             <Upload className="w-4 h-4" />
             Choose image
@@ -241,7 +241,7 @@ export default function AgentProfilePage() {
             type="button"
             onClick={handleCardUpload}
             disabled={uploadLoading}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-60 transition-colors"
           >
             {uploadLoading ? 'Uploading…' : 'Upload Card'}
           </button>
@@ -254,7 +254,7 @@ export default function AgentProfilePage() {
       </div>
 
       {/* Contact details */}
-      <form onSubmit={handleProfileSave} className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <form onSubmit={handleProfileSave} className="bg-white border border-gray-200 p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-800">Contact Details</h2>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -263,7 +263,7 @@ export default function AgentProfilePage() {
             <input
               disabled
               value={profile.fullName}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500"
+              className="w-full px-3.5 py-2.5 border border-gray-200 text-sm bg-gray-50 text-gray-500"
             />
           </div>
           <div>
@@ -271,7 +271,7 @@ export default function AgentProfilePage() {
             <input
               disabled
               value={profile.email}
-              className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-500"
+              className="w-full px-3.5 py-2.5 border border-gray-200 text-sm bg-gray-50 text-gray-500"
             />
           </div>
           <div>
@@ -279,7 +279,7 @@ export default function AgentProfilePage() {
             <input
               value={form.phone}
               onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
           <div>
@@ -288,7 +288,7 @@ export default function AgentProfilePage() {
               value={form.territory}
               onChange={(e) => setForm((p) => ({ ...p, territory: e.target.value }))}
               placeholder="e.g. Greater Accra"
-              className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -299,7 +299,7 @@ export default function AgentProfilePage() {
             value={form.residentialAddress}
             onChange={(e) => setForm((p) => ({ ...p, residentialAddress: e.target.value }))}
             placeholder="e.g. Kasoa, Central Region"
-            className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
@@ -312,7 +312,7 @@ export default function AgentProfilePage() {
                 value={form.emergencyContactName}
                 onChange={(e) => setForm((p) => ({ ...p, emergencyContactName: e.target.value }))}
                 placeholder="e.g. Jane Doe"
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div>
@@ -321,7 +321,7 @@ export default function AgentProfilePage() {
                 value={form.emergencyContactPhone}
                 onChange={(e) => setForm((p) => ({ ...p, emergencyContactPhone: e.target.value }))}
                 placeholder="e.g. 0241234567"
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -331,7 +331,7 @@ export default function AgentProfilePage() {
           <button
             type="submit"
             disabled={saving}
-            className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+            className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 transition-colors"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>

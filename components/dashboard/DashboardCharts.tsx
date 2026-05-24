@@ -166,11 +166,11 @@ function Skeleton() {
   return (
     <div className="space-y-5 animate-pulse">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => <div key={i} className="h-32 rounded-2xl bg-white/60 shadow-sm" />)}
+        {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-white/60 shadow-sm" />)}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 h-72 rounded-2xl bg-white shadow-sm" />
-        <div className="h-72 rounded-2xl bg-white shadow-sm" />
+        <div className="lg:col-span-2 h-72 bg-white shadow-sm" />
+        <div className="h-72 bg-white shadow-sm" />
       </div>
     </div>
   )
@@ -183,7 +183,7 @@ const ChartTooltip = ({ active, payload, label }: {
 }) => {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-slate-900 text-white rounded-xl px-3 py-2.5 shadow-xl text-xs">
+    <div className="bg-slate-900 text-white px-3 py-2.5 shadow-xl text-xs">
       <p className="text-slate-400 mb-1">{label}</p>
       <p className="font-bold text-base">{formatCurrency(payload[0].value)}</p>
     </div>
@@ -209,14 +209,14 @@ function KpiCard({ label, value, sub, icon: Icon, accent, iconColor, trend, href
   return (
     <Link
       href={href}
-      className="group bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 flex flex-col gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+      className="group bg-white shadow-sm ring-1 ring-black/5 p-5 flex flex-col gap-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
     >
       <div className="flex items-center justify-between">
-        <div className={`w-10 h-10 rounded-xl ${accent} flex items-center justify-center`}>
+        <div className={`w-10 h-10 ${accent} flex items-center justify-center`}>
           <Icon className={`w-5 h-5 ${iconColor}`} strokeWidth={1.75} />
         </div>
         {trend != null ? (
-          <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
+          <div className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 ${
             up ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'
           }`}>
             {up
@@ -328,7 +328,7 @@ export function DashboardCharts() {
   if (loading) return <Skeleton />
   if (error) {
     return (
-      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-6">
+      <div className="bg-white shadow-sm ring-1 ring-black/5 p-6">
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" strokeWidth={1.75} />
           <div>
@@ -393,7 +393,7 @@ export function DashboardCharts() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Revenue area chart */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5">
+        <div className="lg:col-span-2 bg-white shadow-sm ring-1 ring-black/5 p-5">
           <SectionHeader
             title="Revenue — Last 7 Days"
             sub="Daily income from confirmed sales"
@@ -441,7 +441,7 @@ export function DashboardCharts() {
         </div>
 
         {/* Payment breakdown */}
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 flex flex-col">
+        <div className="bg-white shadow-sm ring-1 ring-black/5 p-5 flex flex-col">
           <SectionHeader title="Payment Methods" sub="Last 7 days" />
 
           {totalPayments > 0 ? (
@@ -495,31 +495,31 @@ export function DashboardCharts() {
       {/* ── P&L strip ────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Revenue */}
-        <div className="rounded-2xl bg-emerald-600 p-5 flex items-center justify-between shadow-sm">
+        <div className="bg-emerald-600 p-5 flex items-center justify-between shadow-sm">
           <div>
             <p className="text-emerald-200 text-xs font-medium uppercase tracking-wide">Revenue</p>
             <p className="text-white text-2xl font-bold mt-1">{formatCurrency(kpis.monthRevenue)}</p>
             <p className="text-emerald-300 text-xs mt-1">This month</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center">
+          <div className="w-11 h-11 bg-white/15 flex items-center justify-center">
             <TrendingUp className="w-5 h-5 text-white" strokeWidth={1.75} />
           </div>
         </div>
 
         {/* Purchases */}
-        <div className="rounded-2xl bg-slate-800 p-5 flex items-center justify-between shadow-sm">
+        <div className="bg-slate-800 p-5 flex items-center justify-between shadow-sm">
           <div>
             <p className="text-slate-400 text-xs font-medium uppercase tracking-wide">Purchases</p>
             <p className="text-white text-2xl font-bold mt-1">{formatCurrency(kpis.monthExpenses)}</p>
             <p className="text-slate-400 text-xs mt-1">Stock spend this month</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center">
+          <div className="w-11 h-11 bg-white/10 flex items-center justify-center">
             <TrendingDown className="w-5 h-5 text-slate-300" strokeWidth={1.75} />
           </div>
         </div>
 
         {/* Net */}
-        <div className={`rounded-2xl p-5 flex items-center justify-between shadow-sm ${
+        <div className={`p-5 flex items-center justify-between shadow-sm ${
           net >= 0 ? 'bg-blue-600' : 'bg-red-600'
         }`}>
           <div>
@@ -531,7 +531,7 @@ export function DashboardCharts() {
               {net >= 0 ? 'Profit this month' : 'Loss this month'}
             </p>
           </div>
-          <div className={`w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center`}>
+          <div className={`w-11 h-11 bg-white/15 flex items-center justify-center`}>
             {net >= 0
               ? <ArrowUpRight className="w-5 h-5 text-white" strokeWidth={1.75} />
               : <ArrowDownRight className="w-5 h-5 text-white" strokeWidth={1.75} />
@@ -544,7 +544,7 @@ export function DashboardCharts() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Recent transactions */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+        <div className="lg:col-span-2 bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <SectionHeader title="Recent Sales" sub="Latest transactions" />
             <Link href="/sales" className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors mb-4">
@@ -565,7 +565,7 @@ export function DashboardCharts() {
                     className="flex items-center justify-between px-5 py-3.5 hover:bg-gray-50/70 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg ${colors[i % colors.length]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                      <div className={`w-8 h-8 ${colors[i % colors.length]} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                         {initials}
                       </div>
                       <div className="min-w-0">
@@ -605,10 +605,10 @@ export function DashboardCharts() {
           <div className="grid grid-cols-2 lg:grid-cols-1 gap-4">
             <Link
               href="/customers"
-              className="group bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 hover:shadow-md transition-all"
+              className="group bg-white shadow-sm ring-1 ring-black/5 p-5 hover:shadow-md transition-all"
             >
               <div className="flex items-center justify-between mb-3">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center transition-colors">
+                <div className="w-9 h-9 bg-slate-100 group-hover:bg-blue-50 flex items-center justify-center transition-colors">
                   <Users className="w-4.5 h-4.5 text-slate-500 group-hover:text-blue-600 transition-colors" strokeWidth={1.75} />
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-400 transition-colors" />
@@ -620,7 +620,7 @@ export function DashboardCharts() {
 
           {/* Top selling items */}
           {topItems.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 flex-1">
+            <div className="bg-white shadow-sm ring-1 ring-black/5 p-5 flex-1">
               <SectionHeader title="Top Items" sub="By revenue — 7 days" />
               <ResponsiveContainer width="100%" height={150}>
                 <BarChart data={topItems} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
@@ -651,7 +651,7 @@ export function DashboardCharts() {
 
           {/* Low stock */}
           {lowStockItems.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border-b border-amber-100">
                 <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
                 <p className="text-sm font-semibold text-amber-900 flex-1">Low Stock</p>

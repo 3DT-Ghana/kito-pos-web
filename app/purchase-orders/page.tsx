@@ -87,7 +87,7 @@ export default function PurchaseOrdersPage() {
             />
             <button
               onClick={() => router.push('/purchase-orders/new')}
-              className="flex items-center gap-1 px-5 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 text-sm shadow-md"
+              className="flex items-center gap-1 px-5 py-2.5 bg-green-600 text-white font-bold hover:bg-green-700 text-sm shadow-md"
             >
               <span className="text-lg leading-none">+</span> New PO
             </button>
@@ -100,7 +100,7 @@ export default function PurchaseOrdersPage() {
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`rounded-xl p-4 border-2 text-left transition-all ${
+              className={`p-4 border-2 text-left transition-all ${
                 statusFilter === s
                   ? s === 'all' ? 'bg-gray-900 border-gray-900 text-white' : `${STATUS_META[s].cls.replace('bg-', 'ring-2 ring-').replace(' text-', ' bg-').replace('-100', '-200')} border-current`
                   : 'bg-white border-gray-200 hover:border-gray-300'
@@ -124,21 +124,21 @@ export default function PurchaseOrdersPage() {
             placeholder="Search by supplier, item, or ID..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm"
           />
         </div>
 
         {/* Content */}
         {isLoading ? (
           <div className="space-y-3">
-            {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl h-24 animate-pulse border border-gray-200" />)}
+            {[1,2,3].map(i => <div key={i} className="bg-white h-24 animate-pulse border border-gray-200" />)}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center py-16">
+          <div className="bg-white border border-gray-200 flex flex-col items-center py-16">
             <span className="text-5xl mb-3">📋</span>
             <p className="font-semibold text-gray-700">No purchase orders found</p>
             {!search && statusFilter === 'all' && (
-              <button onClick={() => router.push('/purchase-orders/new')} className="mt-4 px-5 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700">
+              <button onClick={() => router.push('/purchase-orders/new')} className="mt-4 px-5 py-2 bg-green-600 text-white font-semibold hover:bg-green-700">
                 Create First PO
               </button>
             )}
@@ -153,7 +153,7 @@ export default function PurchaseOrdersPage() {
                   <div
                     key={order.id}
                     onClick={() => router.push(`/purchase-orders/${order.id}`)}
-                    className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer active:bg-gray-50"
+                    className="bg-white border border-gray-200 p-4 cursor-pointer active:bg-gray-50"
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
@@ -172,7 +172,7 @@ export default function PurchaseOrdersPage() {
             </div>
 
             {/* Desktop table */}
-            <div className="hidden md:block bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="hidden md:block bg-white border border-gray-200 shadow-sm overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b-2 border-gray-100">
                   <tr>
@@ -196,7 +196,7 @@ export default function PurchaseOrdersPage() {
                       >
                         <td className="px-5 py-4 font-mono text-sm text-gray-700">#{order.id.slice(0, 8).toUpperCase()}</td>
                         <td className="px-5 py-4">
-                          <span className="text-sm text-green-700 font-semibold bg-green-50 px-2 py-0.5 rounded-lg">
+                          <span className="text-sm text-green-700 font-semibold bg-green-50 px-2 py-0.5">
                             {order.supplier?.name || '—'}
                           </span>
                         </td>

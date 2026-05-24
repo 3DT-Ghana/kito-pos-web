@@ -10,6 +10,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { Btn } from '@/components/ui/Btn'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Pagination } from '@/components/ui/Pagination'
 import { Receipt, Trash2, Plus, TrendingDown } from 'lucide-react'
 
 interface Expense {
@@ -51,6 +52,8 @@ export default function ExpensesPage() {
   const [error, setError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
   const [category, setCategory] = useState('')
   const today = new Date().toISOString().split('T')[0]
   const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
@@ -58,6 +61,7 @@ export default function ExpensesPage() {
   const [endDate, setEndDate] = useState(today)
 
   useEffect(() => { fetchExpenses() }, [category, startDate, endDate, currentBranchId])
+  useEffect(() => setPage(1), [category, startDate, endDate])
 
   const fetchExpenses = async () => {
     try {
@@ -105,11 +109,11 @@ export default function ExpensesPage() {
         />
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4">
+        <div className="bg-white shadow-sm ring-1 ring-black/5 p-4">
           <div className="flex flex-wrap gap-4">
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</label>
@@ -117,7 +121,7 @@ export default function ExpensesPage() {
                 type="date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+                className="px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -126,7 +130,7 @@ export default function ExpensesPage() {
                 type="date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400"
+                className="px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -134,7 +138,7 @@ export default function ExpensesPage() {
               <select
                 value={category}
                 onChange={e => setCategory(e.target.value)}
-                className="px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 bg-white"
+                className="px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400 bg-white"
               >
                 <option value="">All Categories</option>
                 {Object.entries(CATEGORY_LABELS).map(([val, label]) => (
@@ -166,7 +170,7 @@ export default function ExpensesPage() {
         </div>
 
         {Object.keys(byCategory).length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 p-5">
             <p className="text-sm font-bold text-gray-700 mb-4">Breakdown by Category</p>
             <div className="space-y-3">
               {Object.entries(byCategory)
@@ -191,7 +195,7 @@ export default function ExpensesPage() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+        <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">Expense Records</h2>
             <span className="text-xs text-gray-400">{expenses.length} records</span>
@@ -200,7 +204,7 @@ export default function ExpensesPage() {
           {isLoading ? (
             <div className="p-5 space-y-3">
               {[1,2,3].map(i => (
-                <div key={i} className="h-12 bg-gray-100 rounded-xl animate-pulse" />
+                <div key={i} className="h-12 bg-gray-100 animate-pulse" />
               ))}
             </div>
           ) : expenses.length === 0 ? (
@@ -213,7 +217,7 @@ export default function ExpensesPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
-              {expenses.map(exp => (
+              {expenses.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(exp => (
                 <div key={exp.id} className="px-5 py-3.5 flex items-center gap-4 hover:bg-gray-50/60 transition-colors">
                   <Badge variant={CATEGORY_BADGE[exp.category] ?? 'gray'} className="shrink-0">
                     {CATEGORY_LABELS[exp.category] || exp.category}
@@ -236,6 +240,12 @@ export default function ExpensesPage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+          {expenses.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-400">{expenses.length} results</span>
+              <Pagination page={page} totalPages={Math.ceil(expenses.length / PAGE_SIZE)} onPageChange={setPage} totalItems={expenses.length} pageSize={PAGE_SIZE} />
             </div>
           )}
         </div>

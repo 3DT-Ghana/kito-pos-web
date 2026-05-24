@@ -15,6 +15,7 @@ import { Btn } from '@/components/ui/Btn'
 import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   Package, Search, X, Clock,
   Plus, Printer, Factory, Sliders, Download, DollarSign
@@ -47,6 +48,9 @@ export default function ItemsPage() {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE'>('ALL')
   const [manufacturerFilter, setManufacturerFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const [selectedForLabels, setSelectedForLabels] = useState<Set<string>>(new Set())
   const [showBarcodeModal, setShowBarcodeModal] = useState(false)
@@ -89,6 +93,8 @@ export default function ItemsPage() {
   const activeTab: Tab = (!features.enableExpiryTracking && tab === 'expiring') ? 'all' : tab
   const inventoryItems = items.filter(i => isInventoryItemType(i.itemType))
 
+  useEffect(() => setPage(1), [search, tab, typeFilter, manufacturerFilter, categoryFilter])
+
   const filtered = items.filter(i => {
     const q = search.toLowerCase()
     const isInventoryItem = isInventoryItemType(i.itemType)
@@ -107,6 +113,8 @@ export default function ItemsPage() {
       : false
     return matchSearch && matchType && matchMfr && matchCat && matchTab
   })
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const lowStock = inventoryItems.filter(i => i.quantity > 0 && i.quantity <= 10)
   const outOfStock = inventoryItems.filter(i => i.quantity === 0)
@@ -231,7 +239,7 @@ export default function ItemsPage() {
           <select
             value={typeFilter}
             onChange={e => setTypeFilter(e.target.value as typeof typeFilter)}
-            className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-400"
+            className="px-3 py-2 bg-white border border-gray-200 text-sm font-medium focus:outline-none focus:border-blue-400"
           >
             <option value="ALL">All Types</option>
             <option value="INVENTORY">Inventory</option>
@@ -243,7 +251,7 @@ export default function ItemsPage() {
             <select
               value={manufacturerFilter}
               onChange={e => setManufacturerFilter(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-400"
+              className="px-3 py-2 bg-white border border-gray-200 text-sm font-medium focus:outline-none focus:border-blue-400"
             >
               <option value="">All Manufacturers</option>
               {manufacturers.map(m => <option key={m} value={m!}>{m}</option>)}
@@ -254,7 +262,7 @@ export default function ItemsPage() {
             <select
               value={categoryFilter}
               onChange={e => setCategoryFilter(e.target.value)}
-              className="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-blue-400"
+              className="px-3 py-2 bg-white border border-gray-200 text-sm font-medium focus:outline-none focus:border-blue-400"
             >
               <option value="">All Categories</option>
               {categories.map(c => (
@@ -271,7 +279,7 @@ export default function ItemsPage() {
               placeholder="Search by item or manufacturer..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -284,7 +292,7 @@ export default function ItemsPage() {
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {[1,2,3,4,5,6].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-28 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-28 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -300,7 +308,7 @@ export default function ItemsPage() {
           <>
             {/* Mobile Cards */}
             <div className="md:hidden grid grid-cols-1 gap-3">
-              {filtered.map(item => {
+              {paginated.map(item => {
                 const isInventoryItem = isInventoryItemType(item.itemType)
                 const isSelected = selectedForLabels.has(item.id)
                 const isExpired = isInventoryItem && item.expiryDate && new Date(item.expiryDate) < now
@@ -309,7 +317,7 @@ export default function ItemsPage() {
                   <div
                     key={item.id}
                     onClick={() => isSelectMode ? toggleSelect(item.id) : router.push(`/items/${item.id}`)}
-                    className={`bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 cursor-pointer transition-colors ${isSelected ? 'ring-indigo-400 bg-indigo-50/50' : 'hover:bg-gray-50/50'}`}
+                    className={`bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer transition-colors ${isSelected ? 'ring-indigo-400 bg-indigo-50/50' : 'hover:bg-gray-50/50'}`}
                   >
                     <div className="flex items-start gap-3">
                       {isSelectMode && (
@@ -331,7 +339,7 @@ export default function ItemsPage() {
                           )}
                           {item.category && (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold text-white"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-white"
                               style={{ backgroundColor: item.category.color ?? '#6366f1' }}
                             >
                               {item.category.icon} {item.category.name}
@@ -341,21 +349,21 @@ export default function ItemsPage() {
                       </div>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <div className="bg-gray-50 p-2 text-center">
                         <p className="text-gray-400">{isInventoryItem ? 'Stock' : 'Tracking'}</p>
                         <p className="font-bold text-gray-800">{isInventoryItem ? item.quantity : 'Off'}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <div className="bg-gray-50 p-2 text-center">
                         <p className="text-gray-400">Cost</p>
                         <p className="font-bold text-gray-800">{formatCurrency(item.costPrice)}</p>
                       </div>
-                      <div className="bg-gray-50 rounded-lg p-2 text-center">
+                      <div className="bg-gray-50 p-2 text-center">
                         <p className="text-gray-400">Sell</p>
                         <p className="font-bold text-emerald-700">{formatCurrency(item.sellingPrice)}</p>
                       </div>
                     </div>
                     {features.enableExpiryTracking && isInventoryItem && (isExpired || isSoon) && (
-                      <div className={`mt-2 text-xs font-semibold px-2 py-1 rounded-lg flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                      <div className={`mt-2 text-xs font-semibold px-2 py-1 flex items-center gap-1 ${isExpired ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
                         <Clock className="w-3 h-3" />
                         {isExpired ? 'Expired' : 'Expires'} {new Date(item.expiryDate!).toLocaleDateString()}
                       </div>
@@ -364,9 +372,10 @@ export default function ItemsPage() {
                 )
               })}
             </div>
+            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
 
             {/* Desktop Table */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
@@ -395,7 +404,7 @@ export default function ItemsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.map(item => {
+                  {paginated.map(item => {
                     const isInventoryItem = isInventoryItemType(item.itemType)
                     const isExpired = isInventoryItem && item.expiryDate && new Date(item.expiryDate) < now
                     const isSoon = isInventoryItem && !isExpired && item.expiryDate && new Date(item.expiryDate) <= thirtyDaysFromNow
@@ -419,7 +428,7 @@ export default function ItemsPage() {
                         <td className="px-5 py-3.5">
                           {item.category ? (
                             <span
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-bold text-white"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-white"
                               style={{ backgroundColor: item.category.color ?? '#6366f1' }}
                             >
                               {item.category.icon} {item.category.name}
@@ -430,7 +439,7 @@ export default function ItemsPage() {
                         </td>
                         <td className="px-5 py-3.5">
                           {item.manufacturer ? (
-                            <span className="text-xs text-blue-700 font-semibold bg-blue-50 px-2 py-0.5 rounded-lg">
+                            <span className="text-xs text-blue-700 font-semibold bg-blue-50 px-2 py-0.5">
                               {item.manufacturer.name}
                             </span>
                           ) : (
@@ -476,6 +485,10 @@ export default function ItemsPage() {
                   </tr>
                 </tfoot>
               </table>
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{filtered.length} of {items.length} results</span>
+                <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
+              </div>
             </div>
           </>
         )}

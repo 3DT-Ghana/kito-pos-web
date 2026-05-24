@@ -33,7 +33,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setMobileOpen(true)}
-            className="md:hidden flex items-center justify-center w-9 h-9 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            className="md:hidden flex items-center justify-center w-9 h-9 text-gray-500 hover:bg-gray-100 transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>

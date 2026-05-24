@@ -12,8 +12,8 @@ const V: Record<Variant, string> = {
 }
 
 const S: Record<Size, string> = {
-  sm: 'px-3 py-1.5 text-xs gap-1.5 rounded-lg',
-  md: 'px-4 py-2.5 text-sm gap-2 rounded-xl',
+  sm: 'px-3 py-1.5 text-xs gap-1.5',
+  md: 'px-4 py-2.5 text-sm gap-2',
 }
 
 interface BtnProps {

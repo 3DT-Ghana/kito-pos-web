@@ -138,7 +138,7 @@ export default function QuotationDetailPage() {
 
   if (error || !quotation) return (
     <AppLayout>
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">{error || 'Not found'}</div>
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">{error || 'Not found'}</div>
     </AppLayout>
   )
 
@@ -167,7 +167,7 @@ export default function QuotationDetailPage() {
               <button
                 onClick={() => updateStatus('SENT')}
                 disabled={isUpdatingStatus}
-                className="px-4 py-2 text-sm font-semibold border-2 border-blue-300 text-blue-700 rounded-xl hover:bg-blue-50 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-semibold border-2 border-blue-300 text-blue-700 hover:bg-blue-50 disabled:opacity-50"
               >
                 Mark as Sent
               </button>
@@ -177,14 +177,14 @@ export default function QuotationDetailPage() {
                 <button
                   onClick={() => updateStatus('REJECTED')}
                   disabled={isUpdatingStatus}
-                  className="px-4 py-2 text-sm font-semibold border-2 border-red-300 text-red-700 rounded-xl hover:bg-red-50 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold border-2 border-red-300 text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
                   Reject
                 </button>
                 <button
                   onClick={() => updateStatus('ACCEPTED')}
                   disabled={isUpdatingStatus}
-                  className="px-4 py-2 text-sm font-semibold border-2 border-green-300 text-green-700 rounded-xl hover:bg-green-50 disabled:opacity-50"
+                  className="px-4 py-2 text-sm font-semibold border-2 border-green-300 text-green-700 hover:bg-green-50 disabled:opacity-50"
                 >
                   Accept
                 </button>
@@ -194,21 +194,21 @@ export default function QuotationDetailPage() {
               <button
                 onClick={convertToSale}
                 disabled={isConverting}
-                className="px-4 py-2 text-sm font-bold bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50"
+                className="px-4 py-2 text-sm font-bold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
               >
                 {isConverting ? 'Converting...' : '✓ Convert to Sale'}
               </button>
             )}
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
+              className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
             >
               🖨️ Print / PDF
             </button>
             {quotation.status === 'DRAFT' && (
               <button
                 onClick={deleteQuotation}
-                className="px-4 py-2 text-sm font-semibold border-2 border-red-200 text-red-600 rounded-xl hover:bg-red-50"
+                className="px-4 py-2 text-sm font-semibold border-2 border-red-200 text-red-600 hover:bg-red-50"
               >
                 Delete
               </button>
@@ -217,14 +217,14 @@ export default function QuotationDetailPage() {
         </div>
 
         {convertError && (
-          <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+          <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
             ⚠ {convertError}
           </div>
         )}
       </div>
 
       {/* Printable document */}
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
+      <div className="max-w-3xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-200">
           <div className="flex justify-between items-start">
@@ -306,7 +306,7 @@ export default function QuotationDetailPage() {
           </table>
 
           {quotation.note && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="mt-4 p-4 bg-gray-50 border border-gray-200">
               <p className="text-xs font-bold text-gray-500 uppercase mb-1">Note</p>
               <p className="text-sm text-gray-700">{quotation.note}</p>
             </div>

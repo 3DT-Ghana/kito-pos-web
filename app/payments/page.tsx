@@ -93,7 +93,7 @@ export default function PaymentsPage() {
         />
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
         )}
 
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
@@ -130,7 +130,7 @@ export default function PaymentsPage() {
             placeholder="Search by name or ID..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -142,7 +142,7 @@ export default function PaymentsPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3,4,5].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-14 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-14 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -152,7 +152,7 @@ export default function PaymentsPage() {
             description={search ? 'Try a different search term' : 'No payment records yet'}
           />
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
@@ -173,7 +173,7 @@ export default function PaymentsPage() {
                       <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(payment.createdAt)}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 rounded-lg ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                          <div className={`w-8 h-8 ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                             {initials}
                           </div>
                           <div>

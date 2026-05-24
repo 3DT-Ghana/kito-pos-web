@@ -65,7 +65,7 @@ export function Header() {
           {/* Sidebar toggle — desktop only */}
           <button
             onClick={toggle}
-            className="hidden md:flex items-center justify-center w-8 h-8 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            className="hidden md:flex items-center justify-center w-8 h-8 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -85,9 +85,9 @@ export function Header() {
           <div className="relative">
             <button
               onClick={() => setMenuOpen(v => !v)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
             >
-              <div className="w-7 h-7 rounded-md bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-7 h-7 bg-slate-800 flex items-center justify-center text-white text-xs font-bold">
                 {initials}
               </div>
               <span className="hidden sm:block font-medium text-gray-700 text-sm">{user?.name}</span>
@@ -97,7 +97,7 @@ export function Header() {
             {menuOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-lg bg-white ring-1 ring-black/5 z-20 overflow-hidden">
+                <div className="absolute right-0 mt-2 w-56 shadow-lg bg-white ring-1 ring-black/5 z-20 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
                     <p className="text-xs text-gray-500 mt-0.5">{roleLabel}</p>

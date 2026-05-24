@@ -108,7 +108,7 @@ export function ItemSelectorWithManufacturer({
         <select
           value={selectedManufacturer}
           onChange={(e) => setSelectedManufacturer(e.target.value)}
-          className="w-full px-4 py-3 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full px-4 py-3 text-base border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">All Manufacturers</option>
           {manufacturers.map(manufacturer => (
@@ -131,14 +131,14 @@ export function ItemSelectorWithManufacturer({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Type item name or manufacturer..."
-            className="w-full px-4 py-3 pl-12 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-3 pl-12 text-base border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
         </div>
       </div>
 
       {/* Items List */}
-      <div className="border-2 border-gray-200 rounded-lg max-h-96 overflow-y-auto bg-white">
+      <div className="border-2 border-gray-200 max-h-96 overflow-y-auto bg-white">
         {Object.keys(groupedItems).length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <Package className="w-12 h-12 mx-auto mb-3 text-gray-300" />

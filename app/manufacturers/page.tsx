@@ -8,6 +8,7 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { Btn } from '@/components/ui/Btn'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Pagination } from '@/components/ui/Pagination'
 import { Factory, Search, X, Plus, Package } from 'lucide-react'
 
 interface Manufacturer {
@@ -22,6 +23,8 @@ export default function ManufacturersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   useEffect(() => { fetchManufacturers() }, [])
 
@@ -43,6 +46,10 @@ export default function ManufacturersPage() {
     !search || m.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  useEffect(() => setPage(1), [search])
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
   const totalItems = manufacturers.reduce((s, m) => s + (m._count?.items || 0), 0)
 
   return (
@@ -55,7 +62,7 @@ export default function ManufacturersPage() {
         />
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
         )}
 
         <div className="grid grid-cols-2 gap-3">
@@ -82,7 +89,7 @@ export default function ManufacturersPage() {
             placeholder="Search manufacturers..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+            className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
           />
           {search && (
             <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -94,7 +101,7 @@ export default function ManufacturersPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3,4].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -107,7 +114,7 @@ export default function ManufacturersPage() {
             )}
           />
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
             <table className="w-full">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
@@ -117,7 +124,7 @@ export default function ManufacturersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(m => (
+                {paginated.map(m => (
                   <tr
                     key={m.id}
                     onClick={() => router.push(`/manufacturers/${m.id}`)}
@@ -125,7 +132,7 @@ export default function ManufacturersPage() {
                   >
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+                        <div className="w-9 h-9 bg-blue-50 flex items-center justify-center">
                           <Factory className="w-4 h-4 text-blue-600" strokeWidth={1.75} />
                         </div>
                         <span className="font-semibold text-gray-900 text-sm">{m.name}</span>
@@ -145,8 +152,9 @@ export default function ManufacturersPage() {
                 ))}
               </tbody>
             </table>
-            <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100 text-xs text-gray-400 font-medium">
-              {filtered.length} of {manufacturers.length} manufacturers
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-400">{filtered.length} of {manufacturers.length} results</span>
+              <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
             </div>
           </div>
         )}

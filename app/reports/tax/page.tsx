@@ -181,7 +181,7 @@ function TaxBreakdownList({ lines }: { lines: TaxBreakdown[] }) {
 
 function SummaryCardSkeleton() {
   return (
-    <div className="animate-pulse rounded-2xl border border-gray-200 bg-white p-4">
+    <div className="animate-pulse border border-gray-200 bg-white p-4">
       <div className="h-4 w-20 rounded bg-gray-200" />
       <div className="mt-3 h-7 w-32 rounded bg-gray-200" />
     </div>
@@ -190,7 +190,7 @@ function SummaryCardSkeleton() {
 
 function TableSkeleton({ cols }: { cols: number }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white animate-pulse">
+    <div className="overflow-hidden border border-gray-200 bg-white animate-pulse">
       <div className="border-b border-gray-100 px-5 py-4">
         <div className="h-5 w-40 rounded bg-gray-200" />
       </div>
@@ -210,7 +210,7 @@ function TableSkeleton({ cols }: { cols: number }) {
 function EmptyTableState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-      <div className="rounded-xl bg-gray-100 p-4">
+      <div className="bg-gray-100 p-4">
         <BarChart3 className="h-8 w-8 text-gray-400" />
       </div>
       <p className="text-sm font-semibold text-gray-600">{message}</p>
@@ -391,7 +391,7 @@ export default function TaxReportsPage() {
             <ExportButton filename={reportType} label="Export" getData={() => exportRows} />
             <button
               onClick={() => window.print()}
-              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Print / PDF
             </button>
@@ -407,14 +407,14 @@ export default function TaxReportsPage() {
                 key={option.id}
                 type="button"
                 onClick={() => setReportType(option.id)}
-                className={`rounded-2xl border-2 p-4 text-left transition-colors ${
+                className={`border-2 p-4 text-left transition-colors ${
                   active
                     ? 'border-blue-400 bg-blue-50'
                     : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
                 <span
-                  className={`mb-2 inline-flex rounded-lg p-1.5 ${
+                  className={`mb-2 inline-flex p-1.5 ${
                     active ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'
                   }`}
                 >
@@ -432,7 +432,7 @@ export default function TaxReportsPage() {
         </div>
 
         {/* Filters */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="border border-gray-200 bg-white p-5">
           {/* Quick ranges */}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-gray-500">Quick range:</span>
@@ -441,7 +441,7 @@ export default function TaxReportsPage() {
                 key={range.label}
                 type="button"
                 onClick={() => applyQuickRange(range)}
-                className={`rounded-lg border px-3 py-1 text-xs font-semibold transition-colors ${
+                className={`border px-3 py-1 text-xs font-semibold transition-colors ${
                   startDate === range.start() && endDate === range.end()
                     ? 'border-blue-400 bg-blue-50 text-blue-700'
                     : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
@@ -459,7 +459,7 @@ export default function TaxReportsPage() {
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>
             <div>
@@ -468,7 +468,7 @@ export default function TaxReportsPage() {
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               />
             </div>
             <div>
@@ -476,7 +476,7 @@ export default function TaxReportsPage() {
               <select
                 value={taxRateId}
                 onChange={(event) => setTaxRateId(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
                 <option value="">All Taxes</option>
                 {taxRates.map((taxRate) => (
@@ -491,7 +491,7 @@ export default function TaxReportsPage() {
               <select
                 value={productId}
                 onChange={(event) => setProductId(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
                 <option value="">All Items</option>
                 {items.map((item) => (
@@ -506,7 +506,7 @@ export default function TaxReportsPage() {
               <select
                 value={customerId}
                 onChange={(event) => setCustomerId(event.target.value)}
-                className="w-full rounded-xl border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
               >
                 <option value="">All Customers</option>
                 {customers.map((customer) => (
@@ -523,7 +523,7 @@ export default function TaxReportsPage() {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                className="flex items-center gap-1.5 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-gray-300 hover:bg-gray-50"
               >
                 <X className="h-3.5 w-3.5" />
                 Clear all filters
@@ -534,7 +534,7 @@ export default function TaxReportsPage() {
 
         {/* Error */}
         {error && (
-          <div className="flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="flex items-center gap-2 border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
             <TriangleAlert className="h-4 w-4 shrink-0" />
             {error}
           </div>
@@ -547,7 +547,7 @@ export default function TaxReportsPage() {
             : summaryCards.map((card) => (
                 <div
                   key={card.key}
-                  className={`rounded-2xl border p-4 ${
+                  className={`border p-4 ${
                     card.highlight
                       ? 'border-blue-200 bg-blue-50'
                       : 'border-gray-200 bg-white'
@@ -575,7 +575,7 @@ export default function TaxReportsPage() {
         ) : data ? (
           <>
             {reportType === 'tax-summary' && (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="overflow-hidden border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
                   <h2 className="text-lg font-bold text-gray-900">Tax Summary Breakdown</h2>
                 </div>
@@ -631,7 +631,7 @@ export default function TaxReportsPage() {
             )}
 
             {reportType === 'tax-collected' && (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="overflow-hidden border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
                   <h2 className="text-lg font-bold text-gray-900">Daily Tax Activity</h2>
                 </div>
@@ -685,7 +685,7 @@ export default function TaxReportsPage() {
             )}
 
             {reportType === 'tax-by-invoice' && (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="overflow-hidden border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
                   <h2 className="text-lg font-bold text-gray-900">Invoices</h2>
                 </div>
@@ -745,7 +745,7 @@ export default function TaxReportsPage() {
             )}
 
             {reportType === 'tax-by-product' && (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="overflow-hidden border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
                   <h2 className="text-lg font-bold text-gray-900">Tax by Product</h2>
                 </div>
@@ -809,7 +809,7 @@ export default function TaxReportsPage() {
             )}
 
             {reportType === 'tax-liability' && (
-              <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <div className="overflow-hidden border border-gray-200 bg-white">
                 <div className="border-b border-gray-100 px-5 py-4">
                   <h2 className="text-lg font-bold text-gray-900">Tax Liability Ledger</h2>
                 </div>

@@ -22,9 +22,9 @@ interface BadgeProps {
 
 export function Badge({ children, variant = 'gray', dot, className = '' }: BadgeProps) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ring-1 ${VARIANT_CLASSES[variant]} ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold ring-1 ${VARIANT_CLASSES[variant]} ${className}`}>
       {dot && (
-        <span className={`w-1.5 h-1.5 rounded-full ${
+        <span className={`w-1.5 h-1.5 ${
           variant === 'green' ? 'bg-emerald-500'
           : variant === 'red' ? 'bg-red-500'
           : variant === 'amber' ? 'bg-amber-500'

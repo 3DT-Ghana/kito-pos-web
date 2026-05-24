@@ -51,7 +51,7 @@ export default function NewCustomerPage() {
         </div>
 
         {/* Form Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white shadow-sm border border-gray-200 p-6">
           <CustomerForm onSubmit={handleSubmit} onCancel={handleCancel} />
         </div>
       </div>

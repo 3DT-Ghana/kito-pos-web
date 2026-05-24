@@ -76,7 +76,7 @@ export function DataTable<T extends Record<string, any>>({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-9 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
+            className="w-full pl-9 pr-9 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all"
           />
           {searchTerm && (
             <button
@@ -91,7 +91,7 @@ export function DataTable<T extends Record<string, any>>({
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+      <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full">
             <thead>

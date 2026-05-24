@@ -33,9 +33,9 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-amber-100 p-3 rounded-lg">
+        <div className="bg-amber-100 p-3">
           <span className="text-2xl">📦</span>
         </div>
         <div>
@@ -46,7 +46,7 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
 
       <div className="space-y-5">
         {/* Toggle */}
-        <div className="border-2 border-gray-200 rounded-lg p-5 hover:border-amber-300 transition-colors">
+        <div className="border-2 border-gray-200 p-5 hover:border-amber-300 transition-colors">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <label htmlFor="useUnitSystem" className="text-lg font-bold text-gray-900 cursor-pointer">
@@ -82,7 +82,7 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
         </div>
 
         {/* How it works */}
-        <div className={`rounded-lg p-4 space-y-3 text-sm transition-all ${useUnitSystem ? 'bg-amber-50 border-2 border-amber-200' : 'bg-gray-50 border-2 border-gray-200 opacity-60'}`}>
+        <div className={`p-4 space-y-3 text-sm transition-all ${useUnitSystem ? 'bg-amber-50 border-2 border-amber-200' : 'bg-gray-50 border-2 border-gray-200 opacity-60'}`}>
           <p className="font-bold text-gray-900">How it works when enabled:</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
@@ -90,7 +90,7 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
               { icon: '2️⃣', title: 'Sell in fractions', desc: 'When making a sale, enter cartons + extra pieces. The system converts to the total unit count.' },
               { icon: '3️⃣', title: 'Fractional stock', desc: 'Selling 1 carton + 6 pieces from 2 cartons leaves 0.5 cartons remaining in stock.' },
             ].map(({ icon, title, desc }) => (
-              <div key={title} className="bg-white rounded-lg p-3 shadow-sm">
+              <div key={title} className="bg-white p-3 shadow-sm">
                 <div className="text-xl mb-1">{icon}</div>
                 <p className="font-semibold text-gray-900 text-xs">{title}</p>
                 <p className="text-gray-600 text-xs mt-0.5">{desc}</p>
@@ -113,7 +113,7 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+              className="px-8 py-4 bg-amber-500 hover:bg-amber-600 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {saving ? 'Saving...' : 'Save Settings'}
             </button>

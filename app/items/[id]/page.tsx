@@ -130,7 +130,7 @@ export default function ItemDetailPage() {
   if (error || !item) {
     return (
       <AppLayout>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">
           {error || 'Item not found'}
         </div>
       </AppLayout>
@@ -167,12 +167,12 @@ export default function ItemDetailPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <button onClick={() => router.push('/items')} className="p-2 hover:bg-gray-100 rounded-xl">
+            <button onClick={() => router.push('/items')} className="p-2 hover:bg-gray-100">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shrink-0">
+            <div className="w-12 h-12 bg-indigo-600 flex items-center justify-center text-white font-bold text-xl shrink-0">
               {item.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -188,7 +188,7 @@ export default function ItemDetailPage() {
                 )}
                 {item.category && (
                   <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold text-white"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold text-white"
                     style={{ backgroundColor: item.category.color ?? '#6366f1' }}
                   >
                     {item.category.icon} {item.category.name}
@@ -202,20 +202,20 @@ export default function ItemDetailPage() {
               {isInventoryItem && (
                 <button
                   onClick={() => router.push(`/items/${itemId}/adjust`)}
-                  className="px-3 py-2 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700"
+                  className="px-3 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700"
                 >
                   ± Adjust Stock
                 </button>
               )}
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-3 py-2 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50"
+                className="px-3 py-2 border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50"
               >
                 Edit
               </button>
               <button
                 onClick={handleDelete}
-                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 rounded-xl font-semibold text-sm hover:bg-red-100"
+                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 font-semibold text-sm hover:bg-red-100"
               >
                 Delete
               </button>
@@ -225,7 +225,7 @@ export default function ItemDetailPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={`rounded-xl p-4 border-2 ${
+          <div className={`p-4 border-2 ${
             !isInventoryItem ? 'bg-slate-50 border-slate-200'
             : item.quantity === 0 ? 'bg-red-50 border-red-200'
             : item.quantity <= 10 ? 'bg-orange-50 border-orange-200'
@@ -243,15 +243,15 @@ export default function ItemDetailPage() {
               {isInventoryItem ? item.quantity : 'Off'}
             </p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Cost Price</p>
             <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(item.costPrice)}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Selling Price</p>
             <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(item.sellingPrice)}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">
               {isInventoryItem ? 'Stock Value' : 'Catalog Type'}
             </p>
@@ -264,7 +264,7 @@ export default function ItemDetailPage() {
             const isExpired = exp < new Date()
             const isSoon = !isExpired && exp <= new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             return (
-              <div className={`rounded-xl p-4 border-2 col-span-2 lg:col-span-1 ${isExpired ? 'bg-red-50 border-red-300' : isSoon ? 'bg-orange-50 border-orange-300' : 'bg-white border-gray-200'}`}>
+              <div className={`p-4 border-2 col-span-2 lg:col-span-1 ${isExpired ? 'bg-red-50 border-red-300' : isSoon ? 'bg-orange-50 border-orange-300' : 'bg-white border-gray-200'}`}>
                 <p className={`text-xs font-semibold uppercase ${isExpired ? 'text-red-500' : isSoon ? 'text-orange-500' : 'text-gray-500'}`}>Expiry Date</p>
                 <p className={`text-lg font-bold mt-1 ${isExpired ? 'text-red-700' : isSoon ? 'text-orange-700' : 'text-gray-900'}`}>
                   {isExpired ? '⚠ ' : isSoon ? '⏰ ' : ''}{exp.toLocaleDateString()}
@@ -276,7 +276,7 @@ export default function ItemDetailPage() {
           })()}
         </div>
 
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5">
+        <div className="border border-emerald-200 bg-emerald-50/60 p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-base font-bold text-emerald-950">Tax Setup</h2>
@@ -296,13 +296,13 @@ export default function ItemDetailPage() {
           </div>
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+            <div className="border border-emerald-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase text-emerald-700">Taxable</p>
               <p className="mt-1 text-lg font-bold text-gray-900">
                 {productTaxSetting?.isTaxable ? 'Yes' : 'No'}
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+            <div className="border border-emerald-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase text-emerald-700">Tax Source</p>
               <p className="mt-1 text-lg font-bold text-gray-900">
                 {productTaxSetting?.useTenantDefaultTaxes !== false
@@ -310,7 +310,7 @@ export default function ItemDetailPage() {
                   : 'Item-Specific'}
               </p>
             </div>
-            <div className="rounded-xl border border-emerald-200 bg-white p-4">
+            <div className="border border-emerald-200 bg-white p-4">
               <p className="text-xs font-semibold uppercase text-emerald-700">Configured Taxes</p>
               <p className="mt-1 text-lg font-bold text-gray-900">{productTaxRates.length}</p>
             </div>
@@ -342,7 +342,7 @@ export default function ItemDetailPage() {
 
         {/* Edit form */}
         {isEditing ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="bg-white border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Edit Item</h2>
             <ItemForm
               initialData={{
@@ -388,7 +388,7 @@ export default function ItemDetailPage() {
         ) : (
           <>
             {/* Recent Sales */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="text-base font-bold text-gray-900">
                   Recent Sales
@@ -417,7 +417,7 @@ export default function ItemDetailPage() {
             </div>
 
             {/* Recent Purchases */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="text-base font-bold text-gray-900">
                   Recent Purchases

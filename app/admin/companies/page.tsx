@@ -176,14 +176,14 @@ export default function AdminCompaniesPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/admin/reports"
-              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold rounded-xl hover:bg-indigo-100 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold hover:bg-indigo-100 transition-colors text-sm"
             >
               <TrendingUp className="w-4 h-4" />
               Revenue Report
             </Link>
             <button
               onClick={fetchData}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors text-sm"
+              className="flex items-center gap-2 px-4 py-2.5 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors text-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -194,7 +194,7 @@ export default function AdminCompaniesPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 rounded-xl font-medium text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-5 py-4 font-medium text-sm">
             {error}
           </div>
         )}
@@ -216,7 +216,7 @@ export default function AdminCompaniesPage() {
               <button
                 key={s}
                 onClick={() => setStatusFilter(s)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                className={`px-4 py-2 text-sm font-semibold border-2 transition-colors ${
                   statusFilter === s
                     ? 'bg-indigo-600 text-white border-indigo-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
@@ -240,7 +240,7 @@ export default function AdminCompaniesPage() {
               placeholder="Search by company, owner email, phone or agent name…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none text-sm"
+              className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-indigo-500 focus:outline-none text-sm"
             />
           </div>
         </div>
@@ -249,11 +249,11 @@ export default function AdminCompaniesPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-200 p-5 animate-pulse h-28" />
+              <div key={i} className="bg-white border border-gray-200 p-5 animate-pulse h-28" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 flex flex-col items-center justify-center py-16">
+          <div className="bg-white border border-gray-200 flex flex-col items-center justify-center py-16">
             <Building2 className="w-12 h-12 text-gray-200 mb-3" />
             <p className="text-lg font-semibold text-gray-700">No companies found</p>
             <p className="text-sm text-gray-400 mt-1">{search ? 'Try a different search' : 'No tenants registered yet'}</p>
@@ -269,14 +269,14 @@ export default function AdminCompaniesPage() {
               const revenuePct = maxRevenue > 0 ? (tenant.totalRevenue / maxRevenue) * 100 : 0
 
               return (
-                <div key={tenant.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div key={tenant.id} className="bg-white border border-gray-200 shadow-sm overflow-hidden">
                   <div
                     className="p-4 sm:p-5 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => setExpandedId(isExpanded ? null : tenant.id)}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-11 h-11 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm">
+                        <div className="w-11 h-11 bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm">
                           {tenant.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -350,8 +350,8 @@ export default function AdminCompaniesPage() {
                       <div>
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Onboarding</h4>
                         {agent ? (
-                          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-xl px-3 py-2">
-                            <div className="w-6 h-6 rounded-md bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
+                          <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 px-3 py-2">
+                            <div className="w-6 h-6 bg-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-xs">
                               {agent.fullName.charAt(0)}
                             </div>
                             <span className="text-sm font-semibold text-indigo-800">{agent.fullName}</span>
@@ -374,7 +374,7 @@ export default function AdminCompaniesPage() {
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Enabled Features</h4>
                         <div className="flex flex-wrap gap-2">
                           {(Object.entries(tenant.features) as [string, boolean][]).map(([key, on]) => (
-                            <span key={key} className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${
+                            <span key={key} className={`px-2.5 py-1 text-xs font-semibold border ${
                               on
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                 : 'bg-gray-100 text-gray-400 border-gray-200 line-through'
@@ -390,7 +390,7 @@ export default function AdminCompaniesPage() {
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
                           Users ({tenant.userCount})
                         </h4>
-                        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                        <div className="bg-white border border-gray-200 overflow-hidden">
                           <table className="w-full text-sm">
                             <thead className="bg-gray-50 border-b border-gray-200">
                               <tr>
@@ -430,7 +430,7 @@ export default function AdminCompaniesPage() {
                         <Link
                           href={`/admin/tenant-plans/${tenant.id}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
                         >
                           <Wallet className="w-4 h-4" /> Setup / View Plan
                         </Link>
@@ -445,7 +445,7 @@ export default function AdminCompaniesPage() {
                               key={s}
                               disabled={tenant.status === s || updatingId === tenant.id}
                               onClick={e => { e.stopPropagation(); updateStatus(tenant.id, s) }}
-                              className={`px-4 py-2 rounded-xl text-sm font-bold border-2 transition-colors disabled:cursor-not-allowed ${
+                              className={`px-4 py-2 text-sm font-bold border-2 transition-colors disabled:cursor-not-allowed ${
                                 tenant.status === s
                                   ? s === 'ACTIVE'    ? 'bg-emerald-600 text-white border-emerald-600'
                                   : s === 'SUSPENDED' ? 'bg-red-600 text-white border-red-600'
@@ -489,8 +489,8 @@ function SummaryCard({ label, value, icon, color, isText }: {
   }
   const c = colorMap[color] ?? colorMap.indigo
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-      <div className={`w-8 h-8 rounded-lg ${c.bg} ${c.icon} flex items-center justify-center mb-2`}>
+    <div className="bg-white border border-gray-200 shadow-sm p-4">
+      <div className={`w-8 h-8 ${c.bg} ${c.icon} flex items-center justify-center mb-2`}>
         {icon}
       </div>
       <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{label}</p>
@@ -501,7 +501,7 @@ function SummaryCard({ label, value, icon, color, isText }: {
 
 function StatPill({ value, label }: { value: number; label: string }) {
   return (
-    <div className="flex items-center gap-1 bg-gray-100 rounded-lg px-2.5 py-1.5">
+    <div className="flex items-center gap-1 bg-gray-100 px-2.5 py-1.5">
       <span className="text-xs font-bold text-gray-700">{value}</span>
       <span className="text-xs text-gray-400">{label}</span>
     </div>
@@ -510,7 +510,7 @@ function StatPill({ value, label }: { value: number; label: string }) {
 
 function FinCard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3">
+    <div className="bg-white border border-gray-200 px-4 py-3">
       <p className="text-xs text-gray-400 font-semibold">{label}</p>
       <p className={`text-base font-bold mt-0.5 ${color}`}>{value}</p>
     </div>

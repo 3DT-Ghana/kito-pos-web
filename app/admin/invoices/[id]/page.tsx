@@ -89,7 +89,7 @@ export default function InvoiceDetailPage() {
               <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${STATUS_STYLE[invoice.status]}`}>
                 {invoice.status}
               </span>
-              <button onClick={() => window.print()} className="p-2 border border-gray-300 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+              <button onClick={() => window.print()} className="p-2 border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
                 <Printer className="w-4 h-4" />
               </button>
             </div>
@@ -97,13 +97,13 @@ export default function InvoiceDetailPage() {
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          <div className={`text-sm px-4 py-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
             {message.text}
           </div>
         )}
 
         {/* Invoice meta */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white border border-gray-200 p-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-xs text-gray-400">Billing Cycle</p>
@@ -130,7 +130,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Line items */}
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100">
             <h2 className="text-sm font-semibold text-gray-800">Line Items</h2>
           </div>
@@ -180,7 +180,7 @@ export default function InvoiceDetailPage() {
 
         {/* Commissions */}
         {invoice.commissions.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+          <div className="bg-white border border-gray-200 p-6 space-y-3">
             <h2 className="text-sm font-semibold text-gray-800">Agent Commissions</h2>
             {invoice.commissions.map((c) => (
               <div key={c.id} className="flex items-center justify-between text-sm py-1.5 border-b border-gray-50 last:border-0">
@@ -201,7 +201,7 @@ export default function InvoiceDetailPage() {
 
         {/* Status actions */}
         {transitions.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+          <div className="bg-white border border-gray-200 p-6 space-y-3">
             <h2 className="text-sm font-semibold text-gray-800">Update Status</h2>
             <div className="flex gap-2 flex-wrap">
               {transitions.map((st) => (
@@ -209,7 +209,7 @@ export default function InvoiceDetailPage() {
                   key={st}
                   onClick={() => changeStatus(st)}
                   disabled={updating}
-                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border transition-colors disabled:opacity-60 ${
+                  className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border transition-colors disabled:opacity-60 ${
                     st === 'PAID' ? 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700' :
                     st === 'VOID' ? 'text-red-700 border-red-300 hover:bg-red-50' :
                     'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'

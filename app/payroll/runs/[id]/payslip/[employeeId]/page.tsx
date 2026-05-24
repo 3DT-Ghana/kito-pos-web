@@ -63,13 +63,13 @@ export default function PayslipPage() {
           <Link href={`/payroll/runs/${runId}`} className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
             <ChevronLeft className="w-4 h-4" /> Back to Run
           </Link>
-          <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50">
+          <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 text-gray-600 hover:bg-gray-50">
             <Printer className="w-4 h-4" /> Print Payslip
           </button>
         </div>
 
         {/* Payslip card */}
-        <div id="payslip" className="bg-white border border-gray-200 rounded-xl p-8 space-y-6 print:border-0 print:rounded-none print:p-0">
+        <div id="payslip" className="bg-white border border-gray-200 p-8 space-y-6 print:border-0 print:rounded-none print:p-0">
           {/* Header */}
           <div className="border-b border-gray-200 pb-4">
             <h1 className="text-xl font-bold text-gray-900">PAYSLIP</h1>
@@ -165,7 +165,7 @@ export default function PayslipPage() {
           </div>
 
           {/* Net Pay */}
-          <div className="bg-emerald-50 rounded-lg px-4 py-3 flex items-center justify-between">
+          <div className="bg-emerald-50 px-4 py-3 flex items-center justify-between">
             <span className="font-bold text-gray-900">NET PAY</span>
             <span className="text-xl font-bold text-emerald-700">{fmt(line.netPay)}</span>
           </div>

@@ -95,7 +95,7 @@ export default function NewJournalPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/accounting/journal"
-            className="p-2 border-2 border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="p-2 border-2 border-gray-200 hover:bg-gray-50 transition-colors"
           >
             <ArrowLeft className="w-4 h-4 text-gray-500" />
           </Link>
@@ -106,12 +106,12 @@ export default function NewJournalPage() {
         </div>
 
         {/* Details */}
-        <div className="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm space-y-4">
+        <div className="bg-white border-2 border-gray-200 p-5 shadow-sm space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Description *</label>
               <input
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 placeholder="e.g. Correction to rent expense"
                 value={description}
                 onChange={e => setDescription(e.target.value)}
@@ -121,7 +121,7 @@ export default function NewJournalPage() {
               <label className="block text-xs font-semibold text-gray-600 mb-1">Date</label>
               <input
                 type="date"
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 value={date}
                 onChange={e => setDate(e.target.value)}
               />
@@ -130,7 +130,7 @@ export default function NewJournalPage() {
         </div>
 
         {/* Lines */}
-        <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border-2 border-gray-200 overflow-hidden shadow-sm">
           <div className="grid grid-cols-12 px-5 py-3 text-xs font-bold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
             <span className="col-span-4">Account</span>
             <span className="col-span-3">Description</span>
@@ -143,7 +143,7 @@ export default function NewJournalPage() {
               <div key={idx} className="grid grid-cols-12 px-5 py-3 gap-2 items-center">
                 <div className="col-span-4">
                   <select
-                    className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full border-2 border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                     value={line.accountId}
                     onChange={e => updateLine(idx, 'accountId', e.target.value)}
                   >
@@ -155,7 +155,7 @@ export default function NewJournalPage() {
                 </div>
                 <div className="col-span-3">
                   <input
-                    className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    className="w-full border-2 border-gray-200 px-2 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
                     placeholder="Optional"
                     value={line.description}
                     onChange={e => updateLine(idx, 'description', e.target.value)}
@@ -166,7 +166,7 @@ export default function NewJournalPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-xs text-right focus:border-indigo-500 focus:outline-none"
+                    className="w-full border-2 border-gray-200 px-2 py-1.5 text-xs text-right focus:border-indigo-500 focus:outline-none"
                     placeholder="0.00"
                     value={line.debit}
                     onChange={e => updateLine(idx, 'debit', e.target.value)}
@@ -177,7 +177,7 @@ export default function NewJournalPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-xs text-right focus:border-indigo-500 focus:outline-none"
+                    className="w-full border-2 border-gray-200 px-2 py-1.5 text-xs text-right focus:border-indigo-500 focus:outline-none"
                     placeholder="0.00"
                     value={line.credit}
                     onChange={e => updateLine(idx, 'credit', e.target.value)}
@@ -221,7 +221,7 @@ export default function NewJournalPage() {
         </button>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 p-3 text-red-700 text-sm">{error}</div>
         )}
 
         {/* Actions */}
@@ -229,13 +229,13 @@ export default function NewJournalPage() {
           <button
             onClick={handleSubmit}
             disabled={saving || !balanced || totalDebit === 0}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Posting…' : 'Post Journal Entry'}
           </button>
           <Link
             href="/accounting/journal"
-            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-lg transition-all"
+            className="px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold transition-all"
           >
             Cancel
           </Link>

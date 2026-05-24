@@ -95,7 +95,7 @@ export default function AdjustBalancePage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <button onClick={() => router.push('/customers')} className="p-2 hover:bg-gray-100 rounded-xl">
+            <button onClick={() => router.push('/customers')} className="p-2 hover:bg-gray-100">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -109,7 +109,7 @@ export default function AdjustBalancePage() {
             <button
               onClick={saveAll}
               disabled={isSavingAll}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-60 text-sm shadow-md"
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-60 text-sm shadow-md"
             >
               {isSavingAll ? 'Saving…' : `Save All (${dirtyCount})`}
             </button>
@@ -126,7 +126,7 @@ export default function AdjustBalancePage() {
             placeholder="Search customers..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-indigo-500 focus:outline-none text-sm"
           />
         </div>
 
@@ -135,7 +135,7 @@ export default function AdjustBalancePage() {
             <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
@@ -157,7 +157,7 @@ export default function AdjustBalancePage() {
                       <tr key={customer.id} className={`transition-colors ${row.saved ? 'bg-green-50' : row.dirty ? 'bg-indigo-50/40' : 'hover:bg-gray-50'}`}>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                            <div className="w-8 h-8 bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
                               {customer.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="font-semibold text-gray-900">{customer.name}</span>
@@ -177,7 +177,7 @@ export default function AdjustBalancePage() {
                             value={row.newBalance}
                             onChange={e => setRow(customer.id, { newBalance: e.target.value, dirty: e.target.value !== '', saved: false, error: '' })}
                             placeholder={customer.balance.toFixed(2)}
-                            className="w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:outline-none"
+                            className="w-full px-2 py-1.5 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
                           />
                         </td>
                         <td className="px-4 py-3 text-right">
@@ -188,7 +188,7 @@ export default function AdjustBalancePage() {
                             <button
                               onClick={() => saveRow(customer)}
                               disabled={!row.dirty || row.newBalance === '' || row.saving}
-                              className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed"
+                              className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               {row.saving ? '…' : 'Save'}
                             </button>
@@ -210,7 +210,7 @@ export default function AdjustBalancePage() {
                   <div key={customer.id} className={`p-4 space-y-3 ${row.saved ? 'bg-green-50' : row.dirty ? 'bg-indigo-50/40' : ''}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
+                        <div className="w-9 h-9 bg-blue-100 text-blue-700 flex items-center justify-center font-bold shrink-0">
                           {customer.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -231,14 +231,14 @@ export default function AdjustBalancePage() {
                         value={row.newBalance}
                         onChange={e => setRow(customer.id, { newBalance: e.target.value, dirty: e.target.value !== '', saved: false, error: '' })}
                         placeholder={`New balance (${customer.balance.toFixed(2)})`}
-                        className="flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:outline-none"
+                        className="flex-1 px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
                       />
                       {row.saved ? (
                         <span className="text-xs text-green-600 font-semibold px-2">✓</span>
                       ) : (
                         <button onClick={() => saveRow(customer)}
                           disabled={!row.dirty || row.newBalance === '' || row.saving}
-                          className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-lg hover:bg-indigo-700 disabled:opacity-30">
+                          className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-30">
                           {row.saving ? '…' : 'Save'}
                         </button>
                       )}

@@ -45,9 +45,9 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-blue-100 p-3 rounded-lg">
+        <div className="bg-blue-100 p-3">
           <Printer className="w-6 h-6 text-blue-600" />
         </div>
         <div>
@@ -58,7 +58,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
 
       <div className="space-y-6">
         {/* Show Manufacturer Toggle */}
-        <div className="border-2 border-gray-200 rounded-lg p-5 hover:border-blue-300 transition-colors">
+        <div className="border-2 border-gray-200 p-5 hover:border-blue-300 transition-colors">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <label htmlFor="showManufacturer" className="text-lg font-bold text-gray-900 cursor-pointer">
@@ -101,7 +101,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
         </div>
 
         {/* Printer Width Selection */}
-        <div className="border-2 border-gray-200 rounded-lg p-5 hover:border-blue-300 transition-colors">
+        <div className="border-2 border-gray-200 p-5 hover:border-blue-300 transition-colors">
           <label className="text-lg font-bold text-gray-900 block mb-3">
             Receipt Printer Width
           </label>
@@ -113,7 +113,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
             <button
               type="button"
               onClick={() => setPrinterWidth('58mm')}
-              className={`p-4 border-2 rounded-lg transition-all ${
+              className={`p-4 border-2 transition-all ${
                 printerWidth === '58mm'
                   ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200'
                   : 'border-gray-300 hover:border-blue-300'
@@ -136,7 +136,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
             <button
               type="button"
               onClick={() => setPrinterWidth('80mm')}
-              className={`p-4 border-2 rounded-lg transition-all ${
+              className={`p-4 border-2 transition-all ${
                 printerWidth === '80mm'
                   ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200'
                   : 'border-gray-300 hover:border-blue-300'
@@ -169,7 +169,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+              className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {saving ? 'Saving...' : 'Save Settings'}
             </button>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Users, Plus, X, Pencil } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
+import { Pagination } from '@/components/ui/Pagination'
 
 type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT'
 type SsfTier = 'TIER1' | 'TIER2' | 'TIER3'
@@ -37,7 +38,7 @@ const EMPLOYMENT_LABELS: Record<EmploymentType, string> = {
 
 type Tab = 'personal' | 'employment' | 'payment'
 
-const INPUT = 'w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500'
+const INPUT = 'w-full border-2 border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-blue-500'
 const LABEL = 'block text-sm font-bold text-gray-700 mb-1'
 
 export default function EmployeesPage() {
@@ -52,6 +53,8 @@ export default function EmployeesPage() {
   const [activeOnly, setActiveOnly] = useState(true)
   const [deptFilter, setDeptFilter] = useState('')
   const [tab, setTab] = useState<Tab>('personal')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -71,6 +74,7 @@ export default function EmployeesPage() {
   }, [activeOnly, deptFilter])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => setPage(1), [activeOnly, deptFilter])
 
   const openCreate = () => {
     setEditId(null)
@@ -144,13 +148,13 @@ export default function EmployeesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-3 rounded-lg"><Users className="w-8 h-8 text-blue-700" /></div>
+            <div className="bg-blue-100 p-3"><Users className="w-8 h-8 text-blue-700" /></div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Employees</h1>
               <p className="text-gray-600 mt-1">Manage your payroll employee records</p>
             </div>
           </div>
-          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition active:scale-95">
+          <button onClick={openCreate} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition active:scale-95">
             <Plus className="w-4 h-4" /> Add Employee
           </button>
         </div>
@@ -162,7 +166,7 @@ export default function EmployeesPage() {
           </label>
           {departments.length > 0 && (
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-              className="border-2 border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-blue-500">
+              className="border-2 border-gray-300 px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-blue-500">
               <option value="">All Departments</option>
               {departments.map(d => <option key={d} value={d}>{d}</option>)}
             </select>
@@ -170,7 +174,7 @@ export default function EmployeesPage() {
           <span className="text-sm text-gray-500 ml-auto">{employees.length} employee{employees.length !== 1 ? 's' : ''}</span>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white shadow-sm border-2 border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-gray-400">Loading employees…</div>
           ) : error ? (
@@ -197,7 +201,7 @@ export default function EmployeesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map(emp => (
+                  {employees.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(emp => (
                     <tr key={emp.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-gray-600">{emp.staffId}</td>
                       <td className="px-4 py-3 font-semibold text-gray-900">{emp.firstName} {emp.lastName}</td>
@@ -232,13 +236,19 @@ export default function EmployeesPage() {
             </div>
           )}
         </div>
+        {employees.length > 0 && (
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-gray-400">{employees.length} results</span>
+            <Pagination page={page} totalPages={Math.ceil(employees.length / PAGE_SIZE)} onPageChange={setPage} totalItems={employees.length} pageSize={PAGE_SIZE} />
+          </div>
+        )}
 
         {showForm && (
           <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between p-6 border-b-2 border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">{editId ? 'Edit Employee' : 'Add Employee'}</h2>
-                <button onClick={() => setShowForm(false)} className="p-2 hover:bg-gray-100 rounded-lg transition"><X className="w-5 h-5" /></button>
+                <button onClick={() => setShowForm(false)} className="p-2 hover:bg-gray-100 transition"><X className="w-5 h-5" /></button>
               </div>
 
               {/* Tabs */}
@@ -253,7 +263,7 @@ export default function EmployeesPage() {
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 {formError && (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3 text-sm text-red-700 font-medium">{formError}</div>
+                  <div className="bg-red-50 border-2 border-red-200 p-3 text-sm text-red-700 font-medium">{formError}</div>
                 )}
 
                 {tab === 'personal' && (
@@ -414,24 +424,24 @@ export default function EmployeesPage() {
                   <div className="flex gap-2">
                     {tab !== 'personal' && (
                       <button type="button" onClick={() => setTab(tab === 'payment' ? 'employment' : 'personal')}
-                        className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition text-sm">
+                        className="px-4 py-2 border-2 border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition text-sm">
                         Back
                       </button>
                     )}
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setShowForm(false)}
-                      className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition">
+                      className="px-4 py-2 border-2 border-gray-300 font-semibold text-gray-700 hover:bg-gray-50 transition">
                       Cancel
                     </button>
                     {tab !== 'payment' ? (
                       <button type="button" onClick={() => setTab(tab === 'personal' ? 'employment' : 'payment')}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition">
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition">
                         Next
                       </button>
                     ) : (
                       <button type="submit" disabled={saving}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition disabled:opacity-50">
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition disabled:opacity-50">
                         {saving ? 'Saving…' : editId ? 'Save Changes' : 'Add Employee'}
                       </button>
                     )}

@@ -38,14 +38,14 @@ export default function AgentApplicationsPage() {
         </div>
         <Link
           href="/agent/applications/new"
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           New Application
         </Link>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="px-5 py-8 text-center text-sm text-gray-400">Loading…</div>
         ) : applications.length === 0 ? (

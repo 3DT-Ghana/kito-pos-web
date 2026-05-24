@@ -97,7 +97,7 @@ export default function SupplierDetailsPage() {
   if (error || !supplier) {
     return (
       <AppLayout>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">
           {error || 'Supplier not found'}
         </div>
       </AppLayout>
@@ -115,12 +115,12 @@ export default function SupplierDetailsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <button onClick={() => router.push('/suppliers')} className="p-2 hover:bg-gray-100 rounded-xl">
+            <button onClick={() => router.push('/suppliers')} className="p-2 hover:bg-gray-100">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <div className="w-12 h-12 rounded-xl bg-amber-600 flex items-center justify-center text-white font-bold text-xl shrink-0">
+            <div className="w-12 h-12 bg-amber-600 flex items-center justify-center text-white font-bold text-xl shrink-0">
               {supplier.name.charAt(0).toUpperCase()}
             </div>
             <div>
@@ -132,25 +132,25 @@ export default function SupplierDetailsPage() {
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => router.push(`/suppliers/${supplierId}/statement`)}
-                className="px-3 py-2 bg-purple-600 text-white rounded-xl font-semibold text-sm hover:bg-purple-700"
+                className="px-3 py-2 bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700"
               >
                 📄 Statement
               </button>
               <button
                 onClick={() => router.push(`/payments/suppliers?supplierId=${supplierId}`)}
-                className="px-3 py-2 bg-green-600 text-white rounded-xl font-semibold text-sm hover:bg-green-700"
+                className="px-3 py-2 bg-green-600 text-white font-semibold text-sm hover:bg-green-700"
               >
                 💰 Record Payment
               </button>
               <button
                 onClick={() => setIsEditing(true)}
-                className="px-3 py-2 border-2 border-gray-200 text-gray-700 rounded-xl font-semibold text-sm hover:bg-gray-50"
+                className="px-3 py-2 border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50"
               >
                 Edit
               </button>
               <button
                 onClick={handleDelete}
-                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 rounded-xl font-semibold text-sm hover:bg-red-100"
+                className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 font-semibold text-sm hover:bg-red-100"
               >
                 Delete
               </button>
@@ -160,21 +160,21 @@ export default function SupplierDetailsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className={`rounded-xl p-4 border-2 ${supplier.balance > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+          <div className={`p-4 border-2 ${supplier.balance > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
             <p className="text-xs font-semibold text-gray-500 uppercase">Balance Owed</p>
             <p className={`text-xl font-bold mt-1 ${supplier.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
               {formatCurrency(supplier.balance)}
             </p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Total Purchases</p>
             <p className="text-xl font-bold text-gray-900 mt-1">{supplier._count?.purchases || 0}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Purchase Value</p>
             <p className="text-xl font-bold text-amber-600 mt-1">{formatCurrency(summary.totalPurchases || 0)}</p>
           </div>
-          <div className="bg-white rounded-xl p-4 border border-gray-200">
+          <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Total Paid</p>
             <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(summary.totalPaid || 0)}</p>
           </div>
@@ -182,7 +182,7 @@ export default function SupplierDetailsPage() {
 
         {/* Edit Form */}
         {isEditing ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="bg-white border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Edit Supplier</h2>
             <SupplierForm
               initialData={{ name: supplier.name, phone: supplier.phone || '' }}
@@ -193,7 +193,7 @@ export default function SupplierDetailsPage() {
         ) : (
           <>
             {/* Date Filter */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                 <span className="text-sm font-semibold text-gray-700 shrink-0">Filter by date:</span>
                 <div className="flex flex-wrap gap-2 flex-1">
@@ -201,19 +201,19 @@ export default function SupplierDetailsPage() {
                     type="date"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
-                    className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-500 focus:outline-none"
+                    className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-amber-500 focus:outline-none"
                   />
                   <span className="text-gray-400 self-center text-sm">to</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-500 focus:outline-none"
+                    className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-amber-500 focus:outline-none"
                   />
                   {(startDate || endDate) && (
                     <button
                       onClick={() => { setStartDate(''); setEndDate('') }}
-                      className="px-3 py-2 text-sm text-gray-500 hover:text-gray-800 border-2 border-gray-200 rounded-xl"
+                      className="px-3 py-2 text-sm text-gray-500 hover:text-gray-800 border-2 border-gray-200"
                     >
                       Clear
                     </button>
@@ -224,7 +224,7 @@ export default function SupplierDetailsPage() {
             </div>
 
             {/* Purchases History */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-base font-bold text-gray-900">
                   Purchase History
@@ -333,7 +333,7 @@ export default function SupplierDetailsPage() {
             </div>
 
             {/* Payments History */}
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white border border-gray-200 overflow-hidden">
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="text-base font-bold text-gray-900">
                   Payment History

@@ -20,6 +20,7 @@ type PurchaseItem = { item?: { name?: string } }
 type Transaction =
   | { type: 'purchase'; id: string; date: string; totalAmount: number; paidAmount: number; items: PurchaseItem[] }
   | { type: 'payment'; id: string; date: string; amount: number; method: string }
+  | { type: 'transfer'; id: string; date: string; amount: number; description: string; isDebit: boolean; counterparty: string }
 
 export default function SupplierStatementPage() {
   const router = useRouter()
@@ -71,7 +72,7 @@ export default function SupplierStatementPage() {
   if (error || !supplier) {
     return (
       <AppLayout>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3">
           {error || 'Supplier not found'}
         </div>
       </AppLayout>
@@ -98,7 +99,26 @@ export default function SupplierStatementPage() {
     method: p.method,
   }))
 
-  const allTx = [...purchases, ...paymentsTx].sort(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const transfersTx: Transaction[] = (supplier.transfers || []).map((t: any) => {
+    // For a supplier: debit supplier → we owe less (their payable decreases)
+    //                 credit supplier → we owe more (their payable increases)
+    const isDebit = t.debitSupplierId === supplierId
+    const counterparty = isDebit
+      ? (t.creditCustomer?.name || t.creditSupplier?.name || (t.creditAccount ? `${t.creditAccount.code} ${t.creditAccount.name}` : '') || '')
+      : (t.debitCustomer?.name  || t.debitSupplier?.name  || (t.debitAccount  ? `${t.debitAccount.code} ${t.debitAccount.name}`   : '') || '')
+    return {
+      type: 'transfer' as const,
+      id: t.id,
+      date: t.date,
+      amount: t.amount,
+      description: t.description,
+      isDebit,
+      counterparty,
+    }
+  })
+
+  const allTx = [...purchases, ...paymentsTx, ...transfersTx].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
@@ -107,8 +127,11 @@ export default function SupplierStatementPage() {
   const txWithBalance = allTx.map(tx => {
     if (tx.type === 'purchase') {
       runningBalance += tx.totalAmount - tx.paidAmount
-    } else {
+    } else if (tx.type === 'payment') {
       runningBalance -= tx.amount
+    } else {
+      // debit supplier → they are owed less (balance decreases); credit → balance increases
+      runningBalance += tx.isDebit ? -tx.amount : tx.amount
     }
     return { tx, balance: runningBalance }
   })
@@ -144,34 +167,44 @@ export default function SupplierStatementPage() {
               type="date"
               value={startDate}
               onChange={e => setStartDate(e.target.value)}
-              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-500 focus:outline-none"
+              className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-amber-500 focus:outline-none"
             />
             <span className="text-gray-400 text-sm">to</span>
             <input
               type="date"
               value={endDate}
               onChange={e => setEndDate(e.target.value)}
-              className="px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-amber-500 focus:outline-none"
+              className="px-3 py-2 border-2 border-gray-200 text-sm focus:border-amber-500 focus:outline-none"
             />
             {isLoading && <span className="text-xs text-gray-400">Loading...</span>}
             <ExportButton
               filename={`statement-${supplier?.name || 'supplier'}-${startDate}-${endDate}`}
               getData={() => txWithBalance.map(({ tx, balance }) => ({
                 Date: formatDate(tx.date),
-                Type: tx.type === 'purchase' ? 'Purchase' : 'Payment',
+                Type: tx.type === 'purchase' ? 'Purchase' : tx.type === 'payment' ? 'Payment' : 'Transfer',
                 Description: tx.type === 'purchase'
                   ? `Purchase #${tx.id.slice(0, 8).toUpperCase()}`
-                  : 'Payment Made',
-                'Debit (GHS)': tx.type === 'purchase' ? tx.totalAmount.toFixed(2) : '',
+                  : tx.type === 'payment'
+                  ? 'Payment Made'
+                  : tx.description,
+                'Debit (GHS)': tx.type === 'purchase'
+                  ? tx.totalAmount.toFixed(2)
+                  : tx.type === 'transfer' && tx.isDebit
+                  ? tx.amount.toFixed(2)
+                  : '',
                 'Credit (GHS)': tx.type === 'purchase'
                   ? (tx.paidAmount > 0 ? tx.paidAmount.toFixed(2) : '')
-                  : tx.amount.toFixed(2),
+                  : tx.type === 'payment'
+                  ? tx.amount.toFixed(2)
+                  : tx.type === 'transfer' && !tx.isDebit
+                  ? tx.amount.toFixed(2)
+                  : '',
                 'Balance (GHS)': balance.toFixed(2),
               }))}
             />
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-amber-600 text-white rounded-xl font-semibold text-sm hover:bg-amber-700 flex items-center gap-2"
+              className="px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 flex items-center gap-2"
             >
               🖨️ Print / PDF
             </button>
@@ -180,7 +213,7 @@ export default function SupplierStatementPage() {
       </div>
 
       {/* Printable statement */}
-      <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
+      <div className="max-w-4xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
 
         {/* Statement header */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-200 print:border-b print:border-gray-300">
@@ -199,15 +232,15 @@ export default function SupplierStatementPage() {
 
           {/* Summary row */}
           <div className="grid grid-cols-3 gap-4 mt-6">
-            <div className="bg-amber-50 rounded-xl p-3 text-center">
+            <div className="bg-amber-50 p-3 text-center">
               <p className="text-xs font-semibold text-amber-600 uppercase">Purchase Value</p>
               <p className="text-lg font-bold text-amber-800 mt-0.5">{formatCurrency(totalPurchasesValue)}</p>
             </div>
-            <div className="bg-green-50 rounded-xl p-3 text-center">
+            <div className="bg-green-50 p-3 text-center">
               <p className="text-xs font-semibold text-green-600 uppercase">Payments Made</p>
               <p className="text-lg font-bold text-green-800 mt-0.5">{formatCurrency(totalPaymentsValue)}</p>
             </div>
-            <div className={`rounded-xl p-3 text-center ${currentBalance > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
+            <div className={`p-3 text-center ${currentBalance > 0 ? 'bg-red-50' : 'bg-gray-50'}`}>
               <p className={`text-xs font-semibold uppercase ${currentBalance > 0 ? 'text-red-600' : 'text-gray-500'}`}>
                 Current Balance
               </p>
@@ -262,7 +295,7 @@ export default function SupplierStatementPage() {
                         </td>
                       </tr>
                     )
-                  } else {
+                  } else if (tx.type === 'payment') {
                     return (
                       <tr key={`payment-${tx.id}`} className="hover:bg-gray-50 print:hover:bg-transparent">
                         <td className="py-2.5 pr-4 text-gray-500 text-xs">{formatDate(tx.date)}</td>
@@ -273,6 +306,31 @@ export default function SupplierStatementPage() {
                         <td className="py-2.5 pr-4 text-right text-gray-400">—</td>
                         <td className="py-2.5 pr-4 text-right font-semibold text-green-600">
                           {formatCurrency(tx.amount)}
+                        </td>
+                        <td className={`py-2.5 text-right font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                          {formatCurrency(Math.abs(balance))}
+                          {balance > 0 && <span className="text-xs font-normal text-red-400 ml-1">DR</span>}
+                        </td>
+                      </tr>
+                    )
+                  } else {
+                    return (
+                      <tr key={`transfer-${tx.id}`} className="hover:bg-purple-50 print:hover:bg-transparent bg-purple-50/30">
+                        <td className="py-2.5 pr-4 text-gray-500 text-xs">{formatDate(tx.date)}</td>
+                        <td className="py-2.5 pr-4">
+                          <p className="font-semibold text-purple-700">Transfer</p>
+                          <p className="text-xs text-gray-600 mt-0.5">{tx.description}</p>
+                          {tx.counterparty && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {tx.isDebit ? 'To: ' : 'From: '}{tx.counterparty}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-2.5 pr-4 text-right font-semibold text-gray-900">
+                          {tx.isDebit ? formatCurrency(tx.amount) : '—'}
+                        </td>
+                        <td className="py-2.5 pr-4 text-right font-semibold text-green-600">
+                          {!tx.isDebit ? formatCurrency(tx.amount) : '—'}
                         </td>
                         <td className={`py-2.5 text-right font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-700'}`}>
                           {formatCurrency(Math.abs(balance))}

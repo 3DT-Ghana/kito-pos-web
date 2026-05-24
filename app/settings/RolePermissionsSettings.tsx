@@ -89,7 +89,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
   const editableRoles = ALL_ROLES.filter(r => r !== 'OWNER')
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-2xl font-bold text-gray-900">Role Permissions</h2>
         <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-colors"
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-bold text-sm transition-colors"
           >
             {saving ? 'Saving…' : 'Save Changes'}
           </button>
@@ -117,7 +117,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
             <button
               key={role}
               onClick={() => setActiveRole(role)}
-              className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
+              className={`px-4 py-2 text-sm font-bold transition-colors ${
                 isActive
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -153,7 +153,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
                 return (
                   <label
                     key={perm}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 cursor-pointer transition-colors select-none ${
+                    className={`flex items-center gap-3 px-3 py-2.5 border-2 cursor-pointer transition-colors select-none ${
                       enabled
                         ? 'bg-blue-50 border-blue-300 text-blue-900'
                         : 'bg-gray-50 border-gray-200 text-gray-500'

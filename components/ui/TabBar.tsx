@@ -22,13 +22,13 @@ const COUNT_COLORS = {
 
 export function TabBar<T extends string>({ tabs, active, onChange }: TabBarProps<T>) {
   return (
-    <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+    <div className="flex gap-0 bg-gray-100 p-1 w-fit border border-gray-200">
       {tabs.map(tab => (
         <button
           key={tab.value}
           type="button"
           onClick={() => onChange(tab.value)}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium transition-all ${
             active === tab.value
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-500 hover:text-gray-700'
@@ -36,7 +36,7 @@ export function TabBar<T extends string>({ tabs, active, onChange }: TabBarProps
         >
           {tab.label}
           {tab.count != null && tab.count > 0 && (
-            <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
+            <span className={`text-xs px-1.5 py-0.5 font-semibold ${
               COUNT_COLORS[tab.countVariant ?? 'blue']
             }`}>
               {tab.count}

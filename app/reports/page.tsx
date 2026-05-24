@@ -92,9 +92,9 @@ export default function ReportsPage() {
               <button
                 key={report.href}
                 onClick={() => router.push(report.href)}
-                className={`group bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
+                className={`group bg-white shadow-sm ring-1 ring-black/5 p-5 text-left hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer`}
               >
-                <div className={`w-11 h-11 rounded-xl ${report.accent} flex items-center justify-center mb-4`}>
+                <div className={`w-11 h-11 ${report.accent} flex items-center justify-center mb-4`}>
                   <Icon className={`w-5 h-5 ${report.iconColor}`} strokeWidth={1.75} />
                 </div>
                 <div className="flex items-start justify-between gap-2">

@@ -70,7 +70,7 @@ export default function AdminApplicationsPage() {
           ))}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="bg-white border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="px-5 py-8 text-center text-sm text-gray-400">Loading…</div>
           ) : applications.length === 0 ? (

@@ -86,7 +86,7 @@ function ReportBtn({
     <button
       onClick={onClick}
       disabled={loading}
-      className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-sm disabled:opacity-50 transition-colors"
+      className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shadow-sm disabled:opacity-50 transition-colors"
     >
       <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
       {loading ? 'Generating…' : 'Generate Report'}
@@ -96,7 +96,7 @@ function ReportBtn({
 
 function ErrMsg({ msg }: { msg: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+    <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 px-4 py-3">
       <AlertCircle className="w-4 h-4 shrink-0" />
       {msg}
     </div>
@@ -115,7 +115,7 @@ function CashFlowActivitySection({
   net: number
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
       <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
         <h4 className="font-semibold text-slate-700 text-sm">{title}</h4>
         <span className={`text-sm font-bold tabular-nums ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -159,7 +159,7 @@ function ReportSection({
   indent?: boolean
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
       <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200">
         <h4 className="font-semibold text-slate-700 text-sm uppercase tracking-wider">{title}</h4>
       </div>
@@ -199,7 +199,7 @@ function SummaryRow({
   const positive = value >= 0
   return (
     <div
-      className={`flex justify-between items-center px-5 py-4 rounded-xl border-2 ${
+      className={`flex justify-between items-center px-5 py-4 border-2 ${
         highlight
           ? positive
             ? 'bg-emerald-50 border-emerald-300'
@@ -335,7 +335,7 @@ function BalanceSheetReport({ asOf, onData }: { asOf: string; onData: (rows: Rec
           <ReportSection title="Liabilities" rows={data.liabilities.rows} total={data.liabilities.total} />
           <ReportSection title="Equity"      rows={data.equity.rows}      total={data.equity.total} />
           <div
-            className={`flex justify-between px-5 py-3 rounded-xl border-2 text-sm font-bold ${
+            className={`flex justify-between px-5 py-3 border-2 text-sm font-bold ${
               data.summary.balanced
                 ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                 : 'bg-red-50 border-red-300 text-red-800'
@@ -388,7 +388,7 @@ function TrialBalanceReport({ startDate, endDate, onData }: { startDate: string;
       <ReportBtn onClick={load} loading={loading} />
       {error && <ErrMsg msg={error} />}
       {data && (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
           <div className="grid grid-cols-12 px-5 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
             <span className="col-span-1">Code</span>
             <span className="col-span-4">Account</span>
@@ -517,7 +517,7 @@ function GeneralLedgerReport({ startDate, endDate, onData }: { startDate: string
           <select
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-full border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Select an account…</option>
             {['ASSET','LIABILITY','EQUITY','REVENUE','COGS','EXPENSE'].map((type) => {
@@ -551,7 +551,7 @@ function GeneralLedgerReport({ startDate, endDate, onData }: { startDate: string
             </span>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm text-sm">
+          <div className="bg-white border border-slate-200 overflow-hidden shadow-sm text-sm">
             <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
               <span className="col-span-1">Entry</span>
               <span className="col-span-2">Date</span>
@@ -678,7 +678,7 @@ function ArAgingReport({ asOf, onData }: { asOf: string; onData: (rows: Record<s
           {data.rows.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No outstanding receivables.</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -792,7 +792,7 @@ function ApAgingReport({ asOf, onData }: { asOf: string; onData: (rows: Record<s
           {data.rows.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No outstanding payables.</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -915,7 +915,7 @@ function CashFlowReport({ startDate, endDate, onData }: { startDate: string; end
           />
 
           {/* Summary */}
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Cash Summary</h4>
             </div>
@@ -1007,7 +1007,7 @@ function StatementOfAccountReport({ startDate, endDate, onData }: { startDate: s
           <select
             value={customerId}
             onChange={(e) => setCustomerId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-full border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Select a customer…</option>
             {customers.map((c) => (
@@ -1033,7 +1033,7 @@ function StatementOfAccountReport({ startDate, endDate, onData }: { startDate: s
             </div>
           </div>
 
-          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm text-sm">
+          <div className="bg-white border border-slate-200 overflow-hidden shadow-sm text-sm">
             <div className="grid grid-cols-12 px-4 py-2.5 text-xs font-bold text-gray-500 uppercase tracking-wide bg-gray-50 border-b border-gray-200">
               <span className="col-span-2">Date</span>
               <span className="col-span-2">Type</span>
@@ -1184,7 +1184,7 @@ function SalesByCustomerReport({ startDate, endDate, onData }: { startDate: stri
           {data.rows.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No sales in this period.</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1290,7 +1290,7 @@ function SalesByProductReport({ startDate, endDate, onData }: { startDate: strin
           {data.rows.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No sales in this period.</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1403,7 +1403,7 @@ function ExpenseByVendorReport({ startDate, endDate, onData }: { startDate: stri
             {data.supplierRows.length === 0 ? (
               <p className="text-sm text-gray-400 italic">No purchases in this period.</p>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+              <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1448,7 +1448,7 @@ function ExpenseByVendorReport({ startDate, endDate, onData }: { startDate: stri
             {data.expenseRows.length === 0 ? (
               <p className="text-sm text-gray-400 italic">No operating expenses in this period.</p>
             ) : (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1559,7 +1559,7 @@ function PayrollSummaryReport({ onData }: { onData: (rows: Record<string, unknow
             onChange={(e) => setYear(e.target.value)}
             min={2020}
             max={2030}
-            className="w-28 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="w-28 border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           />
         </div>
         <div>
@@ -1567,7 +1567,7 @@ function PayrollSummaryReport({ onData }: { onData: (rows: Record<string, unknow
           <select
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+            className="border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
           >
             <option value="">Full Year</option>
             {MONTH_NAMES.slice(1).map((m, i) => (
@@ -1583,7 +1583,7 @@ function PayrollSummaryReport({ onData }: { onData: (rows: Record<string, unknow
           {data.periodRows.length === 0 ? (
             <p className="text-sm text-gray-400 italic">No paid payroll runs in this period.</p>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1716,7 +1716,7 @@ function InventoryValuationReport({ onData }: { onData: (rows: Record<string, un
       <div className="flex items-center gap-3">
         <ReportBtn onClick={load} loading={loading} />
         {data && (
-          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+          <div className="flex border border-gray-200 overflow-hidden text-sm">
             <button
               onClick={() => setView('summary')}
               className={`px-3 py-1.5 font-medium ${view === 'summary' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-slate-50'}`}
@@ -1743,7 +1743,7 @@ function InventoryValuationReport({ onData }: { onData: (rows: Record<string, un
               { label: 'Potential Profit', value: fmt(data.totals.potentialProfit), color: 'text-emerald-700' },
               { label: 'Alert Items', value: `${data.totals.outOfStockCount} OOS · ${data.totals.lowStockCount} Low · ${data.totals.expiredCount} Exp`, color: 'text-amber-700' },
             ].map((kpi) => (
-              <div key={kpi.label} className="bg-white border border-gray-200 rounded-xl px-4 py-3">
+              <div key={kpi.label} className="bg-white border border-gray-200 px-4 py-3">
                 <p className="text-xs text-gray-500">{kpi.label}</p>
                 <p className={`text-base font-bold mt-0.5 ${kpi.color}`}>{kpi.value}</p>
               </div>
@@ -1751,7 +1751,7 @@ function InventoryValuationReport({ onData }: { onData: (rows: Record<string, un
           </div>
 
           {view === 'summary' ? (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1782,7 +1782,7 @@ function InventoryValuationReport({ onData }: { onData: (rows: Record<string, un
               </table>
             </div>
           ) : (
-            <div className="bg-white border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+            <div className="bg-white border border-slate-200 overflow-x-auto shadow-sm">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -1899,7 +1899,7 @@ export default function AccountingReportsPage() {
               </div>
 
               {/* Date range controls in hero */}
-              <div className="flex items-center gap-3 bg-white/8 border border-white/12 rounded-xl px-4 py-3 flex-wrap shrink-0">
+              <div className="flex items-center gap-3 bg-white/8 border border-white/12 px-4 py-3 flex-wrap shrink-0">
                 <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                 <div className="flex items-center gap-3 flex-wrap">
                   <div>
@@ -1908,7 +1908,7 @@ export default function AccountingReportsPage() {
                       type="date"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
+                      className="bg-white/10 border border-white/20 text-white text-sm px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
                     />
                   </div>
                   <span className="text-slate-600 text-sm self-end mb-2">→</span>
@@ -1918,7 +1918,7 @@ export default function AccountingReportsPage() {
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-white/10 border border-white/20 text-white text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
+                      className="bg-white/10 border border-white/20 text-white text-sm px-3 py-1.5 focus:outline-none focus:border-blue-400 [color-scheme:dark]"
                     />
                   </div>
                 </div>
@@ -1941,7 +1941,7 @@ export default function AccountingReportsPage() {
               <button
                 key={group}
                 onClick={() => switchReport(groupTabs[0].id)}
-                className={`text-left p-4 rounded-2xl border-2 transition-all shadow-sm ${
+                className={`text-left p-4 border-2 transition-all shadow-sm ${
                   isActive
                     ? 'bg-white border-blue-500 shadow-blue-100 shadow-md'
                     : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow'
@@ -1961,7 +1961,7 @@ export default function AccountingReportsPage() {
         <div className="flex gap-5 items-start">
 
           {/* Sidebar tab list */}
-          <div className="hidden lg:flex flex-col w-52 shrink-0 bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="hidden lg:flex flex-col w-52 shrink-0 bg-white border border-slate-200 shadow-sm overflow-hidden">
             {groups.map((group, gi) => {
               const groupTabs = tabs.filter((t) => t.group === group)
               const meta = GROUP_META[group]
@@ -1996,7 +1996,7 @@ export default function AccountingReportsPage() {
 
           {/* Mobile horizontal tab strip */}
           <div className="lg:hidden w-full overflow-x-auto -mx-1 px-1 pb-1">
-            <div className="flex gap-1 border border-slate-200 bg-white rounded-2xl p-1 min-w-max shadow-sm">
+            <div className="flex gap-1 border border-slate-200 bg-white p-1 min-w-max shadow-sm">
               {tabs.map((tab) => {
                 const active = activeReport === tab.id
                 const meta = GROUP_META[tab.group]
@@ -2004,7 +2004,7 @@ export default function AccountingReportsPage() {
                   <button
                     key={tab.id}
                     onClick={() => switchReport(tab.id)}
-                    className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-xl whitespace-nowrap transition-all ${
+                    className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium whitespace-nowrap transition-all ${
                       active
                         ? 'bg-blue-600 text-white shadow-sm'
                         : `text-slate-500 hover:bg-slate-100 hover:${meta.color}`
@@ -2021,9 +2021,9 @@ export default function AccountingReportsPage() {
           {/* Report panel */}
           <div className="flex-1 min-w-0">
             {/* Panel header */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
+            <div className="bg-white border border-slate-200 shadow-sm mb-4 overflow-hidden">
               <div className="flex items-center gap-3 px-5 py-4">
-                <div className={`p-2 rounded-xl shrink-0 ${
+                <div className={`p-2 shrink-0 ${
                   activeGroup === 'Core'       ? 'bg-blue-100 text-blue-600' :
                   activeGroup === 'Aging'      ? 'bg-amber-100 text-amber-600' :
                   activeGroup === 'Cash'       ? 'bg-teal-100 text-teal-600' :
@@ -2045,7 +2045,7 @@ export default function AccountingReportsPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => exportToExcel(exportRows, activeTab.label)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors"
                       title="Export to Excel"
                     >
                       <Download className="w-3.5 h-3.5" />
@@ -2053,7 +2053,7 @@ export default function AccountingReportsPage() {
                     </button>
                     <button
                       onClick={() => exportToPdf(activeTab.label)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors"
                       title="Print / Save as PDF"
                     >
                       <Printer className="w-3.5 h-3.5" />

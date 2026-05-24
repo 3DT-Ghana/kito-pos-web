@@ -18,11 +18,11 @@ export function StatCard({
   iconColor = 'text-gray-500', href, valueColor = 'text-gray-900', className = '',
 }: StatCardProps) {
   const inner = (
-    <div className={`bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-5 flex flex-col gap-3 ${
+    <div className={`bg-white shadow-sm ring-1 ring-black/5 p-5 flex flex-col gap-3 ${
       href ? 'hover:shadow-md hover:-translate-y-px transition-all cursor-pointer' : ''
     } ${className}`}>
       {Icon && (
-        <div className={`w-9 h-9 rounded-xl ${accent} flex items-center justify-center`}>
+        <div className={`w-9 h-9 ${accent} flex items-center justify-center`}>
           <Icon className={`w-4.5 h-4.5 ${iconColor}`} strokeWidth={1.75} />
         </div>
       )}

@@ -37,7 +37,7 @@ function AuthErrorPageContent() {
           </h2>
         </div>
 
-        <div className="mt-8 rounded-md bg-red-50 p-4">
+        <div className="mt-8 bg-red-50 p-4">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg

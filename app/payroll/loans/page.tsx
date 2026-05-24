@@ -87,14 +87,14 @@ export default function LoansPage() {
             <h1 className="text-xl font-bold text-gray-900">Employee Loans</h1>
           </div>
           <button onClick={() => { setForm({ ...EMPTY_FORM }); setError(null); setShowModal(true) }}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
             <Plus className="w-4 h-4" /> Add Loan
           </button>
         </div>
 
         <div className="flex items-center gap-2">
           <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            className="text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">All Employees</option>
             {employees.map((e) => (
               <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.staffId})</option>
@@ -105,11 +105,11 @@ export default function LoansPage() {
         {loading ? (
           <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
         ) : loans.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 px-5 py-10 text-center">
+          <div className="bg-white border border-gray-200 px-5 py-10 text-center">
             <p className="text-sm text-gray-400">No loans found.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 text-xs text-gray-500 border-b border-gray-100">
@@ -153,19 +153,19 @@ export default function LoansPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-white shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">New Employee Loan</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2">{error}</p>}
 
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Employee *</label>
                 <select value={form.employeeId} onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                  className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                   <option value="">Select employee…</option>
                   {employees.filter((e) => e).map((e) => (
                     <option key={e.id} value={e.id}>{e.firstName} {e.lastName} ({e.staffId})</option>
@@ -175,37 +175,37 @@ export default function LoansPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Description *</label>
                 <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Staff Welfare Loan" />
+                  className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Staff Welfare Loan" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Principal (GHS) *</label>
                   <input type="number" min="0" value={form.principalAmount} onChange={(e) => setForm((f) => ({ ...f, principalAmount: e.target.value }))}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Monthly Deduction (GHS) *</label>
                   <input type="number" min="0" value={form.monthlyDeduction} onChange={(e) => setForm((f) => ({ ...f, monthlyDeduction: e.target.value }))}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Start Date *</label>
                   <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
                   <input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                 </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={save} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">
                 <Check className="w-4 h-4" /> {saving ? 'Saving…' : 'Create Loan'}
               </button>
             </div>

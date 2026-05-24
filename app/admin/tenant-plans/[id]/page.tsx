@@ -209,7 +209,7 @@ export default function TenantPlanDetailPage() {
               existingDraftInvoice ? (
                 <Link
                   href={`/admin/invoices/${existingDraftInvoice.id}`}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-100 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 text-sm font-medium hover:bg-indigo-100 transition-colors"
                 >
                   <FileText className="w-4 h-4" />
                   Open Draft Invoice
@@ -218,7 +218,7 @@ export default function TenantPlanDetailPage() {
                 <button
                   onClick={generateInvoice}
                   disabled={genLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-60 transition-colors"
                 >
                   <Receipt className="w-4 h-4" />
                   {genLoading ? 'Generating…' : 'Generate Invoice'}
@@ -234,7 +234,7 @@ export default function TenantPlanDetailPage() {
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          <div className={`text-sm px-4 py-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
             <span>{message.text}</span>
             {message.href && (
               <Link href={message.href} className="ml-2 font-medium underline">
@@ -245,7 +245,7 @@ export default function TenantPlanDetailPage() {
         )}
 
         {/* Plan settings */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800">Plan Settings</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -270,7 +270,7 @@ export default function TenantPlanDetailPage() {
         </div>
 
         {/* Feature modules */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-gray-800">Feature Modules</h2>
             <span className="text-xs text-indigo-600 font-semibold">{selectedFeatures.length} selected</span>
@@ -286,7 +286,7 @@ export default function TenantPlanDetailPage() {
                       key={m.id}
                       type="button"
                       onClick={() => toggleFeature(m.id)}
-                      className={`flex items-start gap-3 p-3 rounded-lg border text-left transition-all ${checked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
+                      className={`flex items-start gap-3 p-3 border text-left transition-all ${checked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
                     >
                       <div className={`w-4 h-4 rounded border-2 mt-0.5 shrink-0 flex items-center justify-center transition-colors ${checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
                         {checked && <CheckCircle className="w-3 h-3 text-white" />}
@@ -310,7 +310,7 @@ export default function TenantPlanDetailPage() {
         </div>
 
         {/* Hardware / Items */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800">Hardware & Items</h2>
 
           {selectedItems.length > 0 && (
@@ -319,7 +319,7 @@ export default function TenantPlanDetailPage() {
                 const item = allItems.find((i) => i.id === itemId)
                 if (!item) return null
                 return (
-                  <div key={itemId} className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+                  <div key={itemId} className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 px-3 py-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900">{item.name}</p>
                       <p className="text-xs text-gray-400">GHS {item.sellingPrice.toFixed(2)} each</p>
@@ -329,7 +329,7 @@ export default function TenantPlanDetailPage() {
                       <input
                         type="number" min="1" value={quantity}
                         onChange={(e) => updateItemQty(itemId, parseInt(e.target.value) || 1)}
-                        className="w-16 px-2 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        className="w-16 px-2 py-1 text-sm border border-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                       />
                       <button onClick={() => removeItem(itemId)} className="p-1 text-red-400 hover:text-red-600">
                         <X className="w-4 h-4" />
@@ -351,7 +351,7 @@ export default function TenantPlanDetailPage() {
                     <button
                       key={item.id}
                       onClick={() => addItem(item.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-white border border-gray-300 hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
                     >
                       <Plus className="w-3 h-3" /> {item.name} — GHS {item.sellingPrice.toFixed(2)}
                     </button>
@@ -366,7 +366,7 @@ export default function TenantPlanDetailPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center gap-2"
+            className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center gap-2"
           >
             {saving ? <><RefreshCw className="w-4 h-4 animate-spin" /> Saving…</> : <><CheckCircle className="w-4 h-4" /> Save Plan</>}
           </button>
@@ -374,7 +374,7 @@ export default function TenantPlanDetailPage() {
 
         {/* Recent invoices */}
         {plan && plan.invoices.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+          <div className="bg-white border border-gray-200 p-6 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-indigo-500" /> Recent Invoices
@@ -386,7 +386,7 @@ export default function TenantPlanDetailPage() {
                 <Link
                   key={inv.id}
                   href={`/admin/invoices/${inv.id}`}
-                  className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between py-2 px-3 hover:bg-gray-50 transition-colors"
                 >
                   <span className="text-sm font-mono text-gray-700">{inv.invoiceNumber}</span>
                   <div className="flex items-center gap-3">
@@ -404,7 +404,7 @@ export default function TenantPlanDetailPage() {
 
         {/* Quick delete */}
         {plan && (
-          <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+          <div className="flex items-center justify-between bg-red-50 border border-red-100 px-4 py-3">
             <div>
               <p className="text-sm font-medium text-red-700">Danger Zone</p>
               <p className="text-xs text-red-500 mt-0.5">Removing all features will disable the tenant&apos;s access to all modules.</p>
@@ -415,7 +415,7 @@ export default function TenantPlanDetailPage() {
                 setSelectedFeatures([])
                 setSelectedItems([])
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 border border-red-300 rounded-lg hover:bg-red-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-700 border border-red-300 hover:bg-red-100 transition-colors"
             >
               <Trash2 className="w-3.5 h-3.5" /> Clear Plan
             </button>
@@ -426,4 +426,4 @@ export default function TenantPlanDetailPage() {
   )
 }
 
-const INPUT = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
+const INPUT = 'w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'

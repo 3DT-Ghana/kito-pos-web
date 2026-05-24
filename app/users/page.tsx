@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useUser } from '@/hooks/useUser'
+import { Pagination } from '@/components/ui/Pagination'
 
 /**
  * Users & Permissions Page — PETROS Business Management Mini
@@ -234,6 +235,8 @@ export default function UsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   const [form, setForm] = useState({
     name: '',
@@ -398,7 +401,7 @@ export default function UsersPage() {
           </div>
           <button
             onClick={() => { setShowAddForm(true); setError(''); setSuccess('') }}
-            className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-md text-sm"
+            className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm"
           >
             <span className="text-lg leading-none">+</span>
             Add Team Member
@@ -406,20 +409,20 @@ export default function UsersPage() {
         </div>
 
         {isBranchScoped && managedBranch && (
-          <div className="bg-cyan-50 border border-cyan-200 text-cyan-800 px-4 py-3 rounded-xl text-sm">
+          <div className="bg-cyan-50 border border-cyan-200 text-cyan-800 px-4 py-3 text-sm">
             Branch manager scope: you can manage users assigned to <span className="font-semibold">{managedBranch.name}</span> only.
           </div>
         )}
 
         {/* Alerts */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium flex items-center gap-2">
             <span>⚠</span> {error}
             <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">✕</button>
           </div>
         )}
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm font-medium flex items-center gap-2">
             <span>✓</span> {success}
             <button onClick={() => setSuccess('')} className="ml-auto text-green-400 hover:text-green-600">✕</button>
           </div>
@@ -427,7 +430,7 @@ export default function UsersPage() {
 
         {/* Add User Form */}
         {showAddForm && (
-          <div className="bg-white rounded-2xl border-2 border-blue-100 shadow-lg overflow-hidden">
+          <div className="bg-white border-2 border-blue-100 shadow-lg overflow-hidden">
             <div className="bg-blue-600 px-6 py-4">
               <h2 className="text-lg font-bold text-white">Add New Team Member</h2>
               <p className="text-blue-200 text-sm mt-0.5">Fill in the details and assign a role</p>
@@ -442,7 +445,7 @@ export default function UsersPage() {
                     onChange={e => setForm({ ...form, name: e.target.value })}
                     placeholder="e.g. Ama Serwaa"
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
                   />
                 </div>
                 <div>
@@ -453,7 +456,7 @@ export default function UsersPage() {
                     onChange={e => setForm({ ...form, email: e.target.value })}
                     placeholder="ama@example.com"
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
                   />
                 </div>
                 <div>
@@ -465,7 +468,7 @@ export default function UsersPage() {
                     placeholder="Min. 8 characters"
                     required
                     minLength={8}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base"
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
                   />
                 </div>
                 <div>
@@ -473,7 +476,7 @@ export default function UsersPage() {
                   <select
                     value={form.role}
                     onChange={e => setForm({ ...form, role: e.target.value as RoleKey })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base bg-white"
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base bg-white"
                   >
                     {availableRoles.map(r => (
                       <option key={r} value={r}>
@@ -491,7 +494,7 @@ export default function UsersPage() {
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Assigned Branch</label>
                     {isBranchScoped ? (
-                      <div className="px-4 py-3 border-2 border-cyan-200 bg-cyan-50 rounded-xl text-sm font-semibold text-cyan-900">
+                      <div className="px-4 py-3 border-2 border-cyan-200 bg-cyan-50 text-sm font-semibold text-cyan-900">
                         {managedBranch?.name || 'Your assigned branch'}
                       </div>
                     ) : (
@@ -499,7 +502,7 @@ export default function UsersPage() {
                         <select
                           value={form.branchId}
                           onChange={e => setForm({ ...form, branchId: e.target.value })}
-                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-base bg-white"
+                          className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base bg-white"
                           required={form.role === 'BRANCH_MANAGER'}
                         >
                           <option value="">
@@ -520,10 +523,10 @@ export default function UsersPage() {
                 )}
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors">
+                <button type="submit" className="flex-1 py-3 bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors">
                   Add User
                 </button>
-                <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition-colors">
+                <button type="button" onClick={() => setShowAddForm(false)} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors">
                   Cancel
                 </button>
               </div>
@@ -532,12 +535,12 @@ export default function UsersPage() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-gray-100 p-1 w-fit">
           {([['team', 'Team Members'], ['matrix', 'Permissions Matrix'], ['guide', 'Role Guide']] as [Tab, string][]).map(([t, label]) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              className={`px-4 py-2 text-sm font-semibold transition-colors ${
                 tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -548,7 +551,7 @@ export default function UsersPage() {
 
         {/* TAB: Team Members */}
         {tab === 'team' && (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Team Members ({users.length})</h2>
             </div>
@@ -564,14 +567,14 @@ export default function UsersPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {users.map((u) => {
+                {users.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((u) => {
                   const info = ROLE_INFO[u.role] ?? ROLE_INFO.STAFF
                   const isCurrentUser = u.id === currentUser?.id
                   return (
                     <div key={u.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
                       {/* Avatar + Info */}
                       <div className="flex items-center gap-4 flex-1">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 bg-gradient-to-br ${info.avatarColor}`}>
+                        <div className={`w-12 h-12 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 bg-gradient-to-br ${info.avatarColor}`}>
                           {u.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -613,7 +616,7 @@ export default function UsersPage() {
                               }
                               handleUpdateUser(u.id, { role: nextRole }, 'Role updated successfully')
                             }}
-                            className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
+                            className="px-3 py-2 border-2 border-gray-200 text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
                           >
                             {availableRoles.map(r => (
                               <option key={r} value={r}>{ROLE_INFO[r].label}</option>
@@ -629,7 +632,7 @@ export default function UsersPage() {
                                   'Branch assignment updated successfully'
                                 )
                               }
-                              className="px-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
+                              className="px-3 py-2 border-2 border-gray-200 text-sm font-medium focus:border-blue-500 focus:outline-none bg-white"
                             >
                               <option value="">{u.role === 'BRANCH_MANAGER' ? 'Select branch' : 'All / Unrestricted'}</option>
                               {branches.map(branch => (
@@ -642,7 +645,7 @@ export default function UsersPage() {
                           <button
                             onClick={() => handleDeleteUser(u.id, u.name)}
                             disabled={deletingId === u.id}
-                            className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 rounded-lg text-sm font-semibold hover:bg-red-100 transition-colors disabled:opacity-50"
+                            className="px-3 py-2 bg-red-50 text-red-600 border-2 border-red-100 text-sm font-semibold hover:bg-red-100 transition-colors disabled:opacity-50"
                           >
                             {deletingId === u.id ? '...' : 'Remove'}
                           </button>
@@ -653,12 +656,18 @@ export default function UsersPage() {
                 })}
               </div>
             )}
+            {users.length > PAGE_SIZE && (
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{users.length} total members</span>
+                <Pagination page={page} totalPages={Math.ceil(users.length / PAGE_SIZE)} onPageChange={setPage} totalItems={users.length} pageSize={PAGE_SIZE} />
+              </div>
+            )}
           </div>
         )}
 
         {/* TAB: Permissions Matrix */}
         {tab === 'matrix' && (
-          <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">Permissions Matrix</h2>
               <p className="text-sm text-gray-500 mt-0.5">What each role can do across the system</p>
@@ -707,7 +716,7 @@ export default function UsersPage() {
         {/* TAB: Role Guide (Recommended Roles) */}
         {tab === 'guide' && (
           <div className="space-y-4">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 font-medium flex items-start gap-2">
+            <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 font-medium flex items-start gap-2">
               <span className="text-lg shrink-0">💡</span>
               <span>
                 Assign the <strong>most restrictive role</strong> that still allows the user to do their job.
@@ -718,7 +727,7 @@ export default function UsersPage() {
               {RECOMMENDED_ROLES.map(({ role, title, when, warning }) => {
                 const info = ROLE_INFO[role]
                 return (
-                  <div key={role} className={`rounded-xl border p-5 space-y-2 ${info.color}`}>
+                  <div key={role} className={`border p-5 space-y-2 ${info.color}`}>
                     <div className="flex items-center gap-2">
                       <span className="text-2xl">{info.icon}</span>
                       <div>
@@ -730,7 +739,7 @@ export default function UsersPage() {
                     </div>
                     <p className="text-sm text-gray-700">{when}</p>
                     {warning && (
-                      <div className="flex items-start gap-1.5 text-xs text-gray-500 bg-white/70 rounded-lg px-3 py-2">
+                      <div className="flex items-start gap-1.5 text-xs text-gray-500 bg-white/70 px-3 py-2">
                         <span className="shrink-0">⚠</span>
                         <span>{warning}</span>
                       </div>
@@ -739,7 +748,7 @@ export default function UsersPage() {
                       <p className="text-xs font-semibold text-gray-500 mb-1.5">Key permissions:</p>
                       <div className="flex flex-wrap gap-1">
                         {PERMISSIONS_MAP[role].slice(0, 6).map(p => (
-                          <span key={p} className="text-xs bg-white/80 border border-gray-200 px-2 py-0.5 rounded-md text-gray-600">
+                          <span key={p} className="text-xs bg-white/80 border border-gray-200 px-2 py-0.5 text-gray-600">
                             {p.replace(/_/g, ' ')}
                           </span>
                         ))}
@@ -754,7 +763,7 @@ export default function UsersPage() {
             </div>
 
             {/* Mismanagement prevention tips */}
-            <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-6 space-y-4">
+            <div className="bg-white shadow-sm ring-1 ring-black/5 p-6 space-y-4">
               <h2 className="text-lg font-bold text-gray-900">Preventing Mismanagement</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[
@@ -763,7 +772,7 @@ export default function UsersPage() {
                   { icon: '📋', title: 'Separate Roles by Job', tip: 'Give Cashiers the Cashier role, not Staff. More specific roles mean less accidental access to sensitive actions.' },
                   { icon: '👥', title: 'Limit Owner Accounts', tip: 'Keep Owner accounts to a minimum. Use Store Manager for company-wide leads and Branch Manager for location-specific leaders.' },
                 ].map(({ icon, title, tip }) => (
-                  <div key={title} className="flex gap-3 p-4 bg-gray-50 rounded-xl">
+                  <div key={title} className="flex gap-3 p-4 bg-gray-50">
                     <span className="text-2xl shrink-0">{icon}</span>
                     <div>
                       <p className="font-semibold text-gray-900 text-sm">{title}</p>

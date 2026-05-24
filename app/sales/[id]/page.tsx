@@ -90,7 +90,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
         <div className="flex items-center gap-4">
           <Link
             href="/sales"
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft className="w-6 h-6 text-gray-600" />
           </Link>

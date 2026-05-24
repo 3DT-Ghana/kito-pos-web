@@ -71,7 +71,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6 space-y-5">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">SMS Notifications</h2>
@@ -91,7 +91,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
 
       {/* Hubtel credentials */}
       <div className="space-y-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+        <div className="bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
           <strong>How to get credentials:</strong> Log in to{' '}
           <span className="font-mono">app.hubtel.com</span> → Developer → API Keys.
           Your Client ID and Client Secret are listed there. Sender ID must be registered with Hubtel (max 11 chars).
@@ -105,7 +105,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
               value={clientId}
               onChange={e => setClientId(e.target.value)}
               placeholder="e.g. HBT-XXXXXXXX"
-              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm font-mono"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono"
             />
           </div>
           <div>
@@ -116,7 +116,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
                 value={clientSecret}
                 onChange={e => setClientSecret(e.target.value)}
                 placeholder="Your Hubtel secret"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm font-mono pr-12"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono pr-12"
               />
               <button type="button" onClick={() => setShowSecret(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500 hover:text-gray-700 font-semibold">
@@ -136,14 +136,14 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
             onChange={e => setSenderId(e.target.value.slice(0, 11))}
             placeholder="e.g. PETROS"
             maxLength={11}
-            className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:outline-none text-sm font-mono uppercase"
+            className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono uppercase"
           />
           <p className="text-xs text-gray-400 mt-1">This name appears as the sender on the customer&apos;s phone. Must be registered with Hubtel.</p>
         </div>
       </div>
 
       {saveMsg && (
-        <div className={`px-4 py-3 rounded-xl text-sm font-medium ${saveMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`px-4 py-3 text-sm font-medium ${saveMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {saveMsg.text}
         </div>
       )}
@@ -151,7 +151,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
       <button
         onClick={handleSave}
         disabled={isSaving}
-        className="px-6 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 text-sm"
+        className="px-6 py-2.5 bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50 text-sm"
       >
         {isSaving ? 'Saving...' : 'Save SMS Settings'}
       </button>
@@ -167,18 +167,18 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
               value={testPhone}
               onChange={e => setTestPhone(e.target.value)}
               placeholder="e.g. 0244123456"
-              className="flex-1 px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+              className="flex-1 px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
             />
             <button
               onClick={handleTest}
               disabled={isTesting || !testPhone}
-              className="px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 text-sm whitespace-nowrap"
+              className="px-4 py-2.5 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm whitespace-nowrap"
             >
               {isTesting ? 'Sending...' : 'Send Test'}
             </button>
           </div>
           {testMsg && (
-            <div className={`px-4 py-3 rounded-xl text-sm font-medium ${testMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+            <div className={`px-4 py-3 text-sm font-medium ${testMsg.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
               {testMsg.text}
             </div>
           )}

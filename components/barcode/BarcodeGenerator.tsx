@@ -431,7 +431,7 @@ function ItemCodeRow({
   return (
     <div
       onClick={onSelect}
-      className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 cursor-pointer transition-colors ${
+      className={`flex items-center gap-2 px-3 py-2 border-2 cursor-pointer transition-colors ${
         isPreview ? 'border-indigo-400 bg-indigo-50' : err ? 'border-red-200 bg-red-50/50' : 'border-gray-100 bg-gray-50 hover:border-gray-200'
       }`}
     >
@@ -447,7 +447,7 @@ function ItemCodeRow({
           onClick={e => e.stopPropagation()}
           onChange={e => onChange(e.target.value)}
           placeholder={meta.example}
-          className={`w-full text-xs font-mono border rounded-md px-1.5 py-0.5 mt-0.5 focus:outline-none focus:ring-1 ${
+          className={`w-full text-xs font-mono border px-1.5 py-0.5 mt-0.5 focus:outline-none focus:ring-1 ${
             err ? 'border-red-300 bg-red-50 focus:ring-red-400' : 'border-gray-200 bg-white focus:ring-indigo-400'
           }`}
         />
@@ -569,12 +569,12 @@ export function BarcodeGenerator({ items, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[97vh] flex flex-col overflow-hidden">
+      <div className="bg-white shadow-2xl w-full max-w-4xl max-h-[97vh] flex flex-col overflow-hidden">
 
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-100 rounded-xl flex items-center justify-center text-lg">🏷️</div>
+            <div className="w-9 h-9 bg-indigo-100 flex items-center justify-center text-lg">🏷️</div>
             <div>
               <h2 className="text-lg font-bold text-gray-900 leading-tight">Print Labels</h2>
               <p className="text-xs text-gray-500">
@@ -584,7 +584,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -624,7 +624,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     {(['barcode', 'qr'] as CodeType[]).map(t => (
                       <button key={t} onClick={() => cfg({ codeType: t })}
-                        className={`py-3 rounded-xl border-2 text-sm font-bold flex flex-col items-center gap-1.5 transition-all ${
+                        className={`py-3 border-2 text-sm font-bold flex flex-col items-center gap-1.5 transition-all ${
                           config.codeType === t ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-200' : 'border-gray-200 text-gray-500 hover:border-indigo-200'
                         }`}
                       >
@@ -645,7 +645,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                     <div className="space-y-1.5">
                       {(Object.entries(FORMAT_META) as [BarcodeFormat, FormatMeta][]).map(([fmt, meta]) => (
                         <button key={fmt} onClick={() => cfg({ barcodeFormat: fmt })}
-                          className={`w-full text-left px-3 py-2.5 rounded-xl border-2 transition-all ${
+                          className={`w-full text-left px-3 py-2.5 border-2 transition-all ${
                             config.barcodeFormat === fmt
                               ? 'border-indigo-400 bg-indigo-50'
                               : 'border-gray-100 hover:border-gray-200 bg-gray-50'
@@ -653,7 +653,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <span className={`text-sm font-bold ${config.barcodeFormat === fmt ? 'text-indigo-800' : 'text-gray-700'}`}>{meta.label}</span>
-                            {config.barcodeFormat === fmt && <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5 rounded-md">Selected</span>}
+                            {config.barcodeFormat === fmt && <span className="text-[10px] font-bold text-indigo-600 bg-indigo-100 px-1.5 py-0.5">Selected</span>}
                           </div>
                           <p className="text-[10px] text-gray-400 mt-0.5 leading-snug">{meta.description}</p>
                         </button>
@@ -674,7 +674,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                         { k: 'H', label: 'H', desc: '30%' },
                       ] as { k: QrEcc; label: string; desc: string }[]).map(({ k, label, desc }) => (
                         <button key={k} onClick={() => cfg({ qrEcc: k })}
-                          className={`flex flex-col items-center py-2 rounded-xl border-2 text-xs font-bold transition-colors ${
+                          className={`flex flex-col items-center py-2 border-2 text-xs font-bold transition-colors ${
                             config.qrEcc === k ? 'border-indigo-400 bg-indigo-50 text-indigo-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'
                           }`}
                         >
@@ -720,7 +720,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                   <div className="space-y-1.5">
                     {(Object.entries(SIZE_PRESETS) as [Exclude<LabelSize,'custom'>, typeof SIZE_PRESETS[Exclude<LabelSize,'custom'>]][]).map(([key, val]) => (
                       <button key={key} onClick={() => cfg({ size: key })}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-all ${
+                        className={`w-full flex items-center justify-between px-3 py-2.5 border-2 transition-all ${
                           config.size === key ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
@@ -733,7 +733,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                     ))}
                     {/* Custom size */}
                     <button onClick={() => cfg({ size: 'custom' })}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 transition-all ${
+                      className={`w-full flex items-center justify-between px-3 py-2.5 border-2 transition-all ${
                         config.size === 'custom' ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                       }`}
                     >
@@ -752,7 +752,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                           <input type="number" min={10} max={200}
                             value={config[key as 'customW'|'customH']}
                             onChange={e => cfg({ [key]: Math.max(10, parseInt(e.target.value)||10) })}
-                            className="w-full border-2 border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold focus:border-indigo-400 focus:outline-none"
+                            className="w-full border-2 border-gray-200 px-2 py-1.5 text-sm font-bold focus:border-indigo-400 focus:outline-none"
                           />
                         </div>
                       ))}
@@ -766,7 +766,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                   <div className="space-y-1.5">
                     {(Object.entries(PAPER_SIZES) as [PaperSize, typeof PAPER_SIZES[PaperSize]][]).map(([key, val]) => (
                       <button key={key} onClick={() => cfg({ paperSize: key })}
-                        className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
+                        className={`w-full flex items-center gap-2 px-3 py-2 border-2 text-sm font-semibold transition-all ${
                           config.paperSize === key ? 'border-indigo-400 bg-indigo-50 text-indigo-800' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                         }`}
                       >
@@ -782,13 +782,13 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Columns per Row</p>
                   <div className="flex items-center gap-2">
                     <button onClick={() => cfg({ columns: Math.max(1, config.columns - 1) })}
-                      className="w-8 h-8 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center hover:bg-gray-200">−</button>
+                      className="w-8 h-8 bg-gray-100 font-bold text-gray-700 flex items-center justify-center hover:bg-gray-200">−</button>
                     <input type="number" min={1} max={10} value={config.columns}
                       onChange={e => cfg({ columns: Math.max(1, Math.min(10, parseInt(e.target.value)||1)) })}
-                      className="w-14 text-center border-2 border-gray-200 rounded-xl py-1.5 font-bold text-sm focus:border-indigo-400 focus:outline-none"
+                      className="w-14 text-center border-2 border-gray-200 py-1.5 font-bold text-sm focus:border-indigo-400 focus:outline-none"
                     />
                     <button onClick={() => cfg({ columns: Math.min(10, config.columns + 1) })}
-                      className="w-8 h-8 rounded-lg bg-gray-100 font-bold text-gray-700 flex items-center justify-center hover:bg-gray-200">+</button>
+                      className="w-8 h-8 bg-gray-100 font-bold text-gray-700 flex items-center justify-center hover:bg-gray-200">+</button>
                   </div>
                   <p className="text-[10px] text-gray-400 mt-1.5">
                     Each label is {w} × {h} mm · {config.columns} per row = {Math.round(w * config.columns)}mm wide
@@ -803,7 +803,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Barcode Values & Quantities</p>
                   {config.codeType === 'barcode' && (
                     <button onClick={generateAll}
-                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 rounded-lg transition-colors">
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 px-2 py-1 transition-colors">
                       Auto-fill empty
                     </button>
                   )}
@@ -845,13 +845,13 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                 <div className="flex items-center gap-2">
                   <button onClick={() => setPreviewIdx(i => Math.max(0, i - 1))}
                     disabled={previewIdx === 0}
-                    className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-30 hover:bg-gray-200">
+                    className="w-7 h-7 bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-30 hover:bg-gray-200">
                     ‹
                   </button>
                   <span className="text-xs font-semibold text-gray-500">{previewIdx + 1} / {items.length}</span>
                   <button onClick={() => setPreviewIdx(i => Math.min(items.length - 1, i + 1))}
                     disabled={previewIdx === items.length - 1}
-                    className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-30 hover:bg-gray-200">
+                    className="w-7 h-7 bg-gray-100 flex items-center justify-center text-gray-600 disabled:opacity-30 hover:bg-gray-200">
                     ›
                   </button>
                 </div>
@@ -862,7 +862,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
             <div className="flex-1 overflow-auto flex items-center justify-center p-6">
               <div className="flex flex-col items-center gap-4">
                 {/* Checkerboard background to simulate sticker stock */}
-                <div className="p-3 rounded-2xl shadow-inner"
+                <div className="p-3 shadow-inner"
                   style={{ background: 'repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%) 0 0 / 12px 12px' }}>
                   {previewItem && (
                     <LabelPreview
@@ -879,11 +879,11 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                 </p>
 
                 {/* Mini sheet preview */}
-                <div className="mt-2 bg-white border border-gray-200 rounded-xl p-4 w-full max-w-sm">
+                <div className="mt-2 bg-white border border-gray-200 p-4 w-full max-w-sm">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-3">Print Sheet Layout</p>
                   <div className="flex flex-wrap gap-1">
                     {Array.from({ length: Math.min(totalLabels, 24) }).map((_, i) => (
-                      <div key={i} className="bg-gray-100 border border-gray-200 rounded-sm"
+                      <div key={i} className="bg-gray-100 border border-gray-200"
                         style={{ width: `${Math.max(8, 100 / config.columns - 2)}%`, aspectRatio: `${w}/${h}` }} />
                     ))}
                     {totalLabels > 24 && (
@@ -912,13 +912,13 @@ export function BarcodeGenerator({ items, onClose }: Props) {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button onClick={onClose}
-              className="px-4 py-2 rounded-xl border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">
+              className="px-4 py-2 border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors">
               Cancel
             </button>
             <button
               onClick={handlePrint}
               disabled={isPrinting || items.length === 0 || (config.codeType === 'barcode' && validCount === 0)}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm flex items-center gap-2 transition-colors shadow-sm"
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-2 transition-colors shadow-sm"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />

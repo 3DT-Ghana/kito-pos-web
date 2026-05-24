@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import Link from 'next/link'
-import { BookOpen, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BookOpen, Plus } from 'lucide-react'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface JournalEntry {
   id: string
@@ -82,7 +83,7 @@ export default function JournalPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-indigo-100 p-3 rounded-lg">
+            <div className="bg-indigo-100 p-3">
               <BookOpen className="w-7 h-7 text-indigo-700" />
             </div>
             <div>
@@ -92,7 +93,7 @@ export default function JournalPage() {
           </div>
           <Link
             href="/accounting/journal/new"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg shadow transition-all"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow transition-all"
           >
             <Plus className="w-4 h-4" />
             Manual Entry
@@ -100,12 +101,12 @@ export default function JournalPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white border-2 border-gray-200 rounded-xl p-4 shadow-sm">
+        <div className="bg-white border-2 border-gray-200 p-4 shadow-sm">
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-600 mb-1">Source</label>
               <select
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 value={sourceFilter}
                 onChange={e => { setSourceFilter(e.target.value); setPage(1) }}
               >
@@ -117,7 +118,7 @@ export default function JournalPage() {
               <label className="block text-xs font-semibold text-gray-600 mb-1">From</label>
               <input
                 type="date"
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 value={startDate}
                 onChange={e => { setStartDate(e.target.value); setPage(1) }}
               />
@@ -126,7 +127,7 @@ export default function JournalPage() {
               <label className="block text-xs font-semibold text-gray-600 mb-1">To</label>
               <input
                 type="date"
-                className="w-full border-2 border-gray-200 rounded-lg px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+                className="w-full border-2 border-gray-200 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
                 value={endDate}
                 onChange={e => { setEndDate(e.target.value); setPage(1) }}
               />
@@ -135,11 +136,11 @@ export default function JournalPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 p-4 text-red-700 text-sm">{error}</div>
         )}
 
         {/* Entries table */}
-        <div className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-white border-2 border-gray-200 overflow-hidden shadow-sm">
           {loading ? (
             <div className="flex items-center justify-center h-40 text-gray-500 text-sm">Loading entries…</div>
           ) : entries.length === 0 ? (
@@ -186,24 +187,9 @@ export default function JournalPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-500">Page {page} of {totalPages}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-2 border-2 border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-2 border-2 border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+            <span className="text-xs text-gray-400">{total} results</span>
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} totalItems={total} pageSize={25} />
           </div>
         )}
       </div>

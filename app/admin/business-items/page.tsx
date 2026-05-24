@@ -81,20 +81,20 @@ export default function BusinessItemsPage() {
           </div>
           <button
             onClick={() => { setShowCreate(true); setEditId(null); setForm(EMPTY); setMessage(null) }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Item
           </button>
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          <div className={`text-sm px-4 py-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
             {message.text}
           </div>
         )}
 
         {showCreate && (
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white border border-gray-200 p-5">
             <ItemForm form={form} setForm={setForm} saving={saving} onSave={() => handleSave(null)} onCancel={cancelEdit} title="New Item" />
           </div>
         )}
@@ -104,12 +104,12 @@ export default function BusinessItemsPage() {
             <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : items.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+          <div className="bg-white border border-gray-200 p-12 text-center">
             <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-sm text-gray-400">No items yet. Add your first hardware or physical item.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+          <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
             {items.map((item) => (
               editId === item.id ? (
                 <div key={item.id} className="p-5">
@@ -136,7 +136,7 @@ export default function BusinessItemsPage() {
                     <button onClick={() => toggleActive(item)} className="text-gray-400 hover:text-indigo-600 transition-colors">
                       {item.isActive ? <ToggleRight className="w-5 h-5 text-indigo-600" /> : <ToggleLeft className="w-5 h-5" />}
                     </button>
-                    <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">
+                    <button onClick={() => startEdit(item)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 transition-colors">
                       <Pencil className="w-4 h-4" />
                     </button>
                   </div>
@@ -191,10 +191,10 @@ function ItemForm({ form, setForm, saving, onSave, onCancel, title }: {
         </div>
       </div>
       <div className="flex gap-2">
-        <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1.5">
+        <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1.5">
           <Check className="w-4 h-4" /> {saving ? 'Saving…' : 'Save'}
         </button>
-        <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
+        <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-sm hover:bg-gray-50 flex items-center gap-1.5">
           <X className="w-4 h-4" /> Cancel
         </button>
       </div>
@@ -202,4 +202,4 @@ function ItemForm({ form, setForm, saving, onSave, onCancel, title }: {
   )
 }
 
-const INPUT = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
+const INPUT = 'w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'

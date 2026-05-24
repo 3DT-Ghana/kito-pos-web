@@ -81,7 +81,7 @@ export default function PayrollComponentsPage() {
             <Settings2 className="w-5 h-5 text-indigo-600" />
             <h1 className="text-xl font-bold text-gray-900">Payroll Components</h1>
           </div>
-          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          <button onClick={openCreate} className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
             <Plus className="w-4 h-4" /> Add Component
           </button>
         </div>
@@ -91,7 +91,7 @@ export default function PayrollComponentsPage() {
         ) : (
           <>
             {[{ label: 'Allowances', items: allowances }, { label: 'Deductions', items: deductions }].map(({ label, items }) => (
-              <div key={label} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div key={label} className="bg-white border border-gray-200 overflow-hidden">
                 <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
                   <h2 className="text-sm font-semibold text-gray-800">{label}</h2>
                   <span className="text-xs text-gray-400">{items.length} component{items.length !== 1 ? 's' : ''}</span>
@@ -148,26 +148,26 @@ export default function PayrollComponentsPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 space-y-4">
+          <div className="bg-white shadow-xl w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-semibold text-gray-900">{editing ? 'Edit Component' : 'New Component'}</h2>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
             </div>
 
-            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2">{error}</p>}
 
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
                 <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Housing Allowance" />
+                  className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. Housing Allowance" />
               </div>
 
               {!editing && (
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Type *</label>
                   <select value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as 'ALLOWANCE' | 'DEDUCTION' }))}
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="ALLOWANCE">Allowance</option>
                     <option value="DEDUCTION">Deduction</option>
                   </select>
@@ -177,7 +177,7 @@ export default function PayrollComponentsPage() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Sub-type (optional)</label>
                 <input value={form.subType} onChange={(e) => setForm((f) => ({ ...f, subType: e.target.value }))}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. TRANSPORT, HOUSING" />
+                  className="w-full text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="e.g. TRANSPORT, HOUSING" />
               </div>
 
               {form.type === 'ALLOWANCE' ? (
@@ -194,8 +194,8 @@ export default function PayrollComponentsPage() {
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-              <button onClick={save} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60">
+              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-sm text-gray-600 border border-gray-300 hover:bg-gray-50">Cancel</button>
+              <button onClick={save} disabled={saving} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60">
                 <Check className="w-4 h-4" /> {saving ? 'Saving…' : 'Save'}
               </button>
             </div>

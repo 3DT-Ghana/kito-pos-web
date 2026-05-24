@@ -15,9 +15,9 @@ export function OperationalBranchPrompt({
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+      <div className="border border-amber-200 bg-amber-50 p-6 shadow-sm">
         <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 text-2xl">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-amber-100 text-2xl">
             🏬
           </div>
           <div className="min-w-0">
@@ -32,7 +32,7 @@ export function OperationalBranchPrompt({
               key={branch.id}
               type="button"
               onClick={() => setBranchId(branch.id)}
-              className="rounded-2xl border border-amber-200 bg-white px-4 py-4 text-left transition-colors hover:border-amber-400 hover:bg-amber-100"
+              className="border border-amber-200 bg-white px-4 py-4 text-left transition-colors hover:border-amber-400 hover:bg-amber-100"
             >
               <div className="text-sm font-bold text-gray-900">{branch.name}</div>
               <div className="mt-1 text-xs text-gray-500">

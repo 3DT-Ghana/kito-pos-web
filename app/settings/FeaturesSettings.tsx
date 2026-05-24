@@ -192,9 +192,9 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
   ]
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+    <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
       <div className="flex items-center gap-3 mb-6">
-        <div className="bg-purple-100 p-3 rounded-lg">
+        <div className="bg-purple-100 p-3">
           <span className="text-2xl">🔌</span>
         </div>
         <div>
@@ -215,7 +215,7 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
               {group.items.map(({ key, label, icon, desc }) => (
                 <div
                   key={key}
-                  className={`border-2 rounded-lg p-4 transition-colors ${
+                  className={`border-2 p-4 transition-colors ${
                     settings[key] ? 'border-blue-200 bg-blue-50/30' : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -240,7 +240,7 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
         ))}
 
         {/* Note */}
-        <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-4 text-sm text-amber-800">
+        <div className="bg-amber-50 border-2 border-amber-200 p-4 text-sm text-amber-800">
           <p className="font-semibold mb-1">ℹ️ How this works</p>
           <p className="text-xs text-amber-700">
             Toggling a feature ON adds it to the sidebar immediately after saving and refreshing.
@@ -259,7 +259,7 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {saving ? 'Saving...' : 'Save Features'}
             </button>

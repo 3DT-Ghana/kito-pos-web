@@ -99,7 +99,7 @@ function RecordCustomerPaymentContent() {
 
         {/* No Debtors Warning */}
         {customers.length === 0 && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg">
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3">
             <p className="font-medium">No customers with outstanding balance</p>
             <p className="text-sm mt-1">
               All customers have cleared their balances or there are no customers yet.
@@ -108,7 +108,7 @@ function RecordCustomerPaymentContent() {
         )}
 
         {/* Form Card */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white shadow-sm border border-gray-200 p-6">
           <PaymentForm
             type="customer"
             entities={customers}

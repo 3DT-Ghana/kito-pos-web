@@ -149,7 +149,7 @@ export default function BulkAdjustItemsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
-            <button onClick={() => router.push('/items')} className="p-2 hover:bg-gray-100 rounded-xl">
+            <button onClick={() => router.push('/items')} className="p-2 hover:bg-gray-100">
               <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
@@ -163,7 +163,7 @@ export default function BulkAdjustItemsPage() {
             <button
               onClick={saveAll}
               disabled={isSavingAll}
-              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-60 text-sm shadow-md"
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white font-bold hover:bg-indigo-700 disabled:opacity-60 text-sm shadow-md"
             >
               {isSavingAll ? 'Saving…' : `Save All (${readyCount})`}
             </button>
@@ -185,7 +185,7 @@ export default function BulkAdjustItemsPage() {
             placeholder="Search items..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-indigo-500 focus:outline-none text-sm"
           />
         </div>
 
@@ -194,7 +194,7 @@ export default function BulkAdjustItemsPage() {
             <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+          <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
 
             {/* Column header */}
             <div className="hidden md:grid grid-cols-[2fr_1fr_auto_auto_auto_auto] gap-3 px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -243,7 +243,7 @@ export default function BulkAdjustItemsPage() {
                     </div>
 
                     {/* Type toggle */}
-                    <div className="flex rounded-lg border-2 border-gray-200 overflow-hidden text-xs font-semibold w-36">
+                    <div className="flex border-2 border-gray-200 overflow-hidden text-xs font-semibold w-36">
                       {(['add', 'remove', 'set'] as const).map(t => (
                         <button key={t} type="button"
                           onClick={() => {
@@ -271,7 +271,7 @@ export default function BulkAdjustItemsPage() {
                         if (val !== '' && expandedRow !== item.id) setExpandedRow(item.id)
                       }}
                       placeholder="0"
-                      className="w-24 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm focus:border-indigo-500 focus:outline-none"
+                      className="w-24 px-2 py-1.5 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
                     />
 
                     {/* Preview */}
@@ -295,7 +295,7 @@ export default function BulkAdjustItemsPage() {
                       ) : row.dirty ? (
                         <button
                           onClick={() => setExpandedRow(isExpanded ? null : item.id)}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
+                          className={`px-3 py-1.5 text-xs font-bold transition-colors ${
                             rowReady
                               ? 'bg-indigo-600 text-white hover:bg-indigo-700'
                               : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
@@ -322,7 +322,7 @@ export default function BulkAdjustItemsPage() {
                               key={r.key}
                               type="button"
                               onClick={() => setRow(item.id, { category: r.key })}
-                              className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border-2 text-left text-xs font-semibold transition-all ${
+                              className={`flex items-center gap-2 px-2.5 py-2 border-2 text-left text-xs font-semibold transition-all ${
                                 row.category === r.key
                                   ? 'border-indigo-400 bg-indigo-50 text-indigo-800'
                                   : 'border-gray-200 text-gray-600 hover:border-indigo-200 hover:bg-indigo-50/40'
@@ -346,7 +346,7 @@ export default function BulkAdjustItemsPage() {
                           value={row.reason}
                           onChange={e => setRow(item.id, { reason: e.target.value })}
                           placeholder={selectedReason?.placeholder ?? 'Describe the reason…'}
-                          className="w-full px-3 py-2 border-2 border-gray-200 rounded-xl text-sm focus:border-indigo-500 focus:outline-none resize-none"
+                          className="w-full px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none resize-none"
                         />
                       </div>
 
@@ -359,7 +359,7 @@ export default function BulkAdjustItemsPage() {
                         <button
                           onClick={() => saveRow(item)}
                           disabled={!rowReady || row.saving}
-                          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {row.saving ? 'Saving…' : 'Save Adjustment'}
                         </button>

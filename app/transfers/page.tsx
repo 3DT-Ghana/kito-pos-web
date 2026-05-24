@@ -7,6 +7,7 @@ import { useBranch } from '@/lib/branch/BranchContext'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useUser } from '@/hooks/useUser'
 import { formatDateTime } from '@/lib/utils/format'
+import { Pagination } from '@/components/ui/Pagination'
 
 interface BranchOption {
   id: string
@@ -112,6 +113,10 @@ export default function TransfersPage() {
   const [actionId, setActionId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
+
+  useEffect(() => setPage(1), [statusFilter])
 
   const destinationBranches = useMemo(
     () => branches.filter((branch) => branch.id !== currentBranchId),
@@ -328,8 +333,8 @@ export default function TransfersPage() {
     return (
       <AppLayout>
         <div className="max-w-3xl mx-auto space-y-5">
-          <div className="bg-white shadow-sm ring-1 ring-black/5 rounded-2xl p-8 text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 p-8 text-center space-y-3">
+            <div className="w-14 h-14 bg-blue-50 flex items-center justify-center mx-auto">
               <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" /></svg>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Stock Transfers</h1>
@@ -338,7 +343,7 @@ export default function TransfersPage() {
             </p>
             <button
               onClick={() => router.push('/settings')}
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+              className="px-5 py-2.5 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
             >
               Open Settings
             </button>
@@ -366,7 +371,7 @@ export default function TransfersPage() {
               setError('')
               setSuccess('')
             }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm text-sm disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-sm text-sm disabled:opacity-50"
             disabled={!canCreateTransfer}
           >
             {showForm ? 'Close Form' : '+ New Transfer'}
@@ -374,37 +379,37 @@ export default function TransfersPage() {
         </div>
 
         {!currentBranchId && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm">
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 text-sm">
             Select a source branch from the header before creating a transfer. You can still review transfer history across all branches.
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-medium">
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm font-medium">
             {success}
           </div>
         )}
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-black/5">
+          <div className="bg-white p-4 shadow-sm ring-1 ring-black/5">
             <p className="text-xs font-semibold text-gray-500 uppercase">All Transfers</p>
             <p className="text-2xl font-bold text-gray-900 mt-1">{transfers.length}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-black/5">
+          <div className="bg-white p-4 shadow-sm ring-1 ring-black/5">
             <p className="text-xs font-semibold text-amber-600 uppercase">Pending</p>
             <p className="text-2xl font-bold text-amber-700 mt-1">{transferCounts.pending}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-black/5">
+          <div className="bg-white p-4 shadow-sm ring-1 ring-black/5">
             <p className="text-xs font-semibold text-blue-600 uppercase">In Transit</p>
             <p className="text-2xl font-bold text-blue-700 mt-1">{transferCounts.inTransit}</p>
           </div>
-          <div className="bg-white rounded-2xl p-4 shadow-sm ring-1 ring-black/5">
+          <div className="bg-white p-4 shadow-sm ring-1 ring-black/5">
             <p className="text-xs font-semibold text-green-600 uppercase">Completed</p>
             <p className="text-2xl font-bold text-green-700 mt-1">{transferCounts.completed}</p>
           </div>
@@ -415,7 +420,7 @@ export default function TransfersPage() {
             <button
               key={status}
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              className={`px-3 py-2 text-sm font-semibold transition-colors ${
                 statusFilter === status
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
@@ -427,7 +432,7 @@ export default function TransfersPage() {
         </div>
 
         {showForm && (
-          <form onSubmit={handleCreateTransfer} className="bg-white rounded-2xl border-2 border-blue-100 shadow-sm p-5 space-y-5">
+          <form onSubmit={handleCreateTransfer} className="bg-white border-2 border-blue-100 shadow-sm p-5 space-y-5">
             <div>
               <h2 className="text-lg font-bold text-gray-900">Create Transfer</h2>
               <p className="text-sm text-gray-500 mt-1">
@@ -442,7 +447,7 @@ export default function TransfersPage() {
                 <select
                   value={form.toBranchId}
                   onChange={(event) => setForm((current) => ({ ...current, toBranchId: event.target.value }))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm bg-white"
+                  className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm bg-white"
                   required
                 >
                   <option value="">Select destination branch</option>
@@ -460,7 +465,7 @@ export default function TransfersPage() {
                   value={form.note}
                   onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
                   placeholder="Optional note for the receiving branch"
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
             </div>
@@ -476,7 +481,7 @@ export default function TransfersPage() {
                 <button
                   type="button"
                   onClick={addLine}
-                  className="px-3 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-50"
+                  className="px-3 py-2 border border-blue-200 text-blue-700 text-sm font-semibold hover:bg-blue-50"
                 >
                   + Add Line
                 </button>
@@ -488,7 +493,7 @@ export default function TransfersPage() {
                     <select
                       value={line.itemId}
                       onChange={(event) => updateLine(index, { itemId: event.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm bg-white"
+                      className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm bg-white"
                       required
                       disabled={isItemsLoading || !currentBranchId}
                     >
@@ -507,7 +512,7 @@ export default function TransfersPage() {
                       step="0.01"
                       value={line.quantity}
                       onChange={(event) => updateLine(index, { quantity: event.target.value })}
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                      className="w-full px-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                       placeholder="Quantity"
                       required
                     />
@@ -516,7 +521,7 @@ export default function TransfersPage() {
                     type="button"
                     onClick={() => removeLine(index)}
                     disabled={form.items.length === 1}
-                    className="px-3 py-3 border border-red-100 text-red-600 rounded-xl text-sm font-semibold hover:bg-red-50 disabled:opacity-40"
+                    className="px-3 py-3 border border-red-100 text-red-600 text-sm font-semibold hover:bg-red-50 disabled:opacity-40"
                   >
                     Remove
                   </button>
@@ -531,14 +536,14 @@ export default function TransfersPage() {
                   setShowForm(false)
                   resetForm()
                 }}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving || !currentBranchId}
-                className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 text-sm"
+                className="flex-1 py-3 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
               >
                 {isSaving ? 'Creating…' : 'Create Transfer'}
               </button>
@@ -546,7 +551,7 @@ export default function TransfersPage() {
           </form>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+        <div className="bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="text-lg font-bold text-gray-900">Transfer History</h2>
           </div>
@@ -559,7 +564,7 @@ export default function TransfersPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {transfers.map((transfer) => {
+              {transfers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((transfer) => {
                 const status = STATUS_META[transfer.status]
                 const canDispatch =
                   transfer.status === 'PENDING' &&
@@ -588,7 +593,7 @@ export default function TransfersPage() {
                           {transfer.initiatedBy ? ` by ${transfer.initiatedBy.name}` : ''}
                         </p>
                         {transfer.note && (
-                          <p className="text-sm text-gray-600 mt-2 bg-gray-50 rounded-lg px-3 py-2">
+                          <p className="text-sm text-gray-600 mt-2 bg-gray-50 px-3 py-2">
                             {transfer.note}
                           </p>
                         )}
@@ -599,7 +604,7 @@ export default function TransfersPage() {
                           <button
                             onClick={() => handleTransferAction(transfer.id, 'dispatch')}
                             disabled={actionId === transfer.id}
-                            className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                            className="px-3 py-2 bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
                           >
                             {actionId === transfer.id ? 'Working…' : 'Dispatch'}
                           </button>
@@ -608,7 +613,7 @@ export default function TransfersPage() {
                           <button
                             onClick={() => handleTransferAction(transfer.id, 'receive')}
                             disabled={actionId === transfer.id}
-                            className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
+                            className="px-3 py-2 bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-50"
                           >
                             {actionId === transfer.id ? 'Working…' : 'Receive'}
                           </button>
@@ -617,7 +622,7 @@ export default function TransfersPage() {
                           <button
                             onClick={() => handleTransferAction(transfer.id, 'cancel')}
                             disabled={actionId === transfer.id}
-                            className="px-3 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-semibold hover:bg-red-50 disabled:opacity-50"
+                            className="px-3 py-2 border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 disabled:opacity-50"
                           >
                             Cancel
                           </button>
@@ -626,7 +631,7 @@ export default function TransfersPage() {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 text-sm">
-                      <div className="bg-gray-50 rounded-xl px-3 py-3">
+                      <div className="bg-gray-50 px-3 py-3">
                         <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Items</p>
                         <div className="space-y-1.5">
                           {transfer.items.map((item) => (
@@ -637,7 +642,7 @@ export default function TransfersPage() {
                         </div>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl px-3 py-3">
+                      <div className="bg-gray-50 px-3 py-3">
                         <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Dispatch</p>
                         <p className="text-gray-700">
                           {transfer.dispatchedAt
@@ -646,7 +651,7 @@ export default function TransfersPage() {
                         </p>
                       </div>
 
-                      <div className="bg-gray-50 rounded-xl px-3 py-3">
+                      <div className="bg-gray-50 px-3 py-3">
                         <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Receipt</p>
                         <p className="text-gray-700">
                           {transfer.receivedAt
@@ -658,6 +663,12 @@ export default function TransfersPage() {
                   </div>
                 )
               })}
+            </div>
+          )}
+          {transfers.length > 0 && (
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-400">{transfers.length} results</span>
+              <Pagination page={page} totalPages={Math.ceil(transfers.length / PAGE_SIZE)} onPageChange={setPage} totalItems={transfers.length} pageSize={PAGE_SIZE} />
             </div>
           )}
         </div>

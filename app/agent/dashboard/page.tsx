@@ -55,7 +55,7 @@ export default function AgentDashboardPage() {
         </div>
         <Link
           href="/agent/applications/new"
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
           New Application
@@ -65,8 +65,8 @@ export default function AgentDashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         {statCards.map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className={`inline-flex p-2 rounded-lg ${bg} mb-3`}>
+          <div key={label} className="bg-white border border-gray-200 p-5">
+            <div className={`inline-flex p-2 ${bg} mb-3`}>
               <Icon className={`w-4 h-4 ${color}`} />
             </div>
             <p className="text-2xl font-bold text-gray-900">{loading ? '–' : value}</p>
@@ -76,7 +76,7 @@ export default function AgentDashboardPage() {
       </div>
 
       {/* Recent applications */}
-      <div className="bg-white rounded-xl border border-gray-200">
+      <div className="bg-white border border-gray-200">
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-gray-800">Recent Applications</h2>
           <Link href="/agent/applications" className="text-xs text-indigo-600 hover:underline">

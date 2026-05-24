@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Btn } from '@/components/ui/Btn'
 import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Pagination } from '@/components/ui/Pagination'
 import {
   Users, Search, X, AlertCircle, CheckCircle, Plus,
   Scale, Download, Phone
@@ -43,6 +44,8 @@ export default function CustomersPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 20
 
   useEffect(() => { fetchCustomers() }, [])
 
@@ -57,12 +60,16 @@ export default function CustomersPage() {
     }
   }
 
+  useEffect(() => setPage(1), [search, tab])
+
   const filtered = customers.filter(c => {
     const q = search.toLowerCase()
     const matchSearch = !q || c.name.toLowerCase().includes(q) || (c.phone || '').includes(q)
     const matchTab = tab === 'all' ? true : tab === 'debtors' ? c.balance > 0 : c.balance === 0
     return matchSearch && matchTab
   })
+
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const totalDebt = customers.reduce((s, c) => s + Math.max(0, c.balance), 0)
   const debtors = customers.filter(c => c.balance > 0)
@@ -140,7 +147,7 @@ export default function CustomersPage() {
               placeholder="Search by name or phone..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+              className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
             />
             {search && (
               <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
@@ -153,7 +160,7 @@ export default function CustomersPage() {
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3,4].map(i => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
+              <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
             ))}
           </div>
         ) : filtered.length === 0 ? (
@@ -169,15 +176,15 @@ export default function CustomersPage() {
           <>
             {/* Mobile Cards */}
             <div className="md:hidden space-y-2">
-              {filtered.map(c => {
+              {paginated.map(c => {
                 const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                 return (
                   <div
                     key={c.id}
                     onClick={() => router.push(`/customers/${c.id}`)}
-                    className="bg-white rounded-2xl shadow-sm ring-1 ring-black/5 p-4 flex items-center gap-3 cursor-pointer active:bg-gray-50 transition-colors"
+                    className="bg-white shadow-sm ring-1 ring-black/5 p-4 flex items-center gap-3 cursor-pointer active:bg-gray-50 transition-colors"
                   >
-                    <div className={`w-11 h-11 rounded-xl ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                    <div className={`w-11 h-11 ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
                       {initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -203,9 +210,10 @@ export default function CustomersPage() {
                 )
               })}
             </div>
+            <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
 
             {/* Desktop Table */}
-            <div className="hidden md:block bg-white rounded-2xl shadow-sm ring-1 ring-black/5 overflow-hidden">
+            <div className="hidden md:block bg-white shadow-sm ring-1 ring-black/5 overflow-hidden">
               <table className="w-full">
                 <thead className="bg-gray-50/80 border-b border-gray-100">
                   <tr>
@@ -218,13 +226,13 @@ export default function CustomersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.map(c => {
+                  {paginated.map(c => {
                     const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     return (
                       <tr key={c.id} className="hover:bg-blue-50/40 transition-colors cursor-pointer" onClick={() => router.push(`/customers/${c.id}`)}>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 rounded-xl ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                            <div className={`w-9 h-9 ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
                               {initials}
                             </div>
                             <span className="font-semibold text-gray-900 text-sm">{c.name}</span>
@@ -253,8 +261,9 @@ export default function CustomersPage() {
                   })}
                 </tbody>
               </table>
-              <div className="px-5 py-3 bg-gray-50/60 border-t border-gray-100 text-xs text-gray-400 font-medium">
-                {filtered.length} of {customers.length} customers
+              <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">{filtered.length} of {customers.length} results</span>
+                <Pagination page={page} totalPages={Math.ceil(filtered.length / PAGE_SIZE)} onPageChange={setPage} totalItems={filtered.length} pageSize={PAGE_SIZE} />
               </div>
             </div>
           </>

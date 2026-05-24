@@ -108,14 +108,14 @@ export default function ModuleSetupPage() {
           </div>
           <button
             onClick={() => { setShowCreate(true); setEditId(null); setForm(EMPTY_FORM); setMessage(null) }}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Module
           </button>
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
+          <div className={`text-sm px-4 py-3 border ${message.type === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'}`}>
             {message.text}
           </div>
         )}
@@ -139,7 +139,7 @@ export default function ModuleSetupPage() {
                 <Layers className="w-4 h-4 text-indigo-500" />
                 <h2 className="text-xs font-bold text-gray-500 uppercase tracking-wider">{cat}s</h2>
               </div>
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden divide-y divide-gray-100">
+              <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
                 {mods.map((m) => (
                   editId === m.id ? (
                     <div key={m.id} className="p-5">
@@ -172,7 +172,7 @@ export default function ModuleSetupPage() {
                         <button onClick={() => toggleActive(m)} title={m.isActive ? 'Deactivate' : 'Activate'} className="text-gray-400 hover:text-indigo-600 transition-colors">
                           {m.isActive ? <ToggleRight className="w-5 h-5 text-indigo-600" /> : <ToggleLeft className="w-5 h-5" />}
                         </button>
-                        <button onClick={() => startEdit(m)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 rounded-md transition-colors">
+                        <button onClick={() => startEdit(m)} className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-gray-50 transition-colors">
                           <Pencil className="w-4 h-4" />
                         </button>
                       </div>
@@ -255,10 +255,10 @@ function ModuleForm({
       </div>
 
       <div className="flex gap-2 pt-1">
-        <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1.5">
+        <button onClick={onSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1.5">
           <Check className="w-4 h-4" /> {saving ? 'Saving…' : 'Save'}
         </button>
-        <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 flex items-center gap-1.5">
+        <button onClick={onCancel} className="px-4 py-2 border border-gray-300 text-sm hover:bg-gray-50 flex items-center gap-1.5">
           <X className="w-4 h-4" /> Cancel
         </button>
       </div>
@@ -266,4 +266,4 @@ function ModuleForm({
   )
 }
 
-const INPUT = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'
+const INPUT = 'w-full px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500'

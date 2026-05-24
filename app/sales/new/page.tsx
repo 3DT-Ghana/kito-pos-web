@@ -66,19 +66,19 @@ export default function NewSalePage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Awaiting Approval</h2>
           <p className="text-gray-600 mb-2">This sale has been flagged and is waiting for manager approval.</p>
-          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 inline-block mb-8">
+          <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 px-4 py-2 inline-block mb-8">
             Receipt cannot be printed until a manager approves the transaction.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => router.push('/approvals')}
-              className="px-6 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 transition-colors"
+              className="px-6 py-3 bg-amber-500 text-white font-bold hover:bg-amber-600 transition-colors"
             >
               View Approvals Queue
             </button>
             <button
               onClick={() => { setPageState('form'); setLastSaleId(null) }}
-              className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
+              className="px-6 py-3 bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
             >
               New Sale
             </button>
@@ -101,20 +101,20 @@ export default function NewSalePage() {
             {lastSaleId && (
               <Link
                 href={`/sales/${lastSaleId}`}
-                className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors"
               >
                 Print Receipt
               </Link>
             )}
             <button
               onClick={() => { setPageState('form'); setLastSaleId(null) }}
-              className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
+              className="px-6 py-3 bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
             >
               New Sale
             </button>
             <button
               onClick={() => router.push('/sales')}
-              className="px-6 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50"
+              className="px-6 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
             >
               View All Sales
             </button>
@@ -131,7 +131,7 @@ export default function NewSalePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleCancel}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 transition-colors"
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -144,7 +144,7 @@ export default function NewSalePage() {
         </div>
 
         {isBranchLoading || isAutoSelectingAssignedBranch ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
+          <div className="bg-white shadow-sm border border-gray-200 p-8 text-center text-sm text-gray-500">
             Loading branch selection...
           </div>
         ) : requiresOperationalBranch ? (
@@ -153,7 +153,7 @@ export default function NewSalePage() {
             description="Sales must be attached to one branch so stock and reports stay accurate. Pick the branch you are working from to continue."
           />
         ) : (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6">
+          <div className="bg-white shadow-sm border border-gray-200 p-5 md:p-6">
             <SaleForm onSubmit={handleSubmit} onCancel={handleCancel} />
           </div>
         )}

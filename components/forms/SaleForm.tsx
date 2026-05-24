@@ -76,7 +76,7 @@ function Stepper({
         : "hover:bg-gray-100";
   return (
     <div
-      className={`flex items-center border-2 ${borderCls} rounded-lg overflow-hidden bg-white shrink-0`}
+      className={`flex items-center border-2 ${borderCls} overflow-hidden bg-white shrink-0`}
     >
       <button
         type="button"
@@ -485,18 +485,18 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
 
       {/* Draft restore banner */}
       {hasDraft && (
-        <div className="flex items-center gap-3 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3 bg-amber-50 border-2 border-amber-300 px-4 py-3">
           <span className="text-xl shrink-0">📋</span>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-amber-900">You have an unsaved sale draft</p>
             <p className="text-xs text-amber-700">Continue where you left off?</p>
           </div>
           <button type="button" onClick={restoreDraft}
-            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-lg shrink-0 transition-colors">
+            className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shrink-0 transition-colors">
             Restore
           </button>
           <button type="button" onClick={discardDraft}
-            className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold rounded-lg shrink-0 transition-colors">
+            className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 text-xs font-semibold shrink-0 transition-colors">
             Discard
           </button>
         </div>
@@ -512,7 +512,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
               key={type}
               type="button"
               onClick={() => setPaymentType(type)}
-              className={`py-3.5 rounded-xl font-bold text-sm transition-all border-2 flex items-center justify-center gap-2.5 ${
+              className={`py-3.5 font-bold text-sm transition-all border-2 flex items-center justify-center gap-2.5 ${
                 active
                   ? isCash
                     ? "bg-blue-600 text-white border-blue-600 shadow-md"
@@ -547,7 +547,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
               key={m}
               type="button"
               onClick={() => setPaymentMethod(m)}
-              className={`py-2.5 rounded-xl font-bold text-sm transition-all border-2 flex items-center justify-center gap-1.5 ${
+              className={`py-2.5 font-bold text-sm transition-all border-2 flex items-center justify-center gap-1.5 ${
                 paymentMethod === m
                   ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
                   : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300 hover:bg-indigo-50"
@@ -571,8 +571,8 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           )}
         </label>
         {selectedCustomer ? (
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-200 rounded-xl">
-            <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-200">
+            <div className="w-9 h-9 bg-blue-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
               {selectedCustomer.name.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
@@ -607,10 +607,10 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                 setShowCustomerDropdown(true);
               }}
               onFocus={() => setShowCustomerDropdown(true)}
-              className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+              className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
             />
             {showCustomerDropdown && filteredCustomers.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                 {filteredCustomers.map((c) => (
                   <button
                     key={c.id}
@@ -623,7 +623,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
                   >
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 ${c.balance > 0 ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
+                      className={`w-8 h-8 flex items-center justify-center font-bold text-sm shrink-0 ${c.balance > 0 ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}
                     >
                       {c.name.charAt(0).toUpperCase()}
                     </div>
@@ -644,7 +644,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
             {showCustomerDropdown &&
               customerSearch.trim() &&
               filteredCustomers.length === 0 && (
-                <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl p-4 text-center text-sm text-gray-500">
+                <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
                   No customers found
                 </div>
               )}
@@ -680,11 +680,11 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
               setShowItemDropdown(true);
             }}
             onFocus={() => setShowItemDropdown(true)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
           />
         </div>
         {showItemDropdown && filteredItems.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
             {filteredItems.map((item) => {
               const inCart = cart.find((c) => c.itemId === item.id);
               const stockTracked = isInventoryItemType(item.itemType);
@@ -754,7 +754,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         {showItemDropdown &&
           itemSearch.trim() &&
           filteredItems.length === 0 && (
-            <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl p-4 text-center text-sm text-gray-500">
+            <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
               No items found matching &ldquo;{itemSearch}&rdquo;
             </div>
           )}
@@ -762,7 +762,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
 
       {/* Cart */}
       {cart.length > 0 && (
-        <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+        <div className="bg-white border-2 border-gray-200 overflow-hidden">
           {/* Cart header */}
           <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
             <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -964,7 +964,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           }
                           step="0.01"
                           min="0"
-                          className="w-28 px-2.5 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right"
+                          className="w-28 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right"
                         />
                       </div>
                     </td>
@@ -972,7 +972,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     {enableDiscounts && (
                       <td className="px-2 py-3 align-middle">
                         <div className="flex flex-col items-end gap-1">
-                          <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="flex border border-gray-200 overflow-hidden">
                             <button
                               type="button"
                               onClick={() => updateLineDiscountType(item.itemId, "percent")}
@@ -994,7 +994,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             step="0.01"
                             min="0"
                             max={item.lineDiscountType === "percent" ? 100 : item.price * item.quantity}
-                            className="w-20 px-2.5 py-1.5 border-2 border-red-100 rounded-lg text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600"
+                            className="w-20 px-2.5 py-1.5 border-2 border-red-100 text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600"
                           />
                         </div>
                       </td>
@@ -1144,7 +1144,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             }
                             step="0.01"
                             min="0"
-                            className="w-20 px-2 py-1 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-20 px-2 py-1 border-2 border-gray-200 text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <span className="text-xs text-gray-400">
                             /{item.unitName ?? "ctn"}
@@ -1213,7 +1213,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                             }
                             step="0.01"
                             min="0"
-                            className="w-20 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-20 px-2 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       </div>
@@ -1260,7 +1260,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           }
                           step="0.01"
                           min="0"
-                          className="w-20 px-2 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          className="w-20 px-2 py-1.5 border-2 border-gray-200 text-sm font-bold bg-white focus:border-blue-500 focus:outline-none text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         />
                       </div>
                     </>
@@ -1270,7 +1270,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                   {enableDiscounts && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-red-500 font-semibold">Disc.</span>
-                      <div className="flex border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="flex border border-gray-200 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => updateLineDiscountType(item.itemId, "percent")}
@@ -1290,7 +1290,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                         step="0.01"
                         min="0"
                         max={item.lineDiscountType === "percent" ? 100 : item.price * item.quantity}
-                        className="flex-1 px-2 py-1 border-2 border-red-100 rounded-lg text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        className="flex-1 px-2 py-1 border-2 border-red-100 text-sm font-bold bg-white focus:border-red-400 focus:outline-none text-right text-red-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                     </div>
                   )}
@@ -1321,7 +1321,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       {/* Payment Section */}
       {cart.length > 0 && (
         <div
-          className={`rounded-2xl border-2 p-5 space-y-4 ${paymentType === "CASH" ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}`}
+          className={`border-2 p-5 space-y-4 ${paymentType === "CASH" ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}`}
         >
           {enableDiscounts && (
             <div className="space-y-2">
@@ -1335,7 +1335,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                 <span className="text-sm text-gray-600 whitespace-nowrap">
                   Discount
                 </span>
-                <div className="flex border-2 border-gray-200 rounded-lg overflow-hidden">
+                <div className="flex border-2 border-gray-200 overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setDiscountType("percent")}
@@ -1359,7 +1359,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                   min="0"
                   max={discountType === "percent" ? 100 : subtotal}
                   step="0.01"
-                  className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 rounded-lg text-sm font-bold focus:border-blue-500 focus:outline-none text-right"
+                  className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold focus:border-blue-500 focus:outline-none text-right"
                 />
                 {discountAmount > 0 && (
                   <span className="text-sm font-semibold text-red-600 whitespace-nowrap">
@@ -1392,11 +1392,11 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                   placeholder={
                     totalAmount > 0 ? totalAmount.toFixed(2) : "0.00"
                   }
-                  className="w-full px-4 py-3 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:outline-none text-xl font-bold bg-white"
+                  className="w-full px-4 py-3 border-2 border-blue-200 focus:border-blue-500 focus:outline-none text-xl font-bold bg-white"
                 />
               </div>
               {amountPaid !== "" && change >= 0 && (
-                <div className="flex justify-between items-center bg-green-100 rounded-xl p-3">
+                <div className="flex justify-between items-center bg-green-100 p-3">
                   <span className="text-sm font-semibold text-green-800">
                     Change to give:
                   </span>
@@ -1406,7 +1406,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                 </div>
               )}
               {amountPaid !== "" && change < 0 && (
-                <div className="flex justify-between items-center bg-red-100 rounded-xl p-3">
+                <div className="flex justify-between items-center bg-red-100 p-3">
                   <span className="text-sm font-semibold text-red-800">
                     Short by:
                   </span>
@@ -1431,10 +1431,10 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                   min="0"
                   max={totalAmount}
                   placeholder="0.00"
-                  className="w-full px-4 py-3 border-2 border-orange-200 rounded-xl focus:border-orange-400 focus:outline-none text-xl font-bold bg-white"
+                  className="w-full px-4 py-3 border-2 border-orange-200 focus:border-orange-400 focus:outline-none text-xl font-bold bg-white"
                 />
               </div>
-              <div className="flex justify-between items-center bg-orange-100 rounded-xl p-3">
+              <div className="flex justify-between items-center bg-orange-100 p-3">
                 <span className="text-sm font-semibold text-orange-800">
                   Credit amount owed:
                 </span>
@@ -1443,7 +1443,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                 </span>
               </div>
               {!selectedCustomer && (
-                <p className="text-xs text-amber-700 bg-amber-100 px-3 py-2 rounded-lg font-medium">
+                <p className="text-xs text-amber-700 bg-amber-100 px-3 py-2 font-medium">
                   ⚠ Please select a customer above for credit sales
                 </p>
               )}
@@ -1453,7 +1453,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       )}
 
       {discountNeedsApproval && (
-        <div className="flex items-start gap-3 bg-amber-50 border-2 border-amber-300 rounded-xl px-4 py-3">
+        <div className="flex items-start gap-3 bg-amber-50 border-2 border-amber-300 px-4 py-3">
           <span className="text-xl shrink-0 mt-0.5">⏳</span>
           <div>
             <p className="text-sm font-bold text-amber-900">Discount requires manager approval</p>
@@ -1465,7 +1465,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       )}
 
       {formError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
           ⚠ {formError}
         </div>
       )}
@@ -1474,7 +1474,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         <button
           type="submit"
           disabled={isSubmitting || cart.length === 0}
-          className={`flex-1 py-4 text-white text-base font-bold rounded-xl disabled:opacity-50 transition-all shadow-md ${
+          className={`flex-1 py-4 text-white text-base font-bold disabled:opacity-50 transition-all shadow-md ${
             discountNeedsApproval
               ? "bg-amber-500 hover:bg-amber-600"
               : paymentType === "CASH"
@@ -1495,7 +1495,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+            className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>

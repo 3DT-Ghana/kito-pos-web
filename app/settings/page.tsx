@@ -84,7 +84,7 @@ export default async function SettingsPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="bg-gray-100 p-3 rounded-lg">
+          <div className="bg-gray-100 p-3">
             <SettingsIcon className="w-8 h-8 text-gray-700" />
           </div>
           <div>
@@ -94,7 +94,7 @@ export default async function SettingsPage() {
         </div>
 
         {/* Business Info */}
-        <div className="bg-white rounded-xl shadow-sm border-2 border-gray-200 p-6">
+        <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Business Information</h2>
           <div className="space-y-3 text-gray-700">
             <div>
@@ -179,7 +179,7 @@ export default async function SettingsPage() {
         />
 
         {/* Help Section */}
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+        <div className="bg-blue-50 border-2 border-blue-200 p-6">
           <h3 className="text-xl font-bold text-blue-900 mb-2">Need Help?</h3>
           <p className="text-blue-800">
             These settings control how your sales receipts are printed.

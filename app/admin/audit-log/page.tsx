@@ -88,7 +88,7 @@ export default function AdminAuditLogPage() {
           </div>
           <button
             onClick={() => fetchLogs(true, undefined)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -104,7 +104,7 @@ export default function AdminAuditLogPage() {
               <button
                 key={e || 'all'}
                 onClick={() => setEntity(e)}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-colors ${
+                className={`px-4 py-2 text-sm font-semibold border-2 transition-colors ${
                   entity === e
                     ? 'bg-indigo-600 text-white border-indigo-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
@@ -124,15 +124,15 @@ export default function AdminAuditLogPage() {
                 placeholder="Filter by actor email…"
                 value={actorInput}
                 onChange={e => setActorInput(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-indigo-500 focus:outline-none text-sm"
+                className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-indigo-500 focus:outline-none text-sm"
               />
             </div>
-            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-colors">
+            <button type="submit" className="px-4 py-2 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
               Search
             </button>
             {actor && (
               <button type="button" onClick={() => { setActor(''); setActorInput('') }}
-                className="px-3 py-2 bg-gray-100 text-gray-600 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors">
+                className="px-3 py-2 bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200 transition-colors">
                 Clear
               </button>
             )}
@@ -140,7 +140,7 @@ export default function AdminAuditLogPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           {loading ? (
             <div className="space-y-0 divide-y divide-gray-100">
               {[...Array(8)].map((_, i) => (
@@ -207,7 +207,7 @@ export default function AdminAuditLogPage() {
                   <button
                     onClick={() => fetchLogs(false, cursor ?? undefined)}
                     disabled={loadingMore}
-                    className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                    className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
                   >
                     {loadingMore ? 'Loading…' : 'Load more'}
                   </button>

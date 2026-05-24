@@ -126,8 +126,8 @@ export default function NewQuotationPage() {
               Customer <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             {selectedCustomer ? (
-              <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-200 rounded-xl">
-                <div className="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
+              <div className="flex items-center gap-3 px-4 py-2.5 bg-blue-50 border-2 border-blue-200">
+                <div className="w-9 h-9 bg-blue-600 flex items-center justify-center text-white font-bold shrink-0 text-sm">
                   {selectedCustomer.name.charAt(0).toUpperCase()}
                 </div>
                 <p className="flex-1 font-bold text-gray-900 text-sm">{selectedCustomer.name}</p>
@@ -141,14 +141,14 @@ export default function NewQuotationPage() {
                   value={customerSearch}
                   onChange={e => { setCustomerSearch(e.target.value); setShowCustomerDropdown(true) }}
                   onFocus={() => setShowCustomerDropdown(true)}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
                 {showCustomerDropdown && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                  <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden">
                     {filteredCustomers.map(c => (
                       <button key={c.id} type="button" onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setShowCustomerDropdown(false) }}
                         className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0">
-                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
+                        <div className="w-8 h-8 bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm shrink-0">
                           {c.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-semibold text-gray-900 text-sm">{c.name}</span>
@@ -175,11 +175,11 @@ export default function NewQuotationPage() {
                 value={itemSearch}
                 onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
                 onFocus={() => setShowItemDropdown(true)}
-                className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
               />
             </div>
             {showItemDropdown && filteredItems.length > 0 && (
-              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-60 overflow-y-auto">
                 {filteredItems.map(item => (
                   <button key={item.id} type="button" onClick={() => addToCart(item)}
                     className="w-full px-4 py-2.5 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0">
@@ -199,7 +199,7 @@ export default function NewQuotationPage() {
 
           {/* Cart */}
           {cart.length > 0 && (
-            <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden">
+            <div className="bg-white border-2 border-gray-200 overflow-hidden">
               <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                 <span className="text-xs font-bold text-gray-500 uppercase">Quote Items — {cart.length}</span>
                 <button type="button" onClick={() => setCart([])} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear all</button>
@@ -212,15 +212,15 @@ export default function NewQuotationPage() {
                       <p className="text-xs text-blue-600">{item.manufacturer}</p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <button type="button" onClick={() => updateQty(item.itemId, item.quantity - 1)} className="w-7 h-7 rounded-lg border-2 border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold">−</button>
+                      <button type="button" onClick={() => updateQty(item.itemId, item.quantity - 1)} className="w-7 h-7 border-2 border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold">−</button>
                       <input
                         type="number"
                         value={item.quantity}
                         onChange={e => updateQty(item.itemId, parseFloat(e.target.value) || 0)}
                         min={1}
-                        className="w-14 text-center text-sm font-bold border-2 border-gray-200 rounded-lg py-1 focus:border-blue-500 focus:outline-none"
+                        className="w-14 text-center text-sm font-bold border-2 border-gray-200 py-1 focus:border-blue-500 focus:outline-none"
                       />
-                      <button type="button" onClick={() => updateQty(item.itemId, item.quantity + 1)} className="w-7 h-7 rounded-lg border-2 border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold">+</button>
+                      <button type="button" onClick={() => updateQty(item.itemId, item.quantity + 1)} className="w-7 h-7 border-2 border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-100 font-bold">+</button>
                     </div>
                     <div className="shrink-0 flex items-center gap-2">
                       <span className="text-xs text-gray-400">@</span>
@@ -230,7 +230,7 @@ export default function NewQuotationPage() {
                         onChange={e => updatePrice(item.itemId, parseFloat(e.target.value) || 0)}
                         step="0.01"
                         min="0"
-                        className="w-24 px-2 py-1 border-2 border-gray-200 rounded-lg text-sm font-bold text-right focus:border-blue-500 focus:outline-none"
+                        className="w-24 px-2 py-1 border-2 border-gray-200 text-sm font-bold text-right focus:border-blue-500 focus:outline-none"
                       />
                     </div>
                     <p className="text-sm font-bold text-gray-900 w-24 text-right shrink-0">{formatCurrency(item.price * item.quantity)}</p>
@@ -254,7 +254,7 @@ export default function NewQuotationPage() {
                 value={validUntil}
                 onChange={e => setValidUntil(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
               />
             </div>
             <div>
@@ -264,13 +264,13 @@ export default function NewQuotationPage() {
                 value={note}
                 onChange={e => setNote(e.target.value)}
                 placeholder="e.g. Prices valid for 7 days"
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
               />
             </div>
           </div>
 
           {formError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
               ⚠ {formError}
             </div>
           )}
@@ -279,7 +279,7 @@ export default function NewQuotationPage() {
             <button
               type="submit"
               disabled={isSubmitting || cart.length === 0}
-              className="flex-1 py-4 bg-blue-600 text-white text-base font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md"
+              className="flex-1 py-4 bg-blue-600 text-white text-base font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md"
             >
               {isSubmitting ? 'Creating...' : `📄 Create Quotation — ${formatCurrency(totalAmount)}`}
             </button>
@@ -287,7 +287,7 @@ export default function NewQuotationPage() {
               type="button"
               onClick={() => router.back()}
               disabled={isSubmitting}
-              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50"
+              className="sm:w-32 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
             >
               Cancel
             </button>

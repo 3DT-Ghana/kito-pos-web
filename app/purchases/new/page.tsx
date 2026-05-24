@@ -38,13 +38,13 @@ export default function NewPurchasePage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => setIsSuccess(false)}
-              className="px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-colors"
+              className="px-6 py-3 bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
             >
               Record Another
             </button>
             <button
               onClick={() => router.push('/purchases')}
-              className="px-6 py-3 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50"
+              className="px-6 py-3 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50"
             >
               View All Purchases
             </button>
@@ -61,7 +61,7 @@ export default function NewPurchasePage() {
         <div className="flex items-center gap-3">
           <button
             onClick={handleCancel}
-            className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+            className="p-2 hover:bg-gray-100 transition-colors"
           >
             <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -74,7 +74,7 @@ export default function NewPurchasePage() {
         </div>
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 md:p-6">
+        <div className="bg-white shadow-sm border border-gray-200 p-5 md:p-6">
           <PurchaseForm onSubmit={handleSubmit} onCancel={handleCancel} />
         </div>
       </div>

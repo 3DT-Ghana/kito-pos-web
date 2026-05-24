@@ -149,7 +149,7 @@ export default function BranchDetailPage() {
     return (
       <AppLayout>
         <div className="max-w-3xl mx-auto space-y-4">
-          {[1, 2, 3].map(i => <div key={i} className="bg-white rounded-2xl h-28 animate-pulse border border-gray-200" />)}
+          {[1, 2, 3].map(i => <div key={i} className="bg-white h-28 animate-pulse border border-gray-200" />)}
         </div>
       </AppLayout>
     )
@@ -175,7 +175,7 @@ export default function BranchDetailPage() {
       <div className="max-w-3xl mx-auto space-y-5">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/branches')} className="p-2 hover:bg-gray-100 rounded-xl">
+          <button onClick={() => router.push('/branches')} className="p-2 hover:bg-gray-100">
             <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
@@ -192,7 +192,7 @@ export default function BranchDetailPage() {
           {!isEditing && (
             <button
               onClick={() => setIsEditing(true)}
-              className="px-4 py-2 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+              className="px-4 py-2 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
             >
               Edit
             </button>
@@ -201,7 +201,7 @@ export default function BranchDetailPage() {
 
         {/* Edit Form */}
         {isEditing && (
-          <form onSubmit={handleSave} className="bg-white rounded-2xl border-2 border-blue-200 p-5 space-y-4">
+          <form onSubmit={handleSave} className="bg-white border-2 border-blue-200 p-5 space-y-4">
             <h2 className="font-bold text-gray-900">Edit Branch</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -210,7 +210,7 @@ export default function BranchDetailPage() {
                   type="text"
                   value={formData.name}
                   onChange={e => setFormData(v => ({ ...v, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
               <div>
@@ -219,7 +219,7 @@ export default function BranchDetailPage() {
                   type="text"
                   value={formData.phone}
                   onChange={e => setFormData(v => ({ ...v, phone: e.target.value }))}
-                  className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                  className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
                 />
               </div>
             </div>
@@ -229,7 +229,7 @@ export default function BranchDetailPage() {
                 type="text"
                 value={formData.address}
                 onChange={e => setFormData(v => ({ ...v, address: e.target.value }))}
-                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+                className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
               />
             </div>
             {saveError && <p className="text-sm text-red-600 font-medium">{saveError}</p>}
@@ -237,14 +237,14 @@ export default function BranchDetailPage() {
               <button
                 type="button"
                 onClick={() => { setIsEditing(false); setSaveError('') }}
-                className="flex-1 py-2.5 border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 text-sm"
+                className="flex-1 py-2.5 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 text-sm"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 text-sm"
+                className="flex-1 py-2.5 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 text-sm"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
               </button>
@@ -253,7 +253,7 @@ export default function BranchDetailPage() {
         )}
 
         {saveSuccess && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-medium">
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm font-medium">
             Branch updated successfully.
           </div>
         )}
@@ -264,7 +264,7 @@ export default function BranchDetailPage() {
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
-              className={`px-4 py-2 rounded-xl font-semibold text-sm border-2 transition-colors ${
+              className={`px-4 py-2 font-semibold text-sm border-2 transition-colors ${
                 period === p.value
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'border-gray-200 text-gray-700 hover:bg-gray-50'
@@ -278,22 +278,22 @@ export default function BranchDetailPage() {
         {/* Stats Grid */}
         {stats && (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Revenue</p>
               <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(stats.sales.totalRevenue)}</p>
               <p className="text-xs text-gray-400 mt-0.5">{stats.sales.count} sales</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Purchases</p>
               <p className="text-xl font-bold text-purple-600 mt-1">{formatCurrency(stats.purchases.totalAmount)}</p>
               <p className="text-xs text-gray-400 mt-0.5">{stats.purchases.count} purchases</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Expenses</p>
               <p className="text-xl font-bold text-orange-600 mt-1">{formatCurrency(stats.expenses.totalAmount)}</p>
               <p className="text-xs text-gray-400 mt-0.5">{stats.expenses.count} expenses</p>
             </div>
-            <div className={`rounded-xl border-2 p-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className={`border-2 p-4 ${netProfit >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
               <p className="text-xs font-semibold text-gray-500 uppercase">Net Profit</p>
               <p className={`text-xl font-bold mt-1 ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(Math.abs(netProfit))}
@@ -306,29 +306,29 @@ export default function BranchDetailPage() {
         {/* Inventory and transfer summary */}
         {stats && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Branch Items</p>
               <p className="text-xl font-bold text-gray-900 mt-1">{stats.inventory.itemCount}</p>
               <p className="text-xs text-gray-400 mt-0.5">in inventory</p>
             </div>
-            <div className={`rounded-xl border-2 p-4 ${stats.inventory.lowStockCount > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
+            <div className={`border-2 p-4 ${stats.inventory.lowStockCount > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
               <p className="text-xs font-semibold text-gray-500 uppercase">Low Stock</p>
               <p className={`text-xl font-bold mt-1 ${stats.inventory.lowStockCount > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
                 {stats.inventory.lowStockCount}
               </p>
               <p className="text-xs text-gray-400 mt-0.5">items need restocking</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Transfers Out</p>
               <p className="text-xl font-bold text-blue-600 mt-1">{stats.transfers.outCount}</p>
               <p className="text-xs text-gray-400 mt-0.5">sent to other branches</p>
             </div>
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <div className="bg-white border border-gray-200 p-4">
               <p className="text-xs font-semibold text-gray-500 uppercase">Transfers In</p>
               <p className="text-xl font-bold text-green-600 mt-1">{stats.transfers.inCount}</p>
               <p className="text-xs text-gray-400 mt-0.5">received from other branches</p>
             </div>
-            <div className={`rounded-xl border-2 p-4 ${stats.transfers.pendingCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}>
+            <div className={`border-2 p-4 ${stats.transfers.pendingCount > 0 ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-200'}`}>
               <p className="text-xs font-semibold text-gray-500 uppercase">Pending Transfers</p>
               <p className={`text-xl font-bold mt-1 ${stats.transfers.pendingCount > 0 ? 'text-amber-700' : 'text-gray-900'}`}>
                 {stats.transfers.pendingCount}
@@ -339,7 +339,7 @@ export default function BranchDetailPage() {
         )}
 
         {/* Staff assigned */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+        <div className="bg-white border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-bold text-gray-900">Assigned Staff ({branch.users.length})</h2>
           </div>

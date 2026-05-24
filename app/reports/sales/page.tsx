@@ -72,7 +72,7 @@ export default function SalesReportsPage() {
             />
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 self-start sm:self-auto"
+              className="px-4 py-2 bg-blue-600 text-white font-semibold text-sm hover:bg-blue-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF
             </button>
@@ -80,7 +80,7 @@ export default function SalesReportsPage() {
         </div>
 
         {/* Date Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white shadow-sm border border-gray-200 p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -90,7 +90,7 @@ export default function SalesReportsPage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
@@ -101,7 +101,7 @@ export default function SalesReportsPage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -109,23 +109,23 @@ export default function SalesReportsPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Sales</div>
             <div className="text-2xl font-bold text-gray-900 mt-1">{sales.length}</div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Amount</div>
             <div className="text-2xl font-bold text-blue-600 mt-1">
               {formatCurrency(totalSales)}
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Paid</div>
             <div className="text-2xl font-bold text-green-600 mt-1">
               {formatCurrency(totalPaid)}
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Credit</div>
             <div className="text-2xl font-bold text-red-600 mt-1">
               {formatCurrency(totalCredit)}

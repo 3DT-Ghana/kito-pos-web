@@ -102,7 +102,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
 
       {/* Brand */}
       <div className="flex items-center gap-3 shrink-0 h-14 px-4 border-b border-slate-800">
-        <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 bg-indigo-600 flex items-center justify-center shrink-0">
           <ShieldCheck className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -113,7 +113,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
         {onMobileClose && (
           <button
             onClick={onMobileClose}
-            className="md:hidden p-1.5 rounded-md text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
+            className="md:hidden p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -131,7 +131,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
               <button
                 type="button"
                 onClick={() => toggle(group.label)}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md transition-colors mt-2 ${
+                className={`w-full flex items-center gap-2 px-2 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors mt-2 ${
                   groupActive ? 'text-slate-300' : 'text-slate-500 hover:text-slate-400'
                 }`}
               >
@@ -150,7 +150,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
                         key={item.href}
                         href={item.href}
                         onClick={onMobileClose}
-                        className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-all ${
+                        className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-all ${
                           active
                             ? 'bg-indigo-600 text-white'
                             : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -176,7 +176,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
       {/* User footer */}
       <div className="shrink-0 border-t border-slate-800 p-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
+          <div className="w-8 h-8 bg-indigo-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
             {initials}
           </div>
           <div className="flex-1 min-w-0">
@@ -185,7 +185,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           </div>
           <button
             onClick={() => signOut({ callbackUrl: '/auth/login' })}
-            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-md transition-colors shrink-0"
+            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors shrink-0"
             title="Sign out"
           >
             <LogOut className="w-4 h-4" />

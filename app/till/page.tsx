@@ -141,12 +141,12 @@ export default function TillPage() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{error}</div>
         )}
 
         {/* No open shift — open one */}
         {!openShift && (
-          <div className="bg-white rounded-2xl border border-gray-200 p-6">
+          <div className="bg-white border border-gray-200 p-6">
             <h2 className="text-base font-bold text-gray-900 mb-1">Open New Shift</h2>
             <p className="text-sm text-gray-500 mb-4">Count the cash in the till and enter the opening float before starting.</p>
             <form onSubmit={handleOpenShift} className="space-y-4">
@@ -161,7 +161,7 @@ export default function TillPage() {
                     min="0"
                     step="0.01"
                     placeholder="0.00"
-                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-green-500 focus:outline-none"
+                    className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 text-sm focus:border-green-500 focus:outline-none"
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">Enter 0 if the till is empty at the start.</p>
@@ -169,7 +169,7 @@ export default function TillPage() {
               <button
                 type="submit"
                 disabled={isOpening}
-                className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 disabled:opacity-50"
+                className="w-full py-3 bg-green-600 text-white font-bold text-sm hover:bg-green-700 disabled:opacity-50"
               >
                 {isOpening ? 'Opening…' : 'Open Shift'}
               </button>
@@ -180,7 +180,7 @@ export default function TillPage() {
         {/* Open shift — running totals */}
         {openShift && runningTotals && (
           <>
-            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="bg-white border border-gray-200 overflow-hidden">
               <div className="bg-green-600 px-5 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-xs font-semibold">Shift opened at</p>
@@ -233,12 +233,12 @@ export default function TillPage() {
             {!showCloseForm ? (
               <button
                 onClick={() => setShowCloseForm(true)}
-                className="w-full py-3 border-2 border-red-400 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50"
+                className="w-full py-3 border-2 border-red-400 text-red-600 font-bold text-sm hover:bg-red-50"
               >
                 Close Shift
               </button>
             ) : (
-              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <div className="bg-white border border-gray-200 p-5">
                 <h2 className="text-base font-bold text-gray-900 mb-1">Close Shift</h2>
                 <p className="text-sm text-gray-500 mb-4">Count the physical cash in the till and enter the total below.</p>
                 <form onSubmit={handleCloseShift} className="space-y-4">
@@ -254,11 +254,11 @@ export default function TillPage() {
                         step="0.01"
                         placeholder="0.00"
                         autoFocus
-                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-red-400 focus:outline-none"
+                        className="w-full pl-12 pr-4 py-3 border-2 border-gray-200 text-sm focus:border-red-400 focus:outline-none"
                       />
                     </div>
                     {closingCount && runningTotals && (
-                      <div className={`mt-2 px-3 py-2 rounded-xl text-sm font-semibold ${
+                      <div className={`mt-2 px-3 py-2 text-sm font-semibold ${
                         parseFloat(closingCount) - runningTotals.expectedCash >= 0
                           ? 'bg-green-50 text-green-700'
                           : 'bg-red-50 text-red-700'
@@ -276,21 +276,21 @@ export default function TillPage() {
                       value={closeNote}
                       onChange={e => setCloseNote(e.target.value)}
                       placeholder="e.g. Short due to refund given in cash"
-                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-sm focus:border-red-400 focus:outline-none"
+                      className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-red-400 focus:outline-none"
                     />
                   </div>
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={() => setShowCloseForm(false)}
-                      className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-50"
+                      className="flex-1 py-3 border-2 border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isClosing}
-                      className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold text-sm hover:bg-red-700 disabled:opacity-50"
+                      className="flex-1 py-3 bg-red-600 text-white font-bold text-sm hover:bg-red-700 disabled:opacity-50"
                     >
                       {isClosing ? 'Closing…' : 'Close Shift'}
                     </button>
@@ -303,7 +303,7 @@ export default function TillPage() {
 
         {/* Today's shift history */}
         {todayShifts.filter(s => s.status === 'CLOSED').length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="bg-white border border-gray-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
               <h2 className="text-base font-bold text-gray-900">Today&apos;s Shifts</h2>
             </div>

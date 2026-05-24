@@ -60,7 +60,7 @@ export default function CreditorsReportPage() {
             />
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 bg-amber-600 text-white rounded-xl font-semibold text-sm hover:bg-amber-700 self-start sm:self-auto"
+              className="px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF
             </button>
@@ -69,11 +69,11 @@ export default function CreditorsReportPage() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Creditors</div>
             <div className="text-2xl font-bold text-gray-900 mt-1">{totalCreditors}</div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="bg-white shadow-sm border border-gray-200 p-4">
             <div className="text-sm text-gray-500">Total Owed</div>
             <div className="text-2xl font-bold text-red-600 mt-1">
               {formatCurrency(totalCredit)}
@@ -87,7 +87,7 @@ export default function CreditorsReportPage() {
             <div className="text-gray-500">Loading creditors...</div>
           </div>
         ) : totalCreditors === 0 ? (
-          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+          <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3">
             <p className="font-medium">✓ No outstanding supplier balances</p>
             <p className="text-sm mt-1">
               All suppliers have been paid!

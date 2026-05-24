@@ -109,7 +109,7 @@ export default function KYCSettingsPage() {
         </div>
 
         {message && (
-          <div className={`text-sm px-4 py-3 rounded-lg border ${
+          <div className={`text-sm px-4 py-3 border ${
             message.type === 'success'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
               : 'bg-red-50 text-red-700 border-red-100'
@@ -173,7 +173,7 @@ export default function KYCSettingsPage() {
         </SettingsSection>
 
         {/* Info box */}
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-700">
+        <div className="bg-blue-50 border border-blue-100 p-4 text-sm text-blue-700">
           <p className="font-semibold mb-1 flex items-center gap-2">
             <Shield className="w-4 h-4" /> Flexible Ghana-standard KYC
           </p>
@@ -195,7 +195,7 @@ export default function KYCSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center gap-2"
+            className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors flex items-center gap-2"
           >
             {saving ? (
               <>
@@ -227,7 +227,7 @@ function SettingsSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div className="bg-white border border-gray-200 overflow-hidden">
       <div className="px-5 py-4 border-b border-gray-100">
         <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
           {icon}{title}

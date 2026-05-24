@@ -169,7 +169,7 @@ export default function AdminApplicationDetailPage() {
 
         {result && (
           <div
-            className={`text-sm px-4 py-3 rounded-lg border ${
+            className={`text-sm px-4 py-3 border ${
               result.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
                 : 'bg-red-50 text-red-700 border-red-100'
@@ -180,19 +180,19 @@ export default function AdminApplicationDetailPage() {
         )}
 
         {application.rejectionReason && (
-          <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 text-sm text-red-700">
+          <div className="bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-700">
             <span className="font-medium">Rejection reason:</span> {application.rejectionReason}
           </div>
         )}
 
         {application.approvalNote && application.status === 'APPROVED' && (
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-sm text-emerald-700">
+          <div className="bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
             <span className="font-medium">Approval note:</span> {application.approvalNote}
           </div>
         )}
 
         {/* Agent */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+        <div className="bg-white border border-gray-200 p-6 space-y-3">
           <h2 className="text-sm font-semibold text-gray-800">Submitted by Agent</h2>
           <div className="flex items-center justify-between text-sm">
             <div>
@@ -209,7 +209,7 @@ export default function AdminApplicationDetailPage() {
         </div>
 
         {/* Business details */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white border border-gray-200 p-6 space-y-4">
           <h2 className="text-sm font-semibold text-gray-800">Business Details</h2>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <Row label="Type" value={application.businessType.charAt(0) + application.businessType.slice(1).toLowerCase()} />
@@ -229,7 +229,7 @@ export default function AdminApplicationDetailPage() {
         {(() => {
           const directors: Director[] = Array.isArray(application.directors) ? application.directors : []
           return directors.length > 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-3">
+            <div className="bg-white border border-gray-200 p-6 space-y-3">
               <h2 className="text-sm font-semibold text-gray-800">Directors / Owners</h2>
               {directors.map((d, i) => (
                 <div key={i} className="flex items-start justify-between text-sm border-t border-gray-50 pt-2 first:border-0 first:pt-0">
@@ -249,7 +249,7 @@ export default function AdminApplicationDetailPage() {
             </div>
           ) : (
             // Fallback to legacy owner fields when directors array is empty
-            <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+            <div className="bg-white border border-gray-200 p-6 space-y-4">
               <h2 className="text-sm font-semibold text-gray-800">Owner Details</h2>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <Row label="Full Name" value={application.ownerFullName} />
@@ -265,7 +265,7 @@ export default function AdminApplicationDetailPage() {
 
         {/* KYC Documents */}
         {application.documents.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <div className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-500" />
               KYC Documents ({application.documents.length})
@@ -281,11 +281,11 @@ export default function AdminApplicationDetailPage() {
               return (
                 <div key={doc.id} className="flex items-center gap-3">
                   {isImage ? (
-                    <div className="relative w-24 h-16 rounded-lg overflow-hidden border border-gray-200 shrink-0">
+                    <div className="relative w-24 h-16 overflow-hidden border border-gray-200 shrink-0">
                       <Image src={doc.fileUrl} alt={doc.label ?? doc.documentType} fill className="object-cover" />
                     </div>
                   ) : (
-                    <div className="w-24 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
+                    <div className="w-24 h-16 border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">
                       <FileText className="w-6 h-6 text-gray-400" />
                     </div>
                   )}
@@ -309,7 +309,7 @@ export default function AdminApplicationDetailPage() {
 
         {/* Actions (only for PENDING) */}
         {isPending && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+          <div className="bg-white border border-gray-200 p-6 space-y-4">
             <h2 className="text-sm font-semibold text-gray-800">Review Decision</h2>
 
             <div>
@@ -321,7 +321,7 @@ export default function AdminApplicationDetailPage() {
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
                 placeholder="e.g. Incomplete information, invalid Ghana Card"
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
@@ -334,7 +334,7 @@ export default function AdminApplicationDetailPage() {
                 onChange={(e) => setApprovalNote(e.target.value)}
                 rows={3}
                 placeholder="e.g. Approved after confirming all registration documents."
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                className="w-full px-3.5 py-2.5 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               />
             </div>
 
@@ -342,14 +342,14 @@ export default function AdminApplicationDetailPage() {
               <button
                 onClick={() => handleAction('approve')}
                 disabled={actionLoading}
-                className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                className="px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
                 {actionLoading ? 'Processing…' : 'Approve & Create Tenant'}
               </button>
               <button
                 onClick={() => handleAction('reject')}
                 disabled={actionLoading}
-                className="px-5 py-2.5 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 disabled:opacity-50 transition-colors"
+                className="px-5 py-2.5 bg-red-100 text-red-700 text-sm font-medium hover:bg-red-200 disabled:opacity-50 transition-colors"
               >
                 Reject
               </button>
@@ -358,7 +358,7 @@ export default function AdminApplicationDetailPage() {
         )}
 
         {application.tenantId && (
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-4 py-3 text-sm text-emerald-800">
+          <div className="bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-800">
             Tenant created with ID: <span className="font-mono font-medium">{application.tenantId}</span>
           </div>
         )}

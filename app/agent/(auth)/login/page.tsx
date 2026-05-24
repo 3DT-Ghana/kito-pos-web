@@ -89,11 +89,11 @@ export default function AgentLoginPage() {
 
             {/* Animated card */}
             <div
-              className="bg-white rounded-2xl shadow-lg ring-1 ring-black/5 p-6 sm:p-7"
+              className="bg-white shadow-lg ring-1 ring-black/5 p-6 sm:p-7"
               style={{ animation: 'cardIn 0.35s cubic-bezier(0.16,1,0.3,1) both' }}
             >
               {error && (
-                <div className="mb-5 flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3">
+                <div className="mb-5 flex items-start gap-2.5 border border-red-200 bg-red-50 px-3.5 py-3">
                   <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
@@ -112,7 +112,7 @@ export default function AgentLoginPage() {
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="block w-full h-11 rounded-lg border border-gray-300 bg-white px-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/15 transition"
+                    className="block w-full h-11 border border-gray-300 bg-white px-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/15 transition"
                   />
                 </div>
 
@@ -138,7 +138,7 @@ export default function AgentLoginPage() {
                       value={password}
                       onChange={e => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="block w-full h-11 rounded-lg border border-gray-300 bg-white px-3.5 pr-11 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/15 transition"
+                      className="block w-full h-11 border border-gray-300 bg-white px-3.5 pr-11 text-sm text-gray-900 placeholder:text-gray-400 focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/15 transition"
                     />
                     <button
                       type="button"
@@ -155,7 +155,7 @@ export default function AgentLoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full h-11 rounded-lg bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full h-11 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? <><Spinner />Signing in…</> : 'Sign in'}
                 </button>
@@ -165,7 +165,7 @@ export default function AgentLoginPage() {
                 <p className="text-xs text-gray-400 mb-3">Don&apos;t have an agent account?</p>
                 <Link
                   href="/agent/register"
-                  className="flex items-center justify-between w-full px-4 py-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition group"
+                  className="flex items-center justify-between w-full px-4 py-3 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition group"
                 >
                   <div>
                     <p className="text-sm font-medium text-gray-700">Create an agent account</p>
