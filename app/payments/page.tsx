@@ -21,16 +21,6 @@ interface Payment {
   supplier?: { id: string; name: string }
 }
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-indigo-500', 'bg-teal-500',
-]
-
-function avatarColor(name: string) {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
-}
 
 export default function PaymentsPage() {
   const router = useRouter()
@@ -166,20 +156,14 @@ export default function PaymentsPage() {
               <tbody className="divide-y divide-gray-50">
                 {filtered.map(payment => {
                   const name = payment.customer?.name || payment.supplier?.name || 'Unknown'
-                  const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                   const isCustomer = !!payment.customer
                   return (
                     <tr key={payment.id} className="hover:bg-blue-50/40 transition-colors">
                       <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(payment.createdAt)}</td>
                       <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-8 h-8 ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                            {initials}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-gray-900">{name}</p>
-                            <p className="text-xs text-gray-400 font-mono">#{payment.id.slice(0,8).toUpperCase()}</p>
-                          </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{name}</p>
+                          <p className="text-xs text-gray-400 font-mono">#{payment.id.slice(0,8).toUpperCase()}</p>
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-center">

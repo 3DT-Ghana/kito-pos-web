@@ -173,7 +173,7 @@ export default function AdminDashboardPage() {
               <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {greeting}, {name.split(' ')[0]}
               </h1>
-              <p className="mt-1 text-indigo-300 text-sm font-medium">PETROS Platform Admin</p>
+              <p className="mt-1 text-indigo-300 text-sm font-medium">Platform Admin</p>
             </div>
 
             {/* Hero actions */}
@@ -446,9 +446,6 @@ function AgentsTab({
                   href={`/admin/agents/${agent.id}`}
                   className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-slate-100 flex items-center justify-center shrink-0 font-bold text-xs text-slate-600 mt-0.5">
-                    {agent.fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">{agent.fullName}</p>
                     <p className="text-xs text-gray-400 truncate">

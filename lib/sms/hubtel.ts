@@ -11,7 +11,7 @@
 export interface HubtelConfig {
   clientId: string
   clientSecret: string
-  senderId: string // max 11 chars, no spaces, e.g. "PETROS"
+  senderId: string // max 11 chars, no spaces, e.g. "MYBIZ"
 }
 
 export interface SmsSendResult {

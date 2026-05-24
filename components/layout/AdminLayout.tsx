@@ -38,7 +38,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Menu className="w-5 h-5" />
           </button>
 
-          <span className="text-sm font-bold text-gray-800 md:hidden">PETROS Platform</span>
+          <span className="text-sm font-bold text-gray-800 md:hidden">Platform Admin</span>
 
           <div className="flex-1" />
 
@@ -55,7 +55,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         <footer className="border-t border-gray-100 bg-white px-4 py-3">
           <p className="text-xs text-gray-400 text-center">
-            <span className="font-semibold text-gray-500">PETROS Business Management</span>
+            <span className="font-semibold text-gray-500">Business Management</span>
             {' · '}Platform Administration
           </p>
         </footer>

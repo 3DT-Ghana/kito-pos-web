@@ -7,7 +7,7 @@ import { useUser } from '@/hooks/useUser'
 import { Pagination } from '@/components/ui/Pagination'
 
 /**
- * Users & Permissions Page — PETROS Business Management Mini
+ * Users & Permissions Page
  * Tenant owners and branch managers: manage team accounts, assign granular roles
  */
 
@@ -572,11 +572,8 @@ export default function UsersPage() {
                   const isCurrentUser = u.id === currentUser?.id
                   return (
                     <div key={u.id} className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
-                      {/* Avatar + Info */}
+                      {/* Info */}
                       <div className="flex items-center gap-4 flex-1">
-                        <div className={`w-12 h-12 flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 bg-gradient-to-br ${info.avatarColor}`}>
-                          {u.name.charAt(0).toUpperCase()}
-                        </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-900 text-base">{u.name}</p>

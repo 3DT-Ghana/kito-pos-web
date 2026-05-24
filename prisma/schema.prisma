@@ -233,7 +233,7 @@ model Tenant {
   enableSmsNotifications Boolean @default(false)
   hubtelClientId         String?
   hubtelClientSecret     String?
-  hubtelSenderId         String? // e.g. "PETROS" (max 11 chars, no spaces)
+  hubtelSenderId         String? // e.g. "MYBIZ" (max 11 chars, no spaces)
 
   // Feature Flags — enable/disable optional modules from Settings
   enablePosTerminal    Boolean @default(false)
@@ -1275,6 +1275,14 @@ model KYCSettings {
   requireAgentGhanaCardUpload   Boolean @default(false)
   updatedAt                     DateTime @updatedAt
   updatedByEmail                String?
+}
+
+model PlatformSettings {
+  id                   String   @id @default("global")
+  idleTimeoutMinutes   Int      @default(5)   // client-side idle → sign out
+  sessionMaxHours      Int      @default(4)   // absolute JWT lifetime from login
+  updatedAt            DateTime @updatedAt
+  updatedByEmail       String?
 }
 
 model PlatformAuditLog {

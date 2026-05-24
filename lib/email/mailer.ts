@@ -10,7 +10,7 @@ import nodemailer from 'nodemailer'
  *   SMTP_PORT      - e.g. 587
  *   SMTP_USER      - your email / mailtrap username
  *   SMTP_PASS      - app password / mailtrap password
- *   SMTP_FROM      - "PETROS Business <noreply@yourdomain.com>"
+ *   SMTP_FROM      - "My Business <noreply@yourdomain.com>"
  */
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp.gmail.com',
@@ -36,7 +36,7 @@ export interface MailOptions {
 export async function sendMail(opts: MailOptions): Promise<boolean> {
   try {
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || 'PETROS Business <noreply@petros.app>',
+      from: process.env.SMTP_FROM || 'Business Management <noreply@example.com>',
       to: Array.isArray(opts.to) ? opts.to.join(', ') : opts.to,
       subject: opts.subject,
       html: opts.html,

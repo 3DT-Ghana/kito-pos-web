@@ -35,7 +35,7 @@ export function onboardingNotificationHtml(data: {
                 New Company Onboarded
               </h1>
               <p style="margin:4px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">
-                PETROS Business Management Mini
+                Business Management
               </p>
             </td>
           </tr>
@@ -97,7 +97,7 @@ export function onboardingNotificationHtml(data: {
             <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
               <p style="margin:0;color:#9ca3af;font-size:12px;">
                 This is an automated notification from
-                <strong style="color:#6b7280;">PETROS Business Management Mini</strong>
+                <strong style="color:#6b7280;">Business Management</strong>
                 &middot; Developed by EYO Solutions
               </p>
             </td>
@@ -119,7 +119,7 @@ export function onboardingNotificationText(data: {
   createdAt: Date
 }): string {
   return `
-New Company Onboarded — PETROS Business Management Mini
+New Company Onboarded
 
 Business Name : ${data.businessName}
 Owner Name    : ${data.ownerName}
@@ -127,6 +127,6 @@ Owner Email   : ${data.ownerEmail}
 Registered At : ${data.createdAt.toISOString()}
 Status        : TRIAL
 
-This is an automated notification from PETROS Business Management Mini.
+This is an automated notification.
   `.trim()
 }

@@ -614,7 +614,7 @@ export default function PosPage() {
           </div>
           <div className="p-4 space-y-3 font-mono text-sm max-h-[70vh] overflow-y-auto">
             <div className="text-center border-b pb-3">
-              <div className="font-bold text-base">{currentBranch?.name ?? 'PETROS'}</div>
+              <div className="font-bold text-base">{currentBranch?.name ?? 'Sales Receipt'}</div>
               <div className="text-xs text-gray-500">{lastSaleData.date} · {lastSaleData.time}</div>
               {lastSaleData.customerName && <div className="mt-1 text-xs">Customer: {lastSaleData.customerName}</div>}
             </div>

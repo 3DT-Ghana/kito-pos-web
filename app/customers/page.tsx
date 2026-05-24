@@ -27,16 +27,6 @@ interface Customer {
   _count?: { sales: number }
 }
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-indigo-500', 'bg-teal-500', 'bg-pink-500',
-]
-
-function avatarColor(name: string) {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
-}
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -177,16 +167,12 @@ export default function CustomersPage() {
             {/* Mobile Cards */}
             <div className="md:hidden space-y-2">
               {paginated.map(c => {
-                const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                 return (
                   <div
                     key={c.id}
                     onClick={() => router.push(`/customers/${c.id}`)}
                     className="bg-white shadow-sm ring-1 ring-black/5 p-4 flex items-center gap-3 cursor-pointer active:bg-gray-50 transition-colors"
                   >
-                    <div className={`w-11 h-11 ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
-                      {initials}
-                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 text-sm truncate">{c.name}</p>
                       {c.phone && (
@@ -227,16 +213,10 @@ export default function CustomersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {paginated.map(c => {
-                    const initials = c.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     return (
                       <tr key={c.id} className="hover:bg-blue-50/40 transition-colors cursor-pointer" onClick={() => router.push(`/customers/${c.id}`)}>
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-9 h-9 ${c.balance > 0 ? 'bg-red-500' : avatarColor(c.name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
-                              {initials}
-                            </div>
-                            <span className="font-semibold text-gray-900 text-sm">{c.name}</span>
-                          </div>
+                          <span className="font-semibold text-gray-900 text-sm">{c.name}</span>
                         </td>
                         <td className="px-5 py-3.5 text-sm text-gray-500">{c.phone || '—'}</td>
                         <td className="px-5 py-3.5 text-sm text-center text-gray-600">{c._count?.sales || 0}</td>

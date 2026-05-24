@@ -50,7 +50,7 @@ export async function POST(req: Request) {
         senderId: tenant.hubtelSenderId,
       },
       to,
-      `${tenant.name}: This is a test SMS from your Petros system. SMS notifications are working correctly!`,
+      `${tenant.name}: This is a test SMS. SMS notifications are working correctly!`,
     )
 
     if (!result.success) {

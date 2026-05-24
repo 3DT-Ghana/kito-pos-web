@@ -1,6 +1,6 @@
 {
-  "name": "PETROS Business Management Mini",
-  "short_name": "PETROS",
+  "name": "Business Management",
+  "short_name": "BizManager",
   "description": "Sales & Inventory Management",
   "start_url": "/dashboard",
   "display": "standalone",

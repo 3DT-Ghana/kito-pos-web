@@ -194,7 +194,7 @@ export function Sidebar() {
                 <LayoutDashboard className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-white leading-tight truncate">PETROS Business</p>
+                <p className="text-sm font-bold text-white leading-tight truncate">My Business</p>
                 <p className="text-xs text-slate-400">Management</p>
               </div>
               <button

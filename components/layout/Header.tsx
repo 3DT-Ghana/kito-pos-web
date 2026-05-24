@@ -74,7 +74,7 @@ export function Header() {
           <h1 className="text-sm font-semibold text-gray-900 hidden md:block">{pageTitle}</h1>
 
           {/* Mobile: app name */}
-          <span className="text-sm font-bold text-gray-900 md:hidden">PETROS</span>
+          <span className="text-sm font-bold text-gray-900 md:hidden">My Business</span>
 
           <div className="flex-1" />
 

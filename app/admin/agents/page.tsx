@@ -262,19 +262,14 @@ export default function AdminAgentsPage() {
                     return (
                       <tr key={agent.id} className="hover:bg-gray-50 transition-colors group">
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm">
-                              {agent.fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <Link
-                                href={`/admin/agents/${agent.id}`}
-                                className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
-                              >
-                                {agent.fullName}
-                              </Link>
-                              <p className="text-xs text-gray-400">{agent.agentCode} · {agent.email}</p>
-                            </div>
+                          <div>
+                            <Link
+                              href={`/admin/agents/${agent.id}`}
+                              className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors"
+                            >
+                              {agent.fullName}
+                            </Link>
+                            <p className="text-xs text-gray-400">{agent.agentCode} · {agent.email}</p>
                           </div>
                         </td>
                         <td className="px-5 py-3.5 hidden md:table-cell text-sm text-gray-500">

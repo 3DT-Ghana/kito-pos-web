@@ -22,6 +22,8 @@ function LoginPageContent() {
 
   const notice = reason === 'idle'
     ? 'You were signed out due to inactivity. Please sign in again.'
+    : reason === 'session_expired'
+    ? 'Your 4-hour session has expired. Please sign in again.'
     : undefined
 
   return <ImprovedLogin error={error || undefined} notice={notice} />

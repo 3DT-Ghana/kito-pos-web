@@ -25,7 +25,7 @@ export const Role = {
 /**
  * Role-Based Access Control (RBAC) System
  *
- * PETROS Business Management Mini — EYO Solutions
+ * Business Management — EYO Solutions
  *
  * Role Hierarchy (highest to lowest):
  * - OWNER:             Full access to all features and settings

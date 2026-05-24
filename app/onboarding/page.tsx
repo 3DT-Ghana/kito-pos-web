@@ -135,7 +135,7 @@ export default function OnboardingPage() {
           <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-xl mb-4">
             <span className="text-4xl">🏪</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">PETROS</h1>
+          <h1 className="text-3xl font-bold text-white">Business Management</h1>
           <p className="text-blue-200 mt-1">Set up your shop in minutes</p>
         </div>
 

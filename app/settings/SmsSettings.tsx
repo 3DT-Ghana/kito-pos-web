@@ -134,7 +134,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
             type="text"
             value={senderId}
             onChange={e => setSenderId(e.target.value.slice(0, 11))}
-            placeholder="e.g. PETROS"
+            placeholder="e.g. MYBIZ"
             maxLength={11}
             className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono uppercase"
           />

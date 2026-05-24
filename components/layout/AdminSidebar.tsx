@@ -6,7 +6,7 @@ import { useSession, signOut } from 'next-auth/react'
 import {
   LayoutDashboard, Users, Building2, ClipboardList,
   FileText, ShieldCheck, LogOut, ChevronDown, BarChart2, X, Settings2,
-  Layers, Package, Wallet, Receipt, TrendingUp,
+  Layers, Package, Wallet, Receipt, TrendingUp, Timer,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -63,8 +63,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Platform',
     items: [
-      { name: 'Audit Log',    href: '/admin/audit-log',    icon: <ClipboardList className={sz} /> },
-      { name: 'KYC Settings', href: '/admin/kyc-settings', icon: <Settings2 className={sz} /> },
+      { name: 'Audit Log',        href: '/admin/audit-log',        icon: <ClipboardList className={sz} /> },
+      { name: 'KYC Settings',     href: '/admin/kyc-settings',     icon: <Settings2 className={sz} /> },
+      { name: 'Session Settings', href: '/admin/session-settings', icon: <Timer className={sz} /> },
     ],
   },
 ]
@@ -106,7 +107,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           <ShieldCheck className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white leading-tight truncate">PETROS Platform</p>
+          <p className="text-sm font-bold text-white leading-tight truncate">Platform Admin</p>
           <p className="text-xs text-indigo-400 font-semibold">Super Admin</p>
         </div>
         {/* Close button — mobile only */}

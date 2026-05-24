@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react'
 
 /**
- * useUser Hook — PETROS Business Management Mini
+ * useUser Hook
  *
  * Get current user information and role helpers from session
  *

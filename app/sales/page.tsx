@@ -22,16 +22,6 @@ import {
 type FilterStatus = 'all' | 'paid' | 'partial'
 type PaymentFilter = 'all' | 'CASH' | 'CREDIT'
 
-const AVATAR_COLORS = [
-  'bg-blue-500', 'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500',
-  'bg-indigo-500', 'bg-teal-500', 'bg-pink-500',
-]
-
-function avatarColor(name: string) {
-  let h = 0
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h)
-  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length]
-}
 
 export default function SalesPage() {
   const router = useRouter()
@@ -226,7 +216,6 @@ export default function SalesPage() {
               {paginated.map((sale, idx) => {
                 const credit = sale.totalAmount - sale.paidAmount
                 const name = sale.customer?.name || 'Walk-in Customer'
-                const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                 return (
                   <div
                     key={sale.id}
@@ -234,9 +223,6 @@ export default function SalesPage() {
                     className="bg-white shadow-sm ring-1 ring-black/5 p-4 cursor-pointer active:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`w-10 h-10 ${avatarColor(name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
-                        {initials}
-                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -283,7 +269,6 @@ export default function SalesPage() {
                   {paginated.map(sale => {
                     const credit = sale.totalAmount - sale.paidAmount
                     const name = sale.customer?.name || 'Walk-in Customer'
-                    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
                     return (
                       <tr
                         key={sale.id}
@@ -292,14 +277,9 @@ export default function SalesPage() {
                       >
                         <td className="px-5 py-3.5 text-sm text-gray-600">{formatDate(sale.createdAt)}</td>
                         <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2.5">
-                            <div className={`w-8 h-8 ${avatarColor(name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                              {initials}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">{name}</p>
-                              <p className="text-xs text-gray-400 font-mono">#{sale.id.slice(0,8).toUpperCase()}</p>
-                            </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">{name}</p>
+                            <p className="text-xs text-gray-400 font-mono">#{sale.id.slice(0,8).toUpperCase()}</p>
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-center">

@@ -168,9 +168,6 @@ export default function AdminAgentDetailPage() {
 
         {/* Title + status */}
         <div className="flex items-start gap-4">
-          <div className="w-14 h-14 bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl shadow-md shrink-0">
-            {agent.fullName.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-bold text-gray-900">{agent.fullName}</h1>
