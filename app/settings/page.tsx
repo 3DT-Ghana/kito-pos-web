@@ -11,6 +11,7 @@ import { FeaturesSettings } from './FeaturesSettings'
 import { RolePermissionsSettings } from './RolePermissionsSettings'
 import { TaxSettings } from './TaxSettings'
 import { ApprovalPinSettings } from './ApprovalPinSettings'
+import { SessionSettings } from './SessionSettings'
 import { Settings as SettingsIcon } from 'lucide-react'
 import { type RolePermissionsMap, hasPermission, type Role } from '@/lib/permissions/rbac'
 
@@ -43,6 +44,9 @@ export default async function SettingsPage() {
       name: true,
       phone: true,
       rolePermissions: true,
+      idleTimeoutMinutes: true,
+      sessionMaxHours: true,
+      updatedAt: true,
       showManufacturerOnReceipt: true,
       receiptPrinterWidth: true,
       useUnitSystem: true,
@@ -172,6 +176,15 @@ export default async function SettingsPage() {
 
         {/* Approval PIN — only shown to users with approve_transactions permission */}
         {canSetApprovalPin && <ApprovalPinSettings />}
+
+        {/* Session & Security — OWNER only */}
+        {user.role === 'OWNER' && (
+          <SessionSettings
+            initialIdleTimeoutMinutes={tenant.idleTimeoutMinutes}
+            initialSessionMaxHours={tenant.sessionMaxHours}
+            updatedAt={tenant.updatedAt.toISOString()}
+          />
+        )}
 
         {/* Role Permissions */}
         <RolePermissionsSettings

@@ -1623,15 +1623,18 @@ export default function PosPage() {
                 </div>
               ) : (
                 <>
-                  {cart.map((line, idx) => (
-                    <CartLineRow
-                      key={line.itemId}
-                      line={line}
-                      idx={idx}
-                      flash={line.itemId === lastScannedItemId}
-                    />
-                  ))}
                   <div ref={cartEndRef} />
+                  {[...cart].reverse().map((line, reversedIdx) => {
+                    const idx = cart.length - 1 - reversedIdx
+                    return (
+                      <CartLineRow
+                        key={line.itemId}
+                        line={line}
+                        idx={idx}
+                        flash={line.itemId === lastScannedItemId}
+                      />
+                    )
+                  })}
                 </>
               )}
             </div>
@@ -1725,15 +1728,18 @@ export default function PosPage() {
                       <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cart ({cart.length})</span>
                       <button onClick={clearCart} className="text-xs text-red-500 font-semibold">Clear all</button>
                     </div>
-                    {cart.map((line, idx) => (
-                      <CartLineRow
-                        key={line.itemId}
-                        line={line}
-                        idx={idx}
-                        mobile
-                        flash={line.itemId === lastScannedItemId}
-                      />
-                    ))}
+                    {[...cart].reverse().map((line, reversedIdx) => {
+                      const idx = cart.length - 1 - reversedIdx
+                      return (
+                        <CartLineRow
+                          key={line.itemId}
+                          line={line}
+                          idx={idx}
+                          mobile
+                          flash={line.itemId === lastScannedItemId}
+                        />
+                      )
+                    })}
                   </>
                 )}
               </div>

@@ -260,6 +260,11 @@ model Tenant {
   // Transaction approval — when enabled, sensitive operations by CASHIER/STAFF require approval
   requireApproval Boolean @default(false)
 
+  // Session & Security — per-tenant idle timeout and absolute session limit for staff
+  idleTimeoutMinutes Int      @default(5)
+  sessionMaxHours    Int      @default(4)
+  updatedAt          DateTime @updatedAt
+
   // Agent onboarding — which platform agent onboarded this tenant (null = self-signup)
   agentId String?
 

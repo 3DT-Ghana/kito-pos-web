@@ -28,7 +28,18 @@ export function useIdleTimeout({ onWarning, onDismiss }: Options) {
   const [ready,   setReady]   = useState(false)
 
   useEffect(() => {
-    fetch('/api/admin/session-settings')
+    // Tenant users have their own per-tenant session settings; platform users
+    // (super-admin, agents) fall back to the platform-wide settings.
+    const isTenantUser =
+      typeof window !== 'undefined' &&
+      !window.location.pathname.startsWith('/admin') &&
+      !window.location.pathname.startsWith('/agent')
+
+    const endpoint = isTenantUser
+      ? '/api/settings/session'
+      : '/api/admin/session-settings'
+
+    fetch(endpoint)
       .then(r => r.json())
       .then(data => {
         if (data.idleTimeoutMinutes) setIdleMs(data.idleTimeoutMinutes * 60 * 1000)
