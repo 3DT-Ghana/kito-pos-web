@@ -227,7 +227,9 @@ export default function PosPage() {
   const [editingPriceIdx, setEditingPriceIdx] = useState<number | null>(null)
   const [priceBuffer, setPriceBuffer] = useState('')
 
-  // Mobile numpad drawer state
+  // Numpad drawer — shared across desktop and mobile
+  const [showNumpadDrawer, setShowNumpadDrawer] = useState(false)
+  // kept for mobile legacy usage
   type NumpadDrawerState = 'hidden' | 'drawer' | 'docked'
   const [numpadDrawer, setNumpadDrawer] = useState<NumpadDrawerState>('docked')
 
@@ -544,6 +546,7 @@ export default function PosPage() {
       else if (key === '✓') {
         updateQty(selectedCartIdx, parseInt(buf, 10) || 1)
         setNumpadBuffer(''); setSelectedCartIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else buf = buf + key
       setNumpadBuffer(buf)
@@ -554,6 +557,7 @@ export default function PosPage() {
       else if (key === '✓') {
         setLineDiscount(editingDiscountIdx, parseFloat(buf) || 0)
         setDiscountBuffer(''); setEditingDiscountIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
@@ -565,6 +569,7 @@ export default function PosPage() {
       else if (key === '✓') {
         setLinePrice(editingPriceIdx, parseFloat(buf) || 0)
         setPriceBuffer(''); setEditingPriceIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
@@ -573,7 +578,13 @@ export default function PosPage() {
       let buf = tendered
       if (key === '←') buf = buf.slice(0, -1)
       else if (key === 'C') buf = ''
-      else if (key === '✓') { /* checkout button handles this */ }
+      else if (key === '✓') {
+        // Close drawer; cart needs approval or just charge
+        setShowNumpadDrawer(false)
+        if (cartNeedsApproval()) { setPinDigits(''); setPinError(''); setShowPinModal(true) }
+        else handleCheckout()
+        return
+      }
       else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setTendered(buf)
@@ -1008,6 +1019,7 @@ export default function PosPage() {
                     setPriceBuffer(String(line.basePrice))
                     setNumpadTarget('price')
                     setSelectedCartIdx(idx)
+                    setShowNumpadDrawer(true)
                   }}
                   className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-left"
                   title="Edit price"
@@ -1033,9 +1045,9 @@ export default function PosPage() {
               className="w-7 h-7 bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-red-100 hover:text-red-600 transition-colors"
             >−</button>
             <button
-              onClick={() => { setSelectedCartIdx(isSelected ? null : idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)) }}
+              onClick={() => { setSelectedCartIdx(idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)); setShowNumpadDrawer(true) }}
               className="w-8 h-7 bg-gray-50 border border-gray-200 font-bold text-gray-800 text-sm flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
-              title="Tap to set qty via numpad"
+              title="Tap to set qty"
             >
               {line.qty}
             </button>
@@ -1101,6 +1113,7 @@ export default function PosPage() {
                       setDiscountBuffer(line.lineDiscount ? String(line.lineDiscount) : '')
                       setNumpadTarget('lineDiscount')
                       setSelectedCartIdx(idx)
+                      setShowNumpadDrawer(true)
                     }}
                     className="px-2.5 py-1 text-xs font-bold border border-gray-200 hover:border-indigo-300 bg-white"
                   >
@@ -1122,26 +1135,28 @@ export default function PosPage() {
   // ── Payment panel (shared) ──────────────────────────────────────────────────
   const PaymentPanel = ({ mobile = false }: { mobile?: boolean }) => (
     <div className="flex flex-col">
-      {/* ── Totals ── */}
-      <div className="px-3 pt-2 pb-1 bg-gray-50 border-t border-gray-200 space-y-0.5">
-        {features.enableDiscounts && (
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">Disc</span>
-            <div className="flex border border-gray-200 overflow-hidden">
-              <button onClick={() => setOrderDiscountMode('pct')}
-                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
-              <button onClick={() => setOrderDiscountMode('fixed')}
-                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>GHS</button>
-            </div>
-            <input type="number" inputMode="decimal" value={orderDiscountValue}
-              onChange={e => setOrderDiscountValue(e.target.value)}
-              placeholder="0"
-              className="w-20 px-2 py-0.5 border border-gray-200 text-xs font-bold focus:border-indigo-400 focus:outline-none" />
-            {orderDiscountNum > 0 && <span className="text-xs text-green-700 font-semibold">−{formatCurrency(orderDiscountNum)}</span>}
+      {/* ── Order discount ── */}
+      {features.enableDiscounts && (
+        <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 border-t border-gray-100">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">Disc</span>
+          <div className="flex border border-gray-200 overflow-hidden">
+            <button onClick={() => setOrderDiscountMode('pct')}
+              className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
+            <button onClick={() => setOrderDiscountMode('fixed')}
+              className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>GHS</button>
           </div>
-        )}
+          <input type="number" inputMode="decimal" value={orderDiscountValue}
+            onChange={e => setOrderDiscountValue(e.target.value)}
+            placeholder="0"
+            className="w-20 px-2 py-0.5 border border-gray-200 text-xs font-bold focus:border-indigo-400 focus:outline-none" />
+          {orderDiscountNum > 0 && <span className="text-xs text-green-700 font-semibold">−{formatCurrency(orderDiscountNum)}</span>}
+        </div>
+      )}
+
+      {/* ── Totals ── */}
+      <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
         {cartSubtotal !== grandTotal && (
-          <div className="flex justify-between text-xs text-gray-500">
+          <div className="flex justify-between text-xs text-gray-500 mb-0.5">
             <span>Subtotal</span><span>{formatCurrency(cartSubtotal)}</span>
           </div>
         )}
@@ -1149,27 +1164,26 @@ export default function PosPage() {
           <span className="text-sm font-bold text-gray-600">TOTAL</span>
           <span className="text-2xl font-black text-gray-900 tracking-tight">{formatCurrency(grandTotal)}</span>
         </div>
-        {/* Cash change / short */}
         {method === 'CASH' && tenderedNum > 0 && change >= 0 && (
-          <div className="flex justify-between text-sm font-bold text-green-700">
+          <div className="flex justify-between text-sm font-bold text-green-700 mt-0.5">
             <span>Change</span><span>{formatCurrency(change)}</span>
           </div>
         )}
         {method === 'CASH' && tenderedNum > 0 && change < 0 && (
-          <div className="flex justify-between text-sm font-bold text-red-600">
+          <div className="flex justify-between text-sm font-bold text-red-600 mt-0.5">
             <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
           </div>
         )}
         {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
-          <p className="text-[10px] text-amber-700">{formatCurrency(Math.abs(change))} added to {selectedCustomer.name}&apos;s balance</p>
+          <p className="text-[10px] text-amber-700 mt-0.5">{formatCurrency(Math.abs(change))} added to {selectedCustomer.name}&apos;s balance</p>
         )}
       </div>
 
       {/* ── Payment method tabs ── */}
-      <div className="grid grid-cols-3 border-b border-gray-200">
+      <div className="grid grid-cols-3 border-t border-b border-gray-200">
         {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
-          <button key={m} onClick={() => { setMethod(m); if (m !== 'CASH') { setTendered(''); setNumpadTarget('tendered') } }}
-            className={`py-2 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
+          <button key={m} onClick={() => { setMethod(m); setTendered('') }}
+            className={`py-2.5 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
               method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
             }`}>
             {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'} {m}
@@ -1177,15 +1191,21 @@ export default function PosPage() {
         ))}
       </div>
 
-      {/* ── Numpad (cash tendered) — always visible on desktop ── */}
-      {!mobile && (
-        <div onClick={() => { if (numpadTarget !== 'qty' && numpadTarget !== 'price' && numpadTarget !== 'lineDiscount') setNumpadTarget('tendered') }}>
-          <Numpad />
-        </div>
+      {/* ── Cash tendered display — tap to open numpad drawer ── */}
+      {method === 'CASH' && (
+        <button
+          onClick={() => { setNumpadTarget('tendered'); setShowNumpadDrawer(true) }}
+          className="mx-3 mt-2 px-3 py-2.5 border-2 border-dashed border-gray-300 hover:border-indigo-400 active:border-indigo-500 text-left touch-manipulation transition-colors"
+        >
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide block">Cash Tendered</span>
+          <span className={`text-lg font-black tracking-tight ${tenderedNum > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+            {tenderedNum > 0 ? formatCurrency(tenderedNum) : 'Tap to enter amount'}
+          </span>
+        </button>
       )}
 
       {/* ── Note + errors ── */}
-      <div className="px-3 py-2 space-y-1.5 border-t border-gray-100">
+      <div className="px-3 pt-2 pb-1 space-y-1.5">
         <input type="text" value={note} onChange={e => setNote(e.target.value)}
           placeholder="Sale note (optional)"
           className="w-full px-2.5 py-1.5 border border-gray-200 text-xs focus:border-indigo-400 focus:outline-none" />
@@ -1196,6 +1216,13 @@ export default function PosPage() {
       {/* ── Charge button ── */}
       <button
         onClick={() => {
+          if (cart.length === 0 || isSubmitting) return
+          if (method === 'CASH' && !tenderedNum) {
+            // Open numpad drawer to enter cash amount first
+            setNumpadTarget('tendered')
+            setShowNumpadDrawer(true)
+            return
+          }
           if (cartNeedsApproval()) { setPinDigits(''); setPinError(''); setShowPinModal(true) }
           else handleCheckout()
         }}
@@ -1590,7 +1617,7 @@ export default function PosPage() {
           </div>
 
           {/* RIGHT — cart + controls  30% */}
-          <div className="flex flex-col bg-white border-l border-gray-200 overflow-hidden" style={{ flex: '0 0 30%' }}>
+          <div className="relative flex flex-col bg-white border-l border-gray-200 overflow-hidden" style={{ flex: '0 0 30%' }}>
 
             {/* Customer */}
             <div className="px-3 pt-3 pb-1 border-b border-gray-100 shrink-0">
@@ -1643,6 +1670,30 @@ export default function PosPage() {
             <div className="shrink-0 overflow-y-auto">
               <PaymentPanel />
             </div>
+
+            {/* ── Numpad slide-up drawer (desktop) ── */}
+            {showNumpadDrawer && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="absolute inset-0 z-20"
+                  onClick={() => setShowNumpadDrawer(false)}
+                />
+                {/* Drawer panel — slides up from bottom of the cart column */}
+                <div className="absolute bottom-0 left-0 right-0 z-30 bg-white shadow-2xl border-t-2 border-indigo-200"
+                  style={{ animation: 'slideUp 180ms ease-out' }}>
+                  {/* Drag handle + context label */}
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      {numpadTarget === 'qty' ? 'Set Quantity' : numpadTarget === 'price' ? 'Override Price' : numpadTarget === 'lineDiscount' ? 'Set Discount' : 'Cash Tendered'}
+                    </span>
+                    <button onClick={() => setShowNumpadDrawer(false)}
+                      className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+                  </div>
+                  <Numpad />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
