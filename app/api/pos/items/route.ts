@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         ? {
             OR: [
               { name: { contains: q, mode: 'insensitive' as const } },
-              { barcode: { startsWith: q } },
+              { barcode: { contains: q, mode: 'insensitive' as const } },
             ],
           }
         : {}),

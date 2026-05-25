@@ -329,7 +329,7 @@ export default function PosPage() {
   const displayItems = q
     ? groupFiltered.filter(i =>
         i.name.toLowerCase().includes(q) ||
-        (i.barcode && i.barcode.startsWith(search.trim()))
+        (i.barcode && i.barcode.toLowerCase().includes(q))
       )
     : groupFiltered
 
