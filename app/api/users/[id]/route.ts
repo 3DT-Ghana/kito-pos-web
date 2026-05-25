@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { hash } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess, validateTenantBranch } from '@/lib/branch/server'
 import {
@@ -37,6 +38,22 @@ export async function PUT(req: Request, { params }: RouteParams) {
         { error: 'You can only manage staff in your assigned branch' },
         { status: 403 }
       )
+    }
+
+    if (body.password !== undefined) {
+      if (scope!.mode !== 'tenant') {
+        return NextResponse.json(
+          { error: 'Only tenant admins can reset user passwords' },
+          { status: 403 }
+        )
+      }
+
+      if (typeof body.password !== 'string' || body.password.length < 8) {
+        return NextResponse.json(
+          { error: 'Password must be at least 8 characters' },
+          { status: 400 }
+        )
+      }
     }
 
     if (body.role && !ALL_ROLES.includes(body.role as typeof ALL_ROLES[number])) {
@@ -83,6 +100,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       where: { id },
       data: {
         ...(body.name && { name: body.name.trim() }),
+        ...(body.password !== undefined && { password: await hash(body.password, 10) }),
         ...(body.role && { role: requestedRole as never }),
         ...(body.branchId !== undefined && { branchId: normalizedBranchId }),
       },
