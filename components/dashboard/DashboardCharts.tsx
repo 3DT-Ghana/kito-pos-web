@@ -447,11 +447,11 @@ export function DashboardCharts() {
           {totalPayments > 0 ? (
             <div className="flex-1 flex flex-col gap-5">
               {/* Segmented bar */}
-              <div className="flex rounded-full overflow-hidden h-2.5 gap-0.5">
+              <div className="flex -full overflow-hidden h-2.5 gap-0.5">
                 {paymentMethodSplit.filter(p => p.value > 0).map((p, i) => (
                   <div
                     key={i}
-                    className="rounded-full"
+                    className="-full"
                     style={{ width: `${(p.value / totalPayments) * 100}%`, backgroundColor: p.color }}
                   />
                 ))}
@@ -461,15 +461,15 @@ export function DashboardCharts() {
               <div className="space-y-4 flex-1">
                 {paymentMethodSplit.filter(p => p.value > 0).map((p, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    <div className="w-2.5 h-2.5 -full shrink-0" style={{ backgroundColor: p.color }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-gray-700">{p.method}</p>
                         <p className="text-sm font-semibold text-gray-900">{formatCurrency(p.value)}</p>
                       </div>
-                      <div className="mt-1.5 h-1 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="mt-1.5 h-1 -full bg-gray-100 overflow-hidden">
                         <div
-                          className="h-1 rounded-full"
+                          className="h-1 -full"
                           style={{ width: `${(p.value / totalPayments) * 100}%`, backgroundColor: p.color }}
                         />
                       </div>
@@ -578,7 +578,7 @@ export function DashboardCharts() {
                     </div>
                     <div className="text-right shrink-0 ml-4">
                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(sale.total)}</p>
-                      <span className={`inline-block mt-0.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                      <span className={`inline-block mt-0.5 text-xs font-medium px-2 py-0.5 -full ${
                         unpaid > 0.01
                           ? 'bg-amber-100 text-amber-700'
                           : 'bg-emerald-100 text-emerald-700'
@@ -667,7 +667,7 @@ export function DashboardCharts() {
                     className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm text-gray-700 truncate">{item.name}</p>
-                    <span className={`ml-3 shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    <span className={`ml-3 shrink-0 text-xs font-semibold px-2 py-0.5 -full ${
                       item.quantity === 0
                         ? 'bg-red-100 text-red-700'
                         : 'bg-amber-100 text-amber-700'

@@ -197,7 +197,7 @@ export default function InventoryReportsPage() {
                           {item.quantity}
                         </span>
                         {(isOut || isLow) && (
-                          <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold ${isOut ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                          <span className={`ml-1 text-xs px-1.5 py-0.5 -full font-semibold ${isOut ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
                             {isOut ? 'Out' : 'Low'}
                           </span>
                         )}

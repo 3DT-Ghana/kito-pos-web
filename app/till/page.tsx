@@ -135,7 +135,7 @@ export default function TillPage() {
             <h1 className="text-2xl font-bold text-gray-900">Till / Cash Register</h1>
             <p className="text-sm text-gray-500 mt-0.5">Manage your cash shift</p>
           </div>
-          <div className={`px-3 py-1.5 rounded-full text-xs font-bold ${openShift ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+          <div className={`px-3 py-1.5 -full text-xs font-bold ${openShift ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
             {openShift ? '● SHIFT OPEN' : '○ NO OPEN SHIFT'}
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function TillPage() {
                       <p className="text-sm font-semibold text-gray-700">
                         {formatTime(shift.openedAt)} → {shift.closedAt ? formatTime(shift.closedAt) : '—'}
                       </p>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      <span className={`text-xs font-bold px-2 py-0.5 -full ${
                         balanced ? 'bg-green-100 text-green-700' : surplus ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'
                       }`}>
                         {balanced ? 'Balanced' : surplus ? `+${formatCurrency(shift.variance || 0)}` : formatCurrency(shift.variance || 0)}

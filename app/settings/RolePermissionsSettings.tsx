@@ -124,7 +124,7 @@ export function RolePermissionsSettings({ initialOverrides }: Props) {
               }`}
             >
               {ROLE_LABELS[role]}
-              <span className={`ml-2 text-xs font-semibold px-1.5 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'}`}>
+              <span className={`ml-2 text-xs font-semibold px-1.5 py-0.5 -full ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-500'}`}>
                 {count}
               </span>
             </button>

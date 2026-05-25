@@ -525,12 +525,12 @@ export function ItemForm({
               Control whether this item is taxable and whether it uses the tenant default tax bundle or specific named taxes.
             </p>
           </div>
-          <label className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-emerald-900 shadow-sm">
+          <label className="inline-flex items-center gap-2 -full bg-white px-3 py-2 text-sm font-semibold text-emerald-900 shadow-sm">
             <input
               type="checkbox"
               checked={isTaxable}
               onChange={(event) => setValue('isTaxable', event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              className="h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
             />
             Taxable
           </label>
@@ -568,7 +568,7 @@ export function ItemForm({
                 type="checkbox"
                 checked={useTenantDefaultTaxes}
                 onChange={(event) => setValue('useTenantDefaultTaxes', event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="mt-0.5 h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
               />
               <div>
                 <span className="text-sm font-semibold text-gray-900">Use tenant default taxes</span>
@@ -599,14 +599,14 @@ export function ItemForm({
                             type="checkbox"
                             checked={selectedTaxRateIds.includes(taxRate.id)}
                             onChange={() => toggleTaxRateSelection(taxRate.id)}
-                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            className="mt-0.5 h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
                           />
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-gray-900">
                                 {taxRate.name}
                               </span>
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                              <span className="-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
                                 {taxRate.ratePercentage}%
                               </span>
                             </div>

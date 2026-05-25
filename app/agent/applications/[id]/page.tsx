@@ -161,7 +161,7 @@ export default function ApplicationDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
       </div>
     )
   }
@@ -283,7 +283,7 @@ export default function ApplicationDetailPage() {
                 )}
               </div>
               {i === 0 && (
-                <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full shrink-0 ml-3">
+                <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 -full shrink-0 ml-3">
                   Primary
                 </span>
               )}

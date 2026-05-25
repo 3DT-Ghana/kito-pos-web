@@ -71,9 +71,9 @@ export function SignOutConfirmModal({ open, onClose }: SignOutConfirmProps) {
       />
 
       {/* Mobile: bottom sheet */}
-      <div className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-6 pb-10">
+      <div className="sm:hidden absolute bottom-0 left-0 right-0 bg-white  shadow-2xl p-6 pb-10">
         {/* Drag handle */}
-        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+        <div className="w-10 h-1 bg-gray-200 -full mx-auto mb-5" />
         {inner}
       </div>
 
@@ -144,9 +144,9 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
         </p>
 
         {/* Countdown bar */}
-        <div className="mt-4 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+        <div className="mt-4 h-1.5 w-full -full bg-gray-100 overflow-hidden">
           <div
-            className={`h-1.5 rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-amber-400'}`}
+            className={`h-1.5 -full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-amber-400'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -181,6 +181,6 @@ function Backdrop({ children, onClose }: { children: React.ReactNode; onClose: (
 
 function Spinner() {
   return (
-    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
   )
 }

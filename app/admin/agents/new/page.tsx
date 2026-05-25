@@ -104,7 +104,7 @@ export default function AdminRegisterAgentPage() {
     return (
       <AdminLayout>
         <div className="max-w-lg mx-auto text-center space-y-5 py-16">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 -full bg-emerald-100 flex items-center justify-center mx-auto">
             <CheckCircle className="w-8 h-8 text-emerald-600" />
           </div>
           <div>

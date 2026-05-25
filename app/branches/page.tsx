@@ -125,7 +125,7 @@ export default function BranchesPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -235,7 +235,7 @@ export default function BranchesPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-gray-900">{branch.name}</h3>
                         {branch.isDefault && (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">Default</span>
+                          <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 -full font-semibold">Default</span>
                         )}
                       </div>
                       {branch.address && <p className="text-sm text-gray-500 mt-0.5">{branch.address}</p>}

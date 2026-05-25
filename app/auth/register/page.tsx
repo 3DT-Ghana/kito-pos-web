@@ -70,6 +70,7 @@ export default function RegisterPage() {
         email: formData.email,
         password: formData.password,
         redirect: false,
+        portal: 'business',
       })
 
       if (result?.ok) {

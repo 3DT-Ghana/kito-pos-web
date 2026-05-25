@@ -162,7 +162,7 @@ export default function PurchaseOrdersPage() {
                         <p className="text-xs text-gray-400 mt-0.5">{order.items.length} item{order.items.length !== 1 ? 's' : ''} · {formatDate(order.createdAt)}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${meta.cls}`}>{meta.label}</span>
+                        <span className={`text-xs px-2 py-0.5 -full font-semibold ${meta.cls}`}>{meta.label}</span>
                         <p className="text-base font-bold text-gray-900 mt-1">{formatCurrency(order.totalAmount)}</p>
                       </div>
                     </div>
@@ -205,7 +205,7 @@ export default function PurchaseOrdersPage() {
                         <td className="px-5 py-4 text-sm text-gray-500">{order.expectedAt ? formatDate(order.expectedAt) : '—'}</td>
                         <td className="px-5 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
                         <td className="px-5 py-4 text-center">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${meta.cls}`}>{meta.label}</span>
+                          <span className={`px-2.5 py-1 -full text-xs font-bold ${meta.cls}`}>{meta.label}</span>
                         </td>
                       </tr>
                     )

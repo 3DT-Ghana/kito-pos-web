@@ -39,7 +39,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
           key={c}
           type="button"
           onClick={() => onChange(c)}
-          className={`w-7 h-7 rounded-full border-2 transition-transform ${value === c ? 'border-gray-900 scale-110' : 'border-transparent'}`}
+          className={`w-7 h-7 -full border-2 transition-transform ${value === c ? 'border-gray-900 scale-110' : 'border-transparent'}`}
           style={{ backgroundColor: c }}
         />
       ))}

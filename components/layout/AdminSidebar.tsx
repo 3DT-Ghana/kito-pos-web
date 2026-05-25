@@ -160,7 +160,7 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
                         <span className="shrink-0">{item.icon}</span>
                         <span className="truncate font-medium">{item.name}</span>
                         {item.badge && (
-                          <span className="ml-auto text-xs bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold leading-none">
+                          <span className="ml-auto text-xs bg-amber-500 text-white -full px-1.5 py-0.5 font-bold leading-none">
                             {item.badge}
                           </span>
                         )}

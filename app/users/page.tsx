@@ -380,7 +380,7 @@ export default function UsersPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -557,7 +557,7 @@ export default function UsersPage() {
             </div>
             {loadingUsers ? (
               <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent -full animate-spin" />
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -578,9 +578,9 @@ export default function UsersPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-900 text-base">{u.name}</p>
                             {isCurrentUser && (
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">You</span>
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 -full font-medium">You</span>
                             )}
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${info.badgeColor}`}>
+                            <span className={`text-xs px-2.5 py-0.5 -full font-semibold ${info.badgeColor}`}>
                               {info.icon} {info.label}
                             </span>
                           </div>
@@ -678,7 +678,7 @@ export default function UsersPage() {
                       <th key={r} className="px-3 py-3 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span className="text-base">{ROLE_INFO[r].icon}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${ROLE_INFO[r].badgeColor}`}>
+                          <span className={`text-xs px-2 py-0.5 -full font-semibold whitespace-nowrap ${ROLE_INFO[r].badgeColor}`}>
                             {ROLE_INFO[r].label}
                           </span>
                         </div>
@@ -695,9 +695,9 @@ export default function UsersPage() {
                         return (
                           <td key={r} className="px-3 py-2.5 text-center">
                             {allowed ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 bg-green-100 rounded-full text-green-700 text-xs font-bold">✓</span>
+                              <span className="inline-flex items-center justify-center w-5 h-5 bg-green-100 -full text-green-700 text-xs font-bold">✓</span>
                             ) : (
-                              <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-100 rounded-full text-gray-300 text-xs">–</span>
+                              <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-100 -full text-gray-300 text-xs">–</span>
                             )}
                           </td>
                         )
@@ -729,7 +729,7 @@ export default function UsersPage() {
                       <span className="text-2xl">{info.icon}</span>
                       <div>
                         <h3 className="font-bold text-gray-900">{title}</h3>
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${info.badgeColor}`}>
+                        <span className={`text-xs px-2.5 py-0.5 -full font-semibold ${info.badgeColor}`}>
                           {info.label}
                         </span>
                       </div>

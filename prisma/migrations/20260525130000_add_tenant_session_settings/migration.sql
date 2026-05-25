@@ -1,4 +1,0 @@
--- AddColumn: idleTimeoutMinutes, sessionMaxHours, updatedAt to Tenant
-ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "idleTimeoutMinutes" INTEGER NOT NULL DEFAULT 5;
-ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "sessionMaxHours" INTEGER NOT NULL DEFAULT 4;
-ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT NOW();

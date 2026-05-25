@@ -224,7 +224,7 @@ export default function QuotationDetailPage() {
       </div>
 
       {/* Printable document */}
-      <div className="max-w-3xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
+      <div className="max-w-3xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:-none print:shadow-none">
         {/* Header */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-200">
           <div className="flex justify-between items-start">
@@ -239,7 +239,7 @@ export default function QuotationDetailPage() {
               )}
             </div>
             <div className="text-right">
-              <span className={`px-3 py-1.5 rounded-full text-sm font-bold ${STATUS_COLORS[quotation.status]}`}>
+              <span className={`px-3 py-1.5 -full text-sm font-bold ${STATUS_COLORS[quotation.status]}`}>
                 {quotation.status}
               </span>
               {quotation.customer && (

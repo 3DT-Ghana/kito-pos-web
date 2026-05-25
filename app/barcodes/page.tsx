@@ -250,7 +250,7 @@ export default function BarcodesPage() {
                     <span className="text-sm font-bold text-gray-800">{formatCurrency(item.sellingPrice)}</span>
                     <div className="flex items-center gap-1.5">
                       {item.barcode ? (
-                        <span className="text-xs text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded">
+                        <span className="text-xs text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 ">
                           {item.barcode.slice(0, 10)}{item.barcode.length > 10 ? '…' : ''}
                         </span>
                       ) : (
@@ -270,7 +270,7 @@ export default function BarcodesPage() {
                     ) : (
                       <span />
                     )}
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    <span className={`text-xs font-semibold px-2 py-0.5 -full ${
                       stockStatus === 'out' ? 'bg-red-50 text-red-600'
                       : stockStatus === 'low' ? 'bg-amber-50 text-amber-600'
                       : 'bg-emerald-50 text-emerald-600'

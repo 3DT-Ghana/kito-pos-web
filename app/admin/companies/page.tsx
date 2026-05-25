@@ -282,7 +282,7 @@ export default function AdminCompaniesPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="font-bold text-gray-900 text-base truncate">{tenant.name}</h3>
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_STYLES[tenant.status]}`}>
+                            <span className={`px-2 py-0.5 -full text-xs font-bold ${STATUS_STYLES[tenant.status]}`}>
                               {tenant.status}
                             </span>
                           </div>
@@ -314,9 +314,9 @@ export default function AdminCompaniesPage() {
                           <p className="text-xs text-gray-400">Revenue</p>
                           <p className="text-sm font-bold text-green-700">{formatCurrency(tenant.totalRevenue)}</p>
                           {/* Mini revenue bar */}
-                          <div className="mt-1 h-1 rounded-full bg-gray-100 w-20">
+                          <div className="mt-1 h-1 -full bg-gray-100 w-20">
                             <div
-                              className="h-1 rounded-full bg-green-500 transition-all"
+                              className="h-1 -full bg-green-500 transition-all"
                               style={{ width: `${revenuePct}%` }}
                             />
                           </div>
@@ -406,7 +406,7 @@ export default function AdminCompaniesPage() {
                                   <td className="px-4 py-2.5 font-medium text-gray-900">{u.name}</td>
                                   <td className="px-4 py-2.5 text-gray-500 text-xs font-mono">{u.email}</td>
                                   <td className="px-4 py-2.5">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                                    <span className={`px-2 py-0.5 -full text-xs font-bold ${
                                       u.role === 'OWNER'          ? 'bg-purple-100 text-purple-800'
                                       : u.role === 'STORE_MANAGER'  ? 'bg-blue-100 text-blue-800'
                                       : u.role === 'BRANCH_MANAGER' ? 'bg-cyan-100 text-cyan-800'

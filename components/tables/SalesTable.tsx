@@ -84,13 +84,13 @@ export function SalesTable({ sales, onSaleClick }: SalesTableProps) {
         const creditAmount = sale.totalAmount - sale.paidAmount
         if (creditAmount === 0) {
           return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+            <span className="inline-flex items-center px-2.5 py-0.5 -full text-xs font-medium bg-green-100 text-green-800">
               Paid
             </span>
           )
         }
         return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 -full text-xs font-medium bg-yellow-100 text-yellow-800">
             Partial
           </span>
         )

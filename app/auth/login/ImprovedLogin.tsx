@@ -18,7 +18,12 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
     setError('')
     setLoading(true)
     try {
-      const result = await signIn('credentials', { redirect: false, email, password })
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+        portal: 'business',
+      })
       if (result?.error) {
         setError('Invalid email or password.')
         setLoading(false)
@@ -203,5 +208,5 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
 }
 
 function Spinner() {
-  return <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  return <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
 }

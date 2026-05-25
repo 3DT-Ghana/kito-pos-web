@@ -187,7 +187,7 @@ export function ItemSelectorWithManufacturer({
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold">
+                            <div className="px-3 py-1 bg-blue-100 text-blue-800 -full text-xs font-bold">
                               Select
                             </div>
                           </div>

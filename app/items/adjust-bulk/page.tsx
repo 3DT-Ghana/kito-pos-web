@@ -191,7 +191,7 @@ export default function BulkAdjustItemsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : (
           <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">

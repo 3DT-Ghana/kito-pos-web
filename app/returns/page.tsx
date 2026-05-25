@@ -577,9 +577,9 @@ function ProcessReturnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-t-3xl sm:shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+      <div className="bg-white  sm:shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl sm:rounded-t-2xl z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white  sm: z-10">
           <div>
             <h3 className="text-base font-bold text-gray-900">{title}</h3>
             {step === 'form' && (

@@ -89,7 +89,7 @@ export default function KYCSettingsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
         </div>
       </AdminLayout>
     )
@@ -199,7 +199,7 @@ export default function KYCSettingsPage() {
           >
             {saving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
                 Saving…
               </>
             ) : (
@@ -258,7 +258,7 @@ function Toggle({
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-gray-800">{label}</p>
           {recommended && (
-            <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">
+            <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 -full">
               Recommended
             </span>
           )}
@@ -268,13 +268,13 @@ function Toggle({
       <button
         type="button"
         onClick={onChange}
-        className={`shrink-0 w-11 h-6 rounded-full transition-colors relative mt-0.5 ${
+        className={`shrink-0 w-11 h-6 -full transition-colors relative mt-0.5 ${
           checked ? 'bg-indigo-600' : 'bg-gray-200'
         }`}
         aria-pressed={checked}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+          className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white -full shadow transition-transform ${
             checked ? 'translate-x-5' : 'translate-x-0'
           }`}
         />

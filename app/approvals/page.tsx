@@ -191,7 +191,7 @@ export default function ApprovalsPage() {
             >
               <Bell className={`w-5 h-5 ${pendingCount > 0 ? 'text-amber-500' : 'text-gray-400'}`} />
               {pendingCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold -full flex items-center justify-center leading-none">
                   {pendingCount > 99 ? '99+' : pendingCount}
                 </span>
               )}
@@ -253,7 +253,7 @@ export default function ApprovalsPage() {
                   }`}>
                     <div className="flex gap-1.5 flex-wrap flex-1">
                       {flags.map(f => (
-                        <span key={f} className={`text-xs font-bold px-2 py-0.5 rounded-full ${FLAG_COLOR[f]}`}>
+                        <span key={f} className={`text-xs font-bold px-2 py-0.5 -full ${FLAG_COLOR[f]}`}>
                           {FLAG_LABEL[f]}
                         </span>
                       ))}

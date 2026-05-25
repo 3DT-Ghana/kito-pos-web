@@ -436,7 +436,7 @@ function ItemCodeRow({
       }`}
     >
       {/* Status dot */}
-      <div className={`w-2 h-2 rounded-full shrink-0 ${err ? 'bg-red-400' : 'bg-green-400'}`} />
+      <div className={`w-2 h-2 -full shrink-0 ${err ? 'bg-red-400' : 'bg-green-400'}`} />
 
       {/* Name + editable code */}
       <div className="flex-1 min-w-0">
@@ -458,7 +458,7 @@ function ItemCodeRow({
       <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
         <button
           onClick={() => onQtyChange(Math.max(1, qty - 1))}
-          className="w-5 h-5 rounded bg-white border border-gray-200 text-gray-600 text-xs flex items-center justify-center hover:bg-gray-100"
+          className="w-5 h-5  bg-white border border-gray-200 text-gray-600 text-xs flex items-center justify-center hover:bg-gray-100"
         >−</button>
         <input
           type="number"
@@ -466,11 +466,11 @@ function ItemCodeRow({
           max={999}
           value={qty}
           onChange={e => onQtyChange(Math.max(1, parseInt(e.target.value) || 1))}
-          className="w-9 text-center border border-gray-200 rounded py-0.5 font-bold text-xs focus:outline-none focus:border-indigo-400"
+          className="w-9 text-center border border-gray-200  py-0.5 font-bold text-xs focus:outline-none focus:border-indigo-400"
         />
         <button
           onClick={() => onQtyChange(Math.min(999, qty + 1))}
-          className="w-5 h-5 rounded bg-white border border-gray-200 text-gray-600 text-xs flex items-center justify-center hover:bg-gray-100"
+          className="w-5 h-5  bg-white border border-gray-200 text-gray-600 text-xs flex items-center justify-center hover:bg-gray-100"
         >+</button>
       </div>
     </div>
@@ -701,7 +701,7 @@ export function BarcodeGenerator({ items, onClose }: Props) {
                         <input type="checkbox"
                           checked={config[key] as boolean}
                           onChange={e => cfg({ [key]: e.target.checked })}
-                          className="w-4 h-4 accent-indigo-600 rounded"
+                          className="w-4 h-4 accent-indigo-600 "
                         />
                         <span className="text-sm font-medium text-gray-700">{label}</span>
                       </label>

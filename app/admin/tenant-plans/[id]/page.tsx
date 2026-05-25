@@ -186,7 +186,7 @@ export default function TenantPlanDetailPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
         </div>
       </AdminLayout>
     )
@@ -288,7 +288,7 @@ export default function TenantPlanDetailPage() {
                       onClick={() => toggleFeature(m.id)}
                       className={`flex items-start gap-3 p-3 border text-left transition-all ${checked ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-200 hover:bg-gray-50'}`}
                     >
-                      <div className={`w-4 h-4 rounded border-2 mt-0.5 shrink-0 flex items-center justify-center transition-colors ${checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
+                      <div className={`w-4 h-4  border-2 mt-0.5 shrink-0 flex items-center justify-center transition-colors ${checked ? 'bg-indigo-600 border-indigo-600' : 'border-gray-300'}`}>
                         {checked && <CheckCircle className="w-3 h-3 text-white" />}
                       </div>
                       <div className="min-w-0">
@@ -391,7 +391,7 @@ export default function TenantPlanDetailPage() {
                   <span className="text-sm font-mono text-gray-700">{inv.invoiceNumber}</span>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-medium text-gray-900">GHS {inv.total.toFixed(2)}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
+                    <span className={`text-xs px-2 py-0.5 -full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
                       {inv.status}
                     </span>
                     <span className="text-xs text-gray-400">{new Date(inv.createdAt).toLocaleDateString()}</span>

@@ -202,7 +202,7 @@ export default function EmployeesPage() {
 
         <div className="flex flex-wrap gap-3 items-center">
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-            <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="rounded" />
+            <input type="checkbox" checked={activeOnly} onChange={e => setActiveOnly(e.target.checked)} className="" />
             Active only
           </label>
           {departments.length > 0 && (
@@ -249,23 +249,23 @@ export default function EmployeesPage() {
                       <td className="px-4 py-3 text-gray-700">{emp.position}</td>
                       <td className="px-4 py-3 text-gray-500">{emp.department ?? '—'}</td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                        <span className="px-2 py-0.5 -full text-xs font-semibold bg-gray-100 text-gray-700">
                           {EMPLOYMENT_LABELS[emp.employmentType]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono">{formatCurrency(emp.basicSalary)}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${emp.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`px-2 py-0.5 -full text-xs font-bold ${emp.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                           {emp.isActive ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => openEdit(emp)} className="p-1.5 rounded hover:bg-blue-50 text-blue-600 transition" title="Edit">
+                          <button onClick={() => openEdit(emp)} className="p-1.5  hover:bg-blue-50 text-blue-600 transition" title="Edit">
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button onClick={() => toggleActive(emp)}
-                            className={`px-2 py-1 rounded text-xs font-semibold transition ${emp.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
+                            className={`px-2 py-1  text-xs font-semibold transition ${emp.isActive ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
                             {emp.isActive ? 'Deactivate' : 'Activate'}
                           </button>
                         </div>
@@ -465,7 +465,7 @@ export default function EmployeesPage() {
                       </div>
                     </div>
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
-                      <input type="checkbox" checked={form.isExemptFromPAYE} onChange={e => setForm(f => ({ ...f, isExemptFromPAYE: e.target.checked }))} className="rounded" />
+                      <input type="checkbox" checked={form.isExemptFromPAYE} onChange={e => setForm(f => ({ ...f, isExemptFromPAYE: e.target.checked }))} className="" />
                       Exempt from PAYE (e.g. income below tax threshold)
                     </label>
                   </div>

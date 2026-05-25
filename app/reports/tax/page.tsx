@@ -182,8 +182,8 @@ function TaxBreakdownList({ lines }: { lines: TaxBreakdown[] }) {
 function SummaryCardSkeleton() {
   return (
     <div className="animate-pulse border border-gray-200 bg-white p-4">
-      <div className="h-4 w-20 rounded bg-gray-200" />
-      <div className="mt-3 h-7 w-32 rounded bg-gray-200" />
+      <div className="h-4 w-20  bg-gray-200" />
+      <div className="mt-3 h-7 w-32  bg-gray-200" />
     </div>
   )
 }
@@ -192,13 +192,13 @@ function TableSkeleton({ cols }: { cols: number }) {
   return (
     <div className="overflow-hidden border border-gray-200 bg-white animate-pulse">
       <div className="border-b border-gray-100 px-5 py-4">
-        <div className="h-5 w-40 rounded bg-gray-200" />
+        <div className="h-5 w-40  bg-gray-200" />
       </div>
       <div className="divide-y divide-gray-100">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="flex gap-4 px-5 py-3">
             {Array.from({ length: cols }).map((_, j) => (
-              <div key={j} className={`h-4 rounded bg-gray-100 ${j === 0 ? 'w-32' : 'w-20'}`} />
+              <div key={j} className={`h-4  bg-gray-100 ${j === 0 ? 'w-32' : 'w-20'}`} />
             ))}
           </div>
         ))}
@@ -847,7 +847,7 @@ export default function TaxReportsPage() {
                               {row.accountCode
                                 ? `${row.accountCode} — ${row.accountName ?? ''}`
                                 : (
-                                  <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                                  <span className=" bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
                                     Unmapped
                                   </span>
                                 )}

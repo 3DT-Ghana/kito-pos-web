@@ -42,7 +42,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           <div className="flex-1" />
 
-          <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1">
+          <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 border border-indigo-200 -full px-3 py-1">
             Platform Admin
           </span>
         </header>

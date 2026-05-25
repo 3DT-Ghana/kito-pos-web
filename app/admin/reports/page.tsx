@@ -75,7 +75,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 function Sb({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-semibold px-2 py-0.5 -full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )
@@ -257,7 +257,7 @@ export default function AdminReportsPage() {
                 >
                   {t === 'agents' ? <Users className="w-4 h-4" /> : <BarChart2 className="w-4 h-4" />}
                   {t === 'agents' ? 'Agent Performance' : 'Shop Revenue'}
-                  <span className="ml-1 text-xs bg-gray-100 text-gray-600 rounded-full px-1.5 py-0.5 font-bold">
+                  <span className="ml-1 text-xs bg-gray-100 text-gray-600 -full px-1.5 py-0.5 font-bold">
                     {t === 'agents' ? data.agentReport.length : data.shopReport.length}
                   </span>
                 </button>
@@ -338,12 +338,12 @@ export default function AdminReportsPage() {
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-1.5 flex-wrap">
                                   {agent.pendingApplications > 0 && (
-                                    <span className="text-xs bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 font-bold">
+                                    <span className="text-xs bg-amber-100 text-amber-700 -full px-1.5 py-0.5 font-bold">
                                       {agent.pendingApplications} pending
                                     </span>
                                   )}
                                   {agent.rejectedApplications > 0 && (
-                                    <span className="text-xs bg-red-100 text-red-600 rounded-full px-1.5 py-0.5 font-bold">
+                                    <span className="text-xs bg-red-100 text-red-600 -full px-1.5 py-0.5 font-bold">
                                       {agent.rejectedApplications} rejected
                                     </span>
                                   )}

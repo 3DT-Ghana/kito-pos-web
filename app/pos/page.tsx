@@ -828,7 +828,7 @@ export default function PosPage() {
   // ── Holds modal ─────────────────────────────────────────────────────────────
   const HoldsModal = () => (
     <div className="fixed inset-0 bg-black/50 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:shadow-2xl w-full sm:max-w-md overflow-hidden">
+      <div className="bg-white  sm:shadow-2xl w-full sm:max-w-md overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b">
           <span className="font-bold text-gray-800">Held Orders ({holds.length})</span>
           <button onClick={() => setShowHolds(false)} className="text-gray-400 text-xl">×</button>
@@ -1225,7 +1225,7 @@ export default function PosPage() {
         }`}
       >
         {inCart && (
-          <span className="absolute top-1 right-1 w-5 h-5 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute top-1 right-1 w-5 h-5 bg-indigo-600 text-white text-xs font-bold -full flex items-center justify-center">
             {inCart.qty}
           </span>
         )}
@@ -1441,7 +1441,7 @@ export default function PosPage() {
               {Array.from({ length: PIN_LENGTH }).map((_, i) => (
                 <div
                   key={i}
-                  className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                  className={`w-4 h-4 -full border-2 transition-colors ${
                     i < pinDigits.length ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
                   }`}
                 />
@@ -1558,7 +1558,7 @@ export default function PosPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
             </svg>
             {holds.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-indigo-900 text-[9px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-indigo-900 text-[9px] font-bold -full flex items-center justify-center">
                 {holds.length}
               </span>
             )}
@@ -1600,7 +1600,7 @@ export default function PosPage() {
             {/* Cart header */}
             <div className="px-4 py-2 flex items-center justify-between shrink-0">
               <span className="font-bold text-gray-800 text-sm">
-                Cart {cart.length > 0 && <span className="ml-1 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{cart.length}</span>}
+                Cart {cart.length > 0 && <span className="ml-1 bg-indigo-600 text-white text-xs px-2 py-0.5 -full">{cart.length}</span>}
               </span>
               {cart.length > 0 && (
                 <button onClick={clearCart} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear</button>
@@ -1663,7 +1663,7 @@ export default function PosPage() {
             >
               Cart
               {cart.length > 0 && (
-                <span className="absolute top-2 right-8 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute top-2 right-8 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold -full flex items-center justify-center">
                   {cart.length}
                 </span>
               )}
@@ -1761,7 +1761,7 @@ export default function PosPage() {
               {cart.length > 0 && numpadDrawer === 'hidden' && (
                 <button
                   onClick={() => setNumpadDrawer('drawer')}
-                  className="absolute bottom-24 right-4 z-30 w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center text-lg font-bold active:scale-95 touch-manipulation"
+                  className="absolute bottom-24 right-4 z-30 w-12 h-12 bg-indigo-600 text-white -full shadow-lg flex items-center justify-center text-lg font-bold active:scale-95 touch-manipulation"
                   title="Open numpad"
                 >
                   123
@@ -1780,10 +1780,10 @@ export default function PosPage() {
               onClick={() => setNumpadDrawer('hidden')}
             />
             {/* Bottom sheet */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden rounded-t-2xl shadow-2xl overflow-hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden  shadow-2xl overflow-hidden">
               {/* Drag handle */}
               <div className="flex justify-center bg-white pt-2 pb-0">
-                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+                <div className="w-10 h-1 bg-gray-300 -full" />
               </div>
               <Numpad mobile />
             </div>

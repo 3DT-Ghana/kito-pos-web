@@ -39,7 +39,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 -full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )
@@ -212,7 +212,7 @@ export default function AdminAgentsPage() {
               >
                 {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
                 {s === 'PENDING' && pendingCount > 0 && (
-                  <span className="ml-1.5 text-xs bg-amber-500 text-white rounded-full px-1.5 py-0.5 font-bold">
+                  <span className="ml-1.5 text-xs bg-amber-500 text-white -full px-1.5 py-0.5 font-bold">
                     {pendingCount}
                   </span>
                 )}
@@ -232,7 +232,7 @@ export default function AdminAgentsPage() {
         <div className="bg-white border border-gray-200 shadow-sm overflow-hidden">
           {loading ? (
             <div className="px-5 py-10 text-center text-sm text-gray-400">
-              <div className="inline-block w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-2" />
+              <div className="inline-block w-5 h-5 border-2 border-indigo-600 border-t-transparent -full animate-spin mb-2" />
               <p>Loading…</p>
             </div>
           ) : filtered.length === 0 ? (

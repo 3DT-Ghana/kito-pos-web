@@ -70,7 +70,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 -full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )
@@ -163,9 +163,9 @@ export default function AdminDashboardPage() {
         {/* ── Dark hero ─────────────────────────────────────────────────── */}
         <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-5 sm:px-10 pt-10 pb-28">
           {/* Decorative blobs */}
-          <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-indigo-500/10" />
-          <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 rounded-full bg-violet-500/10" />
-          <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 rounded-full bg-blue-500/8" />
+          <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 -full bg-indigo-500/10" />
+          <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 -full bg-violet-500/10" />
+          <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 -full bg-blue-500/8" />
 
           <div className="relative max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
             <div>
@@ -185,7 +185,7 @@ export default function AdminDashboardPage() {
                 <FileText className="w-4 h-4" strokeWidth={1.75} />
                 <span className="hidden sm:inline">Applications</span>
                 {pendingAlerts > 0 && (
-                  <span className="ml-0.5 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                  <span className="ml-0.5 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                     {pendingAlerts}
                   </span>
                 )}
@@ -260,12 +260,12 @@ export default function AdminDashboardPage() {
                   >
                     {t.label}
                     {t.id === 'applications' && data.applicationSummary.pending > 0 && (
-                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                         {data.applicationSummary.pending}
                       </span>
                     )}
                     {t.id === 'agents' && data.agentSummary.pending > 0 && (
-                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                         {data.agentSummary.pending}
                       </span>
                     )}
@@ -510,7 +510,7 @@ function AdminBottomNav({
                 <div className="relative">
                   <Icon className="w-5 h-5" strokeWidth={1.75} />
                   {isApps && pendingAlerts > 0 && (
-                    <span className="absolute -top-1 -right-1.5 bg-amber-400 text-slate-900 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                    <span className="absolute -top-1 -right-1.5 bg-amber-400 text-slate-900 text-[9px] font-bold -full w-4 h-4 flex items-center justify-center leading-none">
                       {pendingAlerts > 9 ? '9+' : pendingAlerts}
                     </span>
                   )}
@@ -537,7 +537,7 @@ function AdminBottomNav({
             className="fixed inset-0 z-50 bg-black/50 md:hidden"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl md:hidden max-h-[80vh] flex flex-col">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white  shadow-2xl md:hidden max-h-[80vh] flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">

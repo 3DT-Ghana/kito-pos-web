@@ -711,7 +711,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                         {item.manufacturer?.name || "Unknown"}
                       </p>
                       {!stockTracked && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                        <span className="-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
                           {itemTypeLabel(item.itemType)}
                         </span>
                       )}
@@ -742,7 +742,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                     </p>
                   </div>
                   {inCart && canAdd && (
-                    <span className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                    <span className="w-5 h-5 bg-blue-600 -full flex items-center justify-center text-white text-xs font-bold shrink-0">
                       {inCart.quantity}
                     </span>
                   )}
@@ -1532,7 +1532,7 @@ function PriceTierPills({
             key={tier}
             type="button"
             onClick={() => onSelect(tier)}
-            className={`px-1.5 py-0.5 rounded text-xs font-semibold border transition-colors ${
+            className={`px-1.5 py-0.5  text-xs font-semibold border transition-colors ${
               item.priceTier === tier
                 ? "bg-blue-600 text-white border-blue-600"
                 : "bg-white text-gray-500 border-gray-300 hover:border-blue-400"

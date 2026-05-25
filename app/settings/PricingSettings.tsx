@@ -27,12 +27,12 @@ function Toggle({
       id={id}
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer -full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
         checked ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-200'
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-full w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+        className={`pointer-events-none inline-block h-full w-7 transform -full bg-white shadow ring-0 transition duration-200 ease-in-out ${
           checked ? 'translate-x-8' : 'translate-x-0'
         }`}
       >

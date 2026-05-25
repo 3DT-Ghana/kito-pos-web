@@ -68,7 +68,7 @@ export default function InvoiceDetailPage() {
     }
   }
 
-  if (loading) return <AdminLayout><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div></AdminLayout>
+  if (loading) return <AdminLayout><div className="flex items-center justify-center py-16"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div></AdminLayout>
   if (!invoice) return <AdminLayout><p className="text-sm text-red-500">Invoice not found.</p></AdminLayout>
 
   const transitions = getAllowedInvoiceTransitions(invoice.status as InvoiceStatus)
@@ -86,7 +86,7 @@ export default function InvoiceDetailPage() {
               <p className="text-sm text-gray-500 mt-0.5">{invoice.tenantName}</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${STATUS_STYLE[invoice.status]}`}>
+              <span className={`text-xs px-2.5 py-1 -full font-semibold ${STATUS_STYLE[invoice.status]}`}>
                 {invoice.status}
               </span>
               <button onClick={() => window.print()} className="p-2 border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
@@ -190,7 +190,7 @@ export default function InvoiceDetailPage() {
                 </div>
                 <div className="text-right">
                   <p className="font-semibold text-emerald-700">GHS {c.commissionAmount.toFixed(2)}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${c.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                  <span className={`text-xs px-2 py-0.5 -full ${c.status === 'PAID' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                     {c.status}
                   </span>
                 </div>

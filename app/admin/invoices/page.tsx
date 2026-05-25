@@ -82,7 +82,7 @@ function InvoicesPageContent() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : invoices.length === 0 ? (
           <div className="bg-white border border-gray-200 p-12 text-center">
@@ -100,7 +100,7 @@ function InvoicesPageContent() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-mono font-semibold text-gray-900">{inv.invoiceNumber}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
+                    <span className={`text-xs px-2 py-0.5 -full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
                       {inv.status}
                     </span>
                   </div>
@@ -144,7 +144,7 @@ export default function InvoicesPage() {
         <AdminLayout>
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center justify-center py-16">
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
             </div>
           </div>
         </AdminLayout>

@@ -81,11 +81,11 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
         <button
           type="button"
           onClick={() => setEnabled(v => !v)}
-          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${enabled ? 'bg-green-600' : 'bg-gray-300'}`}
+          className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer -full border-2 border-transparent transition-colors ${enabled ? 'bg-green-600' : 'bg-gray-300'}`}
           role="switch"
           aria-checked={enabled}
         >
-          <span className={`inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          <span className={`inline-block h-6 w-6 transform -full bg-white shadow-md transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
         </button>
       </div>
 

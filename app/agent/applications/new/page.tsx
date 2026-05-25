@@ -271,7 +271,7 @@ export default function NewApplicationPage() {
           return (
             <div key={label} className="flex items-center flex-1">
               <div className="flex flex-col items-center flex-1">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                <div className={`w-8 h-8 -full flex items-center justify-center text-xs font-bold transition-all ${
                   done ? 'bg-indigo-600 text-white' : active ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-600' : 'bg-gray-100 text-gray-400'
                 }`}>
                   {done ? '✓' : <Icon className="w-3.5 h-3.5" />}

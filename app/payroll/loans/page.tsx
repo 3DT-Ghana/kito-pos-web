@@ -103,7 +103,7 @@ export default function LoansPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div>
         ) : loans.length === 0 ? (
           <div className="bg-white border border-gray-200 px-5 py-10 text-center">
             <p className="text-sm text-gray-400">No loans found.</p>
@@ -134,7 +134,7 @@ export default function LoansPage() {
                     <td className="px-3 py-3 text-right font-semibold text-gray-900">GHS {loan.balanceAmount.toFixed(2)}</td>
                     <td className="px-3 py-3 text-right text-gray-500">GHS {loan.monthlyDeduction.toFixed(2)}</td>
                     <td className="px-3 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${loan.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                      <span className={`text-xs px-2 py-0.5 -full ${loan.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                         {loan.isActive ? 'Active' : 'Closed'}
                       </span>
                     </td>

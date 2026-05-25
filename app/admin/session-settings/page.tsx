@@ -65,7 +65,7 @@ export default function SessionSettingsPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
         </div>
       </AdminLayout>
     )
@@ -200,7 +200,7 @@ export default function SessionSettingsPage() {
           >
             {saving ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
                 Saving…
               </>
             ) : (

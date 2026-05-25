@@ -154,7 +154,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -291,7 +291,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
                         <p className="font-bold text-gray-800 text-sm">{formatCurrency(item.sellingPrice)}</p>
                         <p className={`text-xs ${outOfStock ? 'text-red-500' : 'text-gray-500'}`}>{outOfStock ? 'Out of stock' : `${item.quantity} left`}</p>
                       </div>
-                      {inCart && <span className="ml-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{inCart.quantity}</span>}
+                      {inCart && <span className="ml-1 w-5 h-5 bg-blue-600 -full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{inCart.quantity}</span>}
                     </button>
                   )
                 })}

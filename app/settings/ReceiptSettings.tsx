@@ -66,13 +66,13 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
               </label>
               <p className="text-sm text-gray-600 mt-2">
                 When enabled, item receipts will show:<br />
-                <span className="font-mono bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
+                <span className="font-mono bg-gray-100 px-2 py-1  mt-1 inline-block">
                   Sugar 1kg (Dangote)
                 </span>
               </p>
               <p className="text-sm text-gray-600 mt-2">
                 When disabled, receipts will only show:<br />
-                <span className="font-mono bg-gray-100 px-2 py-1 rounded mt-1 inline-block">
+                <span className="font-mono bg-gray-100 px-2 py-1  mt-1 inline-block">
                   Sugar 1kg
                 </span>
               </p>
@@ -82,12 +82,12 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                 id="showManufacturer"
                 type="button"
                 onClick={() => setShowManufacturer(!showManufacturer)}
-                className={`relative inline-flex h-12 w-24 flex-shrink-0 cursor-pointer rounded-full border-4 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                className={`relative inline-flex h-12 w-24 flex-shrink-0 cursor-pointer -full border-4 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                   showManufacturer ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-200'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-full w-10 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-full w-10 transform -full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                     showManufacturer ? 'translate-x-10' : 'translate-x-0'
                   }`}
                 >
@@ -126,7 +126,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                   <div className="text-xs text-gray-500 mt-1">Most portable printers</div>
                 </div>
                 {printerWidth === '58mm' && (
-                  <div className="bg-blue-600 rounded-full p-1">
+                  <div className="bg-blue-600 -full p-1">
                     <Check className="w-5 h-5 text-white" />
                   </div>
                 )}
@@ -149,7 +149,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                   <div className="text-xs text-gray-500 mt-1">Most receipt printers</div>
                 </div>
                 {printerWidth === '80mm' && (
-                  <div className="bg-blue-600 rounded-full p-1">
+                  <div className="bg-blue-600 -full p-1">
                     <Check className="w-5 h-5 text-white" />
                   </div>
                 )}

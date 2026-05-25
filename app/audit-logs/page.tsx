@@ -164,7 +164,7 @@ export default function AuditLogsPage() {
                     <span className="text-xl shrink-0">{ENTITY_ICONS[ent] || '📋'}</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ACTION_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-xs font-bold px-2 py-0.5 -full ${ACTION_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
                           {type}
                         </span>
                         <span className="text-sm font-semibold text-gray-800">{ent}</span>

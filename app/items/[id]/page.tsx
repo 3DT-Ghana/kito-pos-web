@@ -178,7 +178,7 @@ export default function ItemDetailPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900">{item.name}</h1>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${stockStatus.cls}`}>
+                <span className={`text-xs px-2 py-0.5 -full font-semibold ${stockStatus.cls}`}>
                   {stockStatus.label}
                 </span>
               </div>
@@ -286,7 +286,7 @@ export default function ItemDetailPage() {
                   : 'This item is currently marked as non-taxable.'}
               </p>
             </div>
-            <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm">
+            <div className="-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm">
               {productTaxSetting?.taxCalculationType === 'INCLUSIVE'
                 ? 'Tax Inclusive'
                 : productTaxSetting?.taxCalculationType === 'ADD_TO_PRICE'
@@ -322,7 +322,7 @@ export default function ItemDetailPage() {
               productTaxRates.map((rate: any) => (
                 <span
                   key={rate.id}
-                  className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900"
+                  className="-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900"
                 >
                   {formatTaxLabel({
                     taxName: rate.name,

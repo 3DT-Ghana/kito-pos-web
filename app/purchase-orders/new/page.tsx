@@ -194,7 +194,7 @@ export default function NewPurchaseOrderPage() {
                           <p className="text-xs text-gray-500">Cost: {formatCurrency(item.costPrice)}</p>
                         </div>
                         {inCart && (
-                          <span className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">{inCart.quantity}</span>
+                          <span className="w-5 h-5 bg-green-600 -full flex items-center justify-center text-white text-xs font-bold shrink-0">{inCart.quantity}</span>
                         )}
                       </button>
                     )
