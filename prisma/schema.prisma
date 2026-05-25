@@ -281,6 +281,7 @@ model Tenant {
   payrollRuns       PayrollRun[]
   payrollComponents PayrollComponent[]
   statutoryDeductions StatutoryDeduction[]
+  payrollDepartments  PayrollDepartment[]
 }
 
 // =====================
@@ -1593,4 +1594,15 @@ model LoanRepayment {
   paidAt        DateTime     @default(now())
 
   @@index([loanId])
+}
+
+model PayrollDepartment {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  name      String
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }

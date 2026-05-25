@@ -116,6 +116,12 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
       icon: '⚙️',
       items: [
         {
+          key: 'enableBranches',
+          label: 'Branches / Multi-Location',
+          icon: '🏪',
+          desc: 'Manage multiple store locations or warehouses. Each branch has its own inventory, sales, stock transfers, and cash register. Owner can view consolidated reports.',
+        },
+        {
           key: 'enableExpenses',
           label: 'Expenses',
           icon: '💸',
@@ -126,12 +132,6 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
           label: 'Till / Cash Register',
           icon: '🏧',
           desc: 'Manage shift cash register — open/close shifts, track float, cash sales, and end-of-shift variance.',
-        },
-        {
-          key: 'enableBranches',
-          label: 'Branches / Multi-Location',
-          icon: '🏪',
-          desc: 'Manage multiple store locations or warehouses. Each branch has its own inventory, sales, and cash register. Owner can view consolidated reports.',
         },
       ],
     },

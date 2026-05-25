@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useBranch } from '@/lib/branch/BranchContext'
-import { useTenantFeatures } from '@/hooks/useTenant'
+import { useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { useUser } from '@/hooks/useUser'
 import { formatDateTime } from '@/lib/utils/format'
 import { Pagination } from '@/components/ui/Pagination'
+import { GitBranch } from 'lucide-react'
 
 interface BranchOption {
   id: string
@@ -86,9 +87,11 @@ async function fetchSourceItemsData() {
 export default function TransfersPage() {
   const router = useRouter()
   const { user, isLoading: isUserLoading } = useUser()
+  const { tenantId } = useTenant()
   const { features, isLoading: isFeaturesLoading } = useTenantFeatures()
+  const [enabling, setEnabling] = useState(false)
+  const [enableError, setEnableError] = useState('')
   const {
-    branchesEnabled,
     currentBranchId,
     currentBranch,
     assignedBranchId,
@@ -166,7 +169,7 @@ export default function TransfersPage() {
     return () => {
       active = false
     }
-  }, [canManageTransfers, currentBranchId, features.enableBranches, statusFilter])
+  }, [canManageTransfers, features.enableBranches, currentBranchId, statusFilter])
 
   useEffect(() => {
     if (!canManageTransfers || !features.enableBranches || !currentBranchId) {
@@ -196,7 +199,7 @@ export default function TransfersPage() {
     return () => {
       active = false
     }
-  }, [canManageTransfers, currentBranchId, features.enableBranches])
+  }, [canManageTransfers, features.enableBranches, currentBranchId])
 
   const reloadTransfers = async () => {
     const data = await fetchTransfersData(statusFilter)
@@ -329,24 +332,56 @@ export default function TransfersPage() {
     )
   }
 
-  if (!features.enableBranches || !branchesEnabled) {
+  if (!features.enableBranches) {
+    const canEnable = user?.role && ['OWNER', 'STORE_MANAGER'].includes(user.role)
+
+    const handleEnable = async () => {
+      if (!tenantId) return
+      setEnabling(true)
+      setEnableError('')
+      try {
+        const res = await fetch(`/api/tenants/${tenantId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enableBranches: true }),
+        })
+        if (!res.ok) throw new Error('Failed to enable')
+        // Reload so features context refreshes
+        window.location.reload()
+      } catch {
+        setEnableError('Failed to enable. Please try again.')
+        setEnabling(false)
+      }
+    }
+
     return (
       <AppLayout>
-        <div className="max-w-3xl mx-auto space-y-5">
-          <div className="bg-white shadow-sm ring-1 ring-black/5 p-8 text-center space-y-3">
+        <div className="max-w-md mx-auto mt-16">
+          <div className="bg-white shadow-sm ring-1 ring-black/5 p-8 text-center space-y-4">
             <div className="w-14 h-14 bg-blue-50 flex items-center justify-center mx-auto">
-              <svg className="w-7 h-7 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" /></svg>
+              <GitBranch className="w-7 h-7 text-blue-600" strokeWidth={1.5} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Stock Transfers</h1>
-            <p className="text-gray-500">
-              Enable the branch feature first to move stock between locations.
+            <h1 className="text-xl font-bold text-gray-900">Branches Not Enabled</h1>
+            <p className="text-sm text-gray-500">
+              Stock transfers require the Branches feature. Enable it to move stock between locations.
             </p>
-            <button
-              onClick={() => router.push('/settings')}
-              className="px-5 py-2.5 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors"
-            >
-              Open Settings
-            </button>
+            {enableError && (
+              <p className="text-sm text-red-600">{enableError}</p>
+            )}
+            {canEnable ? (
+              <button
+                onClick={handleEnable}
+                disabled={enabling}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {enabling
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enabling…</>
+                  : 'Enable Branches'
+                }
+              </button>
+            ) : (
+              <p className="text-xs text-gray-400">Ask your Owner or Store Manager to enable Branches in Settings.</p>
+            )}
           </div>
         </div>
       </AppLayout>

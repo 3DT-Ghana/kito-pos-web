@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { Users, Plus, X, Pencil } from 'lucide-react'
+import { Users, Plus, X, Pencil, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils/format'
 import { Pagination } from '@/components/ui/Pagination'
 
@@ -56,6 +56,49 @@ export default function EmployeesPage() {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 20
 
+  // Departments
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
+  const [newDeptName, setNewDeptName] = useState('')
+  const [addingDept, setAddingDept] = useState(false)
+  const [showDeptInput, setShowDeptInput] = useState(false)
+
+  const loadDepartments = useCallback(async () => {
+    try {
+      const res = await fetch('/api/payroll/departments')
+      if (!res.ok) return
+      const data = await res.json()
+      setDepartments(data.departments ?? [])
+    } catch { /* non-critical */ }
+  }, [])
+
+  const handleAddDept = async () => {
+    if (!newDeptName.trim()) return
+    setAddingDept(true)
+    try {
+      const res = await fetch('/api/payroll/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newDeptName.trim() }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setDepartments(prev => [...prev, data.department].sort((a, b) => a.name.localeCompare(b.name)))
+        setForm(f => ({ ...f, department: data.department.name }))
+        setNewDeptName('')
+        setShowDeptInput(false)
+      }
+    } finally {
+      setAddingDept(false)
+    }
+  }
+
+  const handleDeleteDept = async (id: string, name: string) => {
+    if (!confirm(`Delete department "${name}"? Employees assigned to it will keep the name but it won't appear in the list.`)) return
+    await fetch(`/api/payroll/departments/${id}`, { method: 'DELETE' })
+    setDepartments(prev => prev.filter(d => d.id !== id))
+    if (form.department === name) setForm(f => ({ ...f, department: '' }))
+  }
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
@@ -73,7 +116,7 @@ export default function EmployeesPage() {
     }
   }, [activeOnly, deptFilter])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load(); loadDepartments() }, [load, loadDepartments])
   useEffect(() => setPage(1), [activeOnly, deptFilter])
 
   const openCreate = () => {
@@ -141,8 +184,6 @@ export default function EmployeesPage() {
     load()
   }
 
-  const departments = [...new Set(employees.map(e => e.department).filter(Boolean))] as string[]
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -168,7 +209,7 @@ export default function EmployeesPage() {
             <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
               className="border-2 border-gray-300 px-3 py-1.5 text-sm font-medium focus:outline-none focus:border-blue-500">
               <option value="">All Departments</option>
-              {departments.map(d => <option key={d} value={d}>{d}</option>)}
+              {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
             </select>
           )}
           <span className="text-sm text-gray-500 ml-auto">{employees.length} employee{employees.length !== 1 ? 's' : ''}</span>
@@ -349,7 +390,57 @@ export default function EmployeesPage() {
                       </div>
                       <div>
                         <label className={LABEL}>Department</label>
-                        <input value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} className={INPUT} placeholder="e.g. Sales, Finance" />
+                        <div className="flex gap-2">
+                          <select
+                            value={form.department}
+                            onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                            className={`${INPUT} flex-1`}
+                          >
+                            <option value="">— None —</option>
+                            {departments.map(d => (
+                              <option key={d.id} value={d.name}>{d.name}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => { setShowDeptInput(v => !v); setNewDeptName('') }}
+                            title="Add new department"
+                            className="px-3 border-2 border-gray-300 hover:border-blue-500 hover:bg-blue-50 text-blue-600 font-bold text-lg transition"
+                          >+</button>
+                        </div>
+                        {showDeptInput && (
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              autoFocus
+                              value={newDeptName}
+                              onChange={e => setNewDeptName(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddDept() } if (e.key === 'Escape') setShowDeptInput(false) }}
+                              placeholder="New department name"
+                              className={`${INPUT} flex-1`}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddDept}
+                              disabled={addingDept || !newDeptName.trim()}
+                              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-50 transition"
+                            >{addingDept ? '…' : 'Add'}</button>
+                            <button type="button" onClick={() => setShowDeptInput(false)} className="px-3 py-2 border-2 border-gray-300 text-gray-600 hover:bg-gray-50 transition">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                        {departments.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {departments.map(d => (
+                              <span key={d.id} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5">
+                                {d.name}
+                                <button type="button" onClick={() => handleDeleteDept(d.id, d.name)} className="text-gray-400 hover:text-red-500 transition">
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <label className={LABEL}>Employment Type</label>
