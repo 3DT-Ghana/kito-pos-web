@@ -43,7 +43,10 @@ export default withAuth(
     const isPublicApi =
       isAuthApi ||
       pathname.startsWith('/api/tenants') ||
-      pathname.startsWith('/api/agent/register')
+      pathname.startsWith('/api/agent/register') ||
+      // session-settings GET is read by useIdleTimeout on every authenticated page
+      // — it must be accessible without a super-admin token
+      (pathname === '/api/admin/session-settings' && req.method === 'GET')
     const isSuperAdmin = token?.platformRole === 'SUPER_ADMIN'
     const isAdminPage = pathname.startsWith('/admin')
     const isAdminApi = pathname.startsWith('/api/admin/')

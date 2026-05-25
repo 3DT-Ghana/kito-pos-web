@@ -304,6 +304,93 @@ export default function PosPage() {
   useEffect(() => { searchRef.current?.focus() }, [])
   useEffect(() => { setHolds(loadHolds()) }, [])
 
+  // ── Barcode scanner state ────────────────────────────────────────────────────
+  const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null)
+  const [scanError, setScanError]                 = useState<string>('')
+  const cartEndRef = useRef<HTMLDivElement>(null)
+
+  // Stable refs so the scanner effect reads fresh data without re-registering.
+  const allItemsRef = useRef(allItems)
+  useEffect(() => { allItemsRef.current = allItems }, [allItems])
+
+  // ── Global barcode scanner capture ──────────────────────────────────────────
+  // Industry POS scanner flow:
+  //   1. Cashier scans → item added/incremented instantly, NO search interaction
+  //   2. Repeated scans of same barcode increment qty
+  //   3. Scanned line highlighted; numpad auto-targets its qty
+  //   4. Manual search still works for keyboard lookup
+  //
+  // Detection: scanners emit all chars + Enter in < 50ms per char total.
+  // We buffer ALL keydown events. On Enter, if chars arrived fast → scanner.
+  // If chars arrived slowly (human typing in the search box) → ignore buffer,
+  // let the search input's own onChange + handleSearchKey handle it.
+  useEffect(() => {
+    let scanBuffer   = ''
+    let lastKeyTime  = 0
+    let scanTimer: ReturnType<typeof setTimeout> | null = null
+
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      const now    = Date.now()
+      const target = e.target as HTMLElement
+      const tag    = target.tagName
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+
+      if (e.key === 'Enter') {
+        // A scanner fires Enter right after the last char — gap < 50ms.
+        // Human pressing Enter in search box has gap >> 50ms.
+        const isScan = scanBuffer.length >= 3 && (now - lastKeyTime) < 80
+        if (isScan) {
+          e.preventDefault()
+          const code = scanBuffer.trim()
+          scanBuffer = ''
+          if (scanTimer) { clearTimeout(scanTimer); scanTimer = null }
+
+          const item = allItemsRef.current.find(i => i.barcode === code)
+          if (item) {
+            setScanError('')
+            addToCartRef.current(item)             // increments qty if already in cart
+            setLastScannedItemId(item.id)
+            // Flash highlight for 1.5 s then clear
+            setTimeout(() => setLastScannedItemId(null), 1500)
+            // Scroll cart to bottom so newly added line is visible
+            setTimeout(() => cartEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30)
+          } else {
+            setScanError(`Barcode not found: ${code}`)
+            setTimeout(() => setScanError(''), 3000)
+          }
+          // Keep search box clean — scanner result never contaminates search
+          setSearch('')
+        }
+        scanBuffer = ''
+        return
+      }
+
+      // Ignore modifier / function keys
+      if (e.key.length > 1) return
+
+      lastKeyTime  = now
+      scanBuffer  += e.key
+
+      // If not in a text field, redirect keystrokes to search so manual typing works
+      if (!inInput) {
+        setSearch(prev => prev + e.key)
+        setActiveGroup('ALL')
+        searchRef.current?.focus()
+        e.preventDefault()
+      }
+
+      // Reset buffer if no Enter within 300 ms
+      if (scanTimer) clearTimeout(scanTimer)
+      scanTimer = setTimeout(() => { scanBuffer = '' }, 300)
+    }
+
+    document.addEventListener('keydown', handleGlobalKey)
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKey)
+      if (scanTimer) clearTimeout(scanTimer)
+    }
+  }, []) // stable — registers once
+
   // ── Customer search ─────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -382,6 +469,10 @@ export default function PosPage() {
     setSearch('')
     searchRef.current?.focus()
   }
+
+  // Stable ref so the scanner effect always calls the latest addToCart without re-registering.
+  const addToCartRef = useRef(addToCart)
+  useEffect(() => { addToCartRef.current = addToCart }, [addToCart])
 
   const removeFromCart = (idx: number) => {
     setCart(prev => prev.filter((_, i) => i !== idx))
@@ -815,90 +906,63 @@ export default function PosPage() {
   )
 
   // ── Numpad ──────────────────────────────────────────────────────────────────
-  // mobile prop: when true renders the drawer control bar (show/hide/dock)
-  const Numpad = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="bg-white">
-      {/* Mobile drawer control bar */}
-      {mobile && (
-        <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-gray-100">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            {numpadTarget === 'qty'
-              ? `Qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
-              : numpadTarget === 'price'
-              ? `Price${priceBuffer ? ` → ${priceBuffer}` : ''}`
-              : numpadTarget === 'lineDiscount'
-              ? `Discount${discountBuffer ? ` → ${discountBuffer}` : ''}`
-              : 'Numpad'}
-          </span>
-          <div className="flex items-center gap-1">
-            {/* Dock toggle */}
-            <button
-              onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
-              title={numpadDrawer === 'docked' ? 'Make drawer' : 'Dock numpad'}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold transition-colors ${
-                numpadDrawer === 'docked'
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {numpadDrawer === 'docked' ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                  Drawer
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  Dock
-                </>
-              )}
-            </button>
-            {/* Hide button */}
-            <button
-              onClick={() => setNumpadDrawer('hidden')}
-              title="Hide numpad"
-              className="p-1.5 bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+  const Numpad = ({ mobile = false }: { mobile?: boolean }) => {
+    const isQty      = numpadTarget === 'qty'
+    const isPrice    = numpadTarget === 'price'
+    const isDiscount = numpadTarget === 'lineDiscount'
+    const displayVal = isQty ? numpadBuffer : isPrice ? priceBuffer : isDiscount ? discountBuffer : tendered
+    const label      = isQty ? 'QTY' : isPrice ? 'PRICE' : isDiscount ? 'DISC' : 'CASH'
 
-      <div className="px-3 py-2">
-        {/* Context label — desktop only (mobile shows it in the bar above) */}
-        {!mobile && numpadTarget !== 'tendered' && (
-          <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1">
-            {numpadTarget === 'qty'
-              ? `Setting qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
-              : numpadTarget === 'price'
-              ? `Override price${priceBuffer ? ` → ${priceBuffer}` : ''}`
-              : `Setting discount${discountBuffer ? ` → ${discountBuffer}` : ''}`}
+    return (
+      <div className="bg-white select-none">
+        {/* Mobile drawer pill */}
+        {mobile && (
+          <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-gray-100">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+            <div className="flex gap-1">
+              <button onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
+                className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600">
+                {numpadDrawer === 'docked' ? '↑ Drawer' : '↓ Dock'}
+              </button>
+              <button onClick={() => setNumpadDrawer('hidden')}
+                className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-500">✕</button>
+            </div>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-1.5">
-          {['7','8','9','4','5','6','1','2','3','.','0','←'].map(k => (
-            <button
-              key={k}
-              onClick={() => numpadPress(k)}
-              className="py-3 bg-gray-100 hover:bg-gray-200 text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
-            >
+
+        {/* Display screen */}
+        <div className="flex items-center justify-between px-3 py-2 bg-gray-900">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</span>
+          <span className="text-xl font-mono font-bold text-white tracking-wider">
+            {displayVal || '0'}
+          </span>
+        </div>
+
+        {/* Keys — 4×3 grid */}
+        <div className="grid grid-cols-3 gap-px bg-gray-200">
+          {['7','8','9','4','5','6','1','2','3','.',  '0','00'].map(k => (
+            <button key={k} onClick={() => numpadPress(k)}
+              className="py-3.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-lg font-semibold text-gray-800 touch-manipulation transition-colors">
               {k}
             </button>
           ))}
-          <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
-          <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
-          <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
+          {/* Bottom row: Clear | Backspace | Confirm */}
+          <button onClick={() => numpadPress('C')}
+            className="py-3.5 bg-red-50 hover:bg-red-100 active:bg-red-200 text-sm font-bold text-red-600 touch-manipulation transition-colors">
+            CLR
+          </button>
+          <button onClick={() => numpadPress('←')}
+            className="py-3.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-lg font-bold text-gray-600 touch-manipulation transition-colors">
+            ⌫
+          </button>
+          <button onClick={() => numpadPress('✓')}
+            className="py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 text-lg font-bold text-white touch-manipulation transition-colors">
+            ✓
+          </button>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // ── Cart line row (shared between mobile and desktop) ───────────────────────
   const canEditPrice =
@@ -906,7 +970,7 @@ export default function PosPage() {
     user?.role === 'STORE_MANAGER' ||
     user?.role === 'BRANCH_MANAGER'
 
-  const CartLineRow = ({ line, idx, mobile = false }: { line: CartLine; idx: number; mobile?: boolean }) => {
+  const CartLineRow = ({ line, idx, mobile = false, flash = false }: { line: CartLine; idx: number; mobile?: boolean; flash?: boolean }) => {
     const isSelected = selectedCartIdx === idx
     const tierOptions: { key: PriceTier; label: string }[] = [
       { key: 'sellingPrice', label: 'Default' },
@@ -918,7 +982,7 @@ export default function PosPage() {
 
     return (
       <div
-        className={`px-3 py-2.5 border-b border-gray-100 transition-colors ${isSelected ? 'bg-indigo-50' : ''}`}
+        className={`px-3 py-2.5 border-b border-gray-100 transition-colors ${flash ? 'bg-green-50 border-l-4 border-l-green-500' : isSelected ? 'bg-indigo-50' : ''}`}
       >
         {/* Main row */}
         <div className="flex items-center gap-2">
@@ -1057,129 +1121,88 @@ export default function PosPage() {
 
   // ── Payment panel (shared) ──────────────────────────────────────────────────
   const PaymentPanel = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className={mobile ? 'px-3 pb-2' : 'px-3 pb-3'}>
-      {/* Order-level discount */}
-      {features.enableDiscounts && (
-        <div className="mb-2">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">Order Discount</p>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setOrderDiscountMode('pct')}
-              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
-            >%</button>
-            <button
-              onClick={() => setOrderDiscountMode('fixed')}
-              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
-            >GHS</button>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={orderDiscountValue}
+    <div className="flex flex-col">
+      {/* ── Totals ── */}
+      <div className="px-3 pt-2 pb-1 bg-gray-50 border-t border-gray-200 space-y-0.5">
+        {features.enableDiscounts && (
+          <div className="flex items-center gap-1.5 mb-1">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">Disc</span>
+            <div className="flex border border-gray-200 overflow-hidden">
+              <button onClick={() => setOrderDiscountMode('pct')}
+                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
+              <button onClick={() => setOrderDiscountMode('fixed')}
+                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>GHS</button>
+            </div>
+            <input type="number" inputMode="decimal" value={orderDiscountValue}
               onChange={e => setOrderDiscountValue(e.target.value)}
-              placeholder={orderDiscountMode === 'pct' ? '0%' : '0.00'}
-              className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
-            />
+              placeholder="0"
+              className="w-20 px-2 py-0.5 border border-gray-200 text-xs font-bold focus:border-indigo-400 focus:outline-none" />
+            {orderDiscountNum > 0 && <span className="text-xs text-green-700 font-semibold">−{formatCurrency(orderDiscountNum)}</span>}
           </div>
-          {orderDiscountNum > 0 && (
-            <p className="text-xs text-green-700 font-semibold mt-1">Saving {formatCurrency(orderDiscountNum)}</p>
-          )}
-        </div>
-      )}
-
-      {/* Totals summary */}
-      <div className="bg-gray-50 px-3 py-2.5 mb-2 space-y-1">
+        )}
         {cartSubtotal !== grandTotal && (
           <div className="flex justify-between text-xs text-gray-500">
             <span>Subtotal</span><span>{formatCurrency(cartSubtotal)}</span>
           </div>
         )}
-        {orderDiscountNum > 0 && (
-          <div className="flex justify-between text-xs text-green-700 font-semibold">
-            <span>Discount</span><span>− {formatCurrency(orderDiscountNum)}</span>
+        <div className="flex justify-between items-baseline">
+          <span className="text-sm font-bold text-gray-600">TOTAL</span>
+          <span className="text-2xl font-black text-gray-900 tracking-tight">{formatCurrency(grandTotal)}</span>
+        </div>
+        {/* Cash change / short */}
+        {method === 'CASH' && tenderedNum > 0 && change >= 0 && (
+          <div className="flex justify-between text-sm font-bold text-green-700">
+            <span>Change</span><span>{formatCurrency(change)}</span>
           </div>
         )}
-        <div className="flex justify-between font-bold text-base text-gray-900">
-          <span>TOTAL</span><span>{formatCurrency(grandTotal)}</span>
-        </div>
+        {method === 'CASH' && tenderedNum > 0 && change < 0 && (
+          <div className="flex justify-between text-sm font-bold text-red-600">
+            <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
+          </div>
+        )}
+        {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
+          <p className="text-[10px] text-amber-700">{formatCurrency(Math.abs(change))} added to {selectedCustomer.name}&apos;s balance</p>
+        )}
       </div>
 
-      {/* Payment method */}
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
+      {/* ── Payment method tabs ── */}
+      <div className="grid grid-cols-3 border-b border-gray-200">
         {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
-          <button
-            key={m}
-            onClick={() => setMethod(m)}
-            className={`py-2.5 text-xs font-bold border-2 transition-colors touch-manipulation ${
-              method === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-            }`}
-          >
+          <button key={m} onClick={() => { setMethod(m); if (m !== 'CASH') { setTendered(''); setNumpadTarget('tendered') } }}
+            className={`py-2 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
+              method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
+            }`}>
             {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'} {m}
           </button>
         ))}
       </div>
 
-      {/* Tendered */}
-      {method === 'CASH' && (
-        <div className="mb-2">
-          <input
-            type="number"
-            inputMode="decimal"
-            value={tendered}
-            onChange={e => setTendered(e.target.value)}
-            onFocus={() => setNumpadTarget('tendered')}
-            placeholder={`Tendered (e.g. ${grandTotal > 0 ? grandTotal.toFixed(2) : '0.00'})`}
-            className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
-          />
-          {tendered && change >= 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5">
-              <span>Change</span><span>{formatCurrency(change)}</span>
-            </div>
-          )}
-          {tendered && change < 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-red-600 bg-red-50 px-3 py-1.5">
-              <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
-            </div>
-          )}
+      {/* ── Numpad (cash tendered) — always visible on desktop ── */}
+      {!mobile && (
+        <div onClick={() => { if (numpadTarget !== 'qty' && numpadTarget !== 'price' && numpadTarget !== 'lineDiscount') setNumpadTarget('tendered') }}>
+          <Numpad />
         </div>
       )}
 
-      {/* Credit sale indicator */}
-      {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
-        <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
-          {formatCurrency(Math.abs(change))} will be added to {selectedCustomer.name}&apos;s balance
-        </div>
-      )}
+      {/* ── Note + errors ── */}
+      <div className="px-3 py-2 space-y-1.5 border-t border-gray-100">
+        <input type="text" value={note} onChange={e => setNote(e.target.value)}
+          placeholder="Sale note (optional)"
+          className="w-full px-2.5 py-1.5 border border-gray-200 text-xs focus:border-indigo-400 focus:outline-none" />
+        {errorMsg  && <p className="text-xs text-red-600 bg-red-50 px-2 py-1">{errorMsg}</p>}
+        {noticeMsg && <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1">{noticeMsg}</p>}
+      </div>
 
-      {/* Note */}
-      <input
-        type="text"
-        value={note}
-        onChange={e => setNote(e.target.value)}
-        placeholder="Sale note (optional)"
-        className="w-full px-3 py-2 border-2 border-gray-200 text-xs focus:border-indigo-400 focus:outline-none mb-2"
-      />
-
-      {errorMsg && (
-        <p className="text-xs text-red-600 bg-red-50 px-2 py-1.5 mb-2">{errorMsg}</p>
-      )}
-      {noticeMsg && (
-        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 mb-2">{noticeMsg}</p>
-      )}
-
+      {/* ── Charge button ── */}
       <button
         onClick={() => {
-          if (cartNeedsApproval()) {
-            setPinDigits('')
-            setPinError('')
-            setShowPinModal(true)
-          } else {
-            handleCheckout()
-          }
+          if (cartNeedsApproval()) { setPinDigits(''); setPinError(''); setShowPinModal(true) }
+          else handleCheckout()
         }}
         disabled={cart.length === 0 || isSubmitting}
-        className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-base transition-colors active:scale-95 shadow-md touch-manipulation"
+        className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
       >
-        {isSubmitting ? 'Processing…' : `✓ Charge ${formatCurrency(grandTotal)}`}
+        {isSubmitting ? 'Processing…' : `CHARGE  ${formatCurrency(grandTotal)}`}
       </button>
     </div>
   )
@@ -1557,17 +1580,17 @@ export default function PosPage() {
         {/* ── DESKTOP layout (md+) ──────────────────────────────────────────── */}
         <div className="hidden md:flex flex-1 overflow-hidden">
 
-          {/* LEFT — search + category picker or item grid */}
-          <div className="flex flex-col flex-1 overflow-hidden">
+          {/* LEFT — search + category picker or item grid  70% */}
+          <div className="flex flex-col overflow-hidden" style={{ flex: '0 0 70%' }}>
             <SearchBar searchRef={searchRef} search={search} setSearch={setSearch} setActiveGroup={setActiveGroup} handleSearchKey={handleSearchKey} features={features} globalTier={globalTier} setGlobalTier={setGlobalTier} />
             {showCategoryPicker
-              ? <CategoryPicker cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
-              : <ItemGrid cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+              ? <CategoryPicker cols="grid-cols-3 lg:grid-cols-4" />
+              : <ItemGrid cols="grid-cols-3 lg:grid-cols-4" />
             }
           </div>
 
-          {/* RIGHT — cart + controls */}
-          <div className="flex flex-col w-80 xl:w-96 bg-white border-l border-gray-200 shrink-0 overflow-hidden">
+          {/* RIGHT — cart + controls  30% */}
+          <div className="flex flex-col bg-white border-l border-gray-200 overflow-hidden" style={{ flex: '0 0 30%' }}>
 
             {/* Customer */}
             <div className="px-3 pt-3 pb-1 border-b border-gray-100 shrink-0">
@@ -1584,25 +1607,37 @@ export default function PosPage() {
               )}
             </div>
 
+            {/* Scan error banner */}
+            {scanError && (
+              <div className="shrink-0 bg-red-50 border-b border-red-200 px-3 py-2 text-xs font-semibold text-red-700">
+                ⚠ {scanError}
+              </div>
+            )}
+
             {/* Cart lines */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-gray-300">
                   <span className="text-4xl mb-2">🛒</span>
-                  <p className="text-sm">Cart is empty</p>
+                  <p className="text-sm">Scan or search to add items</p>
                 </div>
               ) : (
-                cart.map((line, idx) => <CartLineRow key={line.itemId} line={line} idx={idx} />)
+                <>
+                  {cart.map((line, idx) => (
+                    <CartLineRow
+                      key={line.itemId}
+                      line={line}
+                      idx={idx}
+                      flash={line.itemId === lastScannedItemId}
+                    />
+                  ))}
+                  <div ref={cartEndRef} />
+                </>
               )}
             </div>
 
-            {/* Numpad */}
-            <div className="shrink-0 border-t border-gray-100">
-              <Numpad />
-            </div>
-
-            {/* Payment */}
-            <div className="shrink-0 border-t border-gray-100 overflow-y-auto max-h-72">
+            {/* Payment panel (includes numpad + charge button) */}
+            <div className="shrink-0 overflow-y-auto">
               <PaymentPanel />
             </div>
           </div>
@@ -1635,6 +1670,11 @@ export default function PosPage() {
           {/* Items tab */}
           {mobileTab === 'items' && (
             <div className="flex flex-col flex-1 overflow-hidden">
+              {scanError && (
+                <div className="shrink-0 bg-red-50 border-b border-red-200 px-3 py-2 text-xs font-semibold text-red-700">
+                  ⚠ {scanError}
+                </div>
+              )}
               <SearchBar compact searchRef={searchRef} search={search} setSearch={setSearch} setActiveGroup={setActiveGroup} handleSearchKey={handleSearchKey} features={features} globalTier={globalTier} setGlobalTier={setGlobalTier} />
               {showCategoryPicker
                 ? <CategoryPicker cols="grid-cols-3 sm:grid-cols-4" />
@@ -1686,7 +1726,13 @@ export default function PosPage() {
                       <button onClick={clearCart} className="text-xs text-red-500 font-semibold">Clear all</button>
                     </div>
                     {cart.map((line, idx) => (
-                      <CartLineRow key={line.itemId} line={line} idx={idx} mobile />
+                      <CartLineRow
+                        key={line.itemId}
+                        line={line}
+                        idx={idx}
+                        mobile
+                        flash={line.itemId === lastScannedItemId}
+                      />
                     ))}
                   </>
                 )}
