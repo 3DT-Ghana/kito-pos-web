@@ -8,6 +8,7 @@ import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTen
 import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
+import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -746,6 +747,19 @@ export default function PosPage() {
       setIsSubmitting(false)
     }
   }
+
+  // ── Customer display (second screen) ────────────────────────────────────────
+  useCustomerDisplaySender({
+    cart,
+    grandTotal,
+    orderDiscountNum,
+    selectedCustomer,
+    method,
+    flashSuccess,
+    lastSaleData: lastSaleData
+      ? { total: lastSaleData.total, change: lastSaleData.change, method: lastSaleData.method, customerName: lastSaleData.customerName }
+      : null,
+  })
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -1589,6 +1603,15 @@ export default function PosPage() {
                 {holds.length}
               </span>
             )}
+          </button>
+
+          {/* Customer display second screen */}
+          <button
+            onClick={() => window.open('/pos/display', 'customer_display', 'noopener')}
+            title="Open customer display on second screen"
+            className="p-1.5 hover:bg-indigo-600 transition-colors text-base"
+          >
+            🖥
           </button>
 
           {user?.name && <span className="text-indigo-200 text-xs hidden sm:inline">Cashier: {user.name}</span>}
