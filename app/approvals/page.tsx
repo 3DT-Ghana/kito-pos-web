@@ -106,6 +106,13 @@ export default function ApprovalsPage() {
     if (tab !== 'PENDING') loadPendingCount()
   }, [tab, loadPendingCount])
 
+  // Auto-refresh pending tab every 10s so POS approvals appear quickly
+  useEffect(() => {
+    if (tab !== 'PENDING' || !canApprove) return
+    const interval = setInterval(() => load('PENDING'), 10000)
+    return () => clearInterval(interval)
+  }, [tab, canApprove, load])
+
   const handleAction = async () => {
     if (!actionState) return
     setErrorMsg('')

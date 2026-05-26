@@ -12,7 +12,7 @@ import { RolePermissionsSettings } from './RolePermissionsSettings'
 import { TaxSettings } from './TaxSettings'
 import { ApprovalPinSettings } from './ApprovalPinSettings'
 import { Settings as SettingsIcon } from 'lucide-react'
-import { type RolePermissionsMap, hasPermission, type Role } from '@/lib/permissions/rbac'
+import { Role, type RolePermissionsMap, hasPermission } from '@/lib/permissions/rbac'
 
 /**
  * Settings Page
@@ -35,7 +35,58 @@ export default async function SettingsPage() {
     redirect('/agent/dashboard')
   }
 
-  // Fetch tenant settings
+  const tenantAccess = await prisma.tenant.findUnique({
+    where: { id: user.tenantId },
+    select: {
+      id: true,
+      name: true,
+      rolePermissions: true,
+    },
+  })
+
+  if (!tenantAccess) {
+    redirect('/dashboard')
+  }
+
+  const rolePermissions = (tenantAccess.rolePermissions as RolePermissionsMap) ?? null
+  const canManageSettings = user.role === Role.OWNER
+  const canSetApprovalPin = hasPermission(
+    { role: user.role, rolePermissions },
+    'approve_transactions'
+  )
+
+  if (!canManageSettings && !canSetApprovalPin) {
+    redirect('/dashboard')
+  }
+
+  if (!canManageSettings) {
+    return (
+      <AppLayout>
+        <div className="space-y-6 max-w-3xl">
+          <div className="flex items-center gap-3">
+            <div className="bg-gray-100 p-3">
+              <SettingsIcon className="w-8 h-8 text-gray-700" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Approval Settings</h1>
+              <p className="text-gray-600 mt-1">
+                Manage your approval PIN for {tenantAccess.name}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border-2 border-blue-200 p-6 text-blue-900">
+            Full business settings are limited to the account owner. You can still manage your approval PIN here.
+          </div>
+
+          {canSetApprovalPin && <ApprovalPinSettings />}
+        </div>
+      </AppLayout>
+    )
+  }
+
+  // Fetch owner-only tenant settings after the access gate so sensitive fields
+  // are never loaded for non-owner users.
   const tenant = await prisma.tenant.findUnique({
     where: { id: user.tenantId },
     select: {
@@ -73,11 +124,6 @@ export default async function SettingsPage() {
   if (!tenant) {
     redirect('/dashboard')
   }
-
-  const canSetApprovalPin = hasPermission(
-    { role: user.role as Role, rolePermissions: (tenant.rolePermissions as RolePermissionsMap) ?? null },
-    'approve_transactions'
-  )
 
   return (
     <AppLayout>

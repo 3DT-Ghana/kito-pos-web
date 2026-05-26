@@ -239,6 +239,9 @@ export default function PosPage() {
   const [pinDigits, setPinDigits] = useState('')
   const [pinError, setPinError] = useState('')
   const [isPinVerifying, setIsPinVerifying] = useState(false)
+  // Pending approval state — sale submitted, waiting for PIN or manager to approve
+  const [pendingApprovalSaleId, setPendingApprovalSaleId] = useState<string | null>(null)
+  const [isPollingApproval, setIsPollingApproval] = useState(false)
 
   // Holds
   const [holds, setHolds] = useState<HeldOrder[]>([])
@@ -580,10 +583,8 @@ export default function PosPage() {
       if (key === '←') buf = buf.slice(0, -1)
       else if (key === 'C') buf = ''
       else if (key === '✓') {
-        // Close drawer; cart needs approval or just charge
         setShowNumpadDrawer(false)
-        if (cartNeedsApproval()) { setPinDigits(''); setPinError(''); setShowPinModal(true) }
-        else handleCheckout()
+        handleCheckout()
         return
       }
       else if (key === '.' && buf.includes('.')) { /* skip */ }
@@ -638,115 +639,179 @@ export default function PosPage() {
     return hasDiscount || hasPriceOverride || isCredit
   }
 
-  const handleCheckout = async (approvalGrant?: string) => {
+  // Called once a sale is confirmed approved (via PIN grant or manager page polling)
+  const onSaleApproved = (total: number, saleId: string) => {
+    const now = new Date()
+    setLastSaleData(prev => prev ?? {
+      id: saleId,
+      receiptNumber: saleId.slice(0, 8).toUpperCase(),
+      date: now.toLocaleDateString('en-GH'),
+      time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
+      items: cart.map(c => ({
+        name: c.name,
+        qty: c.qty,
+        unitPrice: c.basePrice,
+        lineTotal: lineTotal(c),
+        lineTaxAmount: 0,
+      })),
+      subtotal: cartSubtotal,
+      taxAmount: 0,
+      taxLines: [],
+      orderDiscount: orderDiscountNum,
+      total,
+      paidAmount: total,
+      change: 0,
+      method,
+      customerName: selectedCustomer?.name ?? '',
+      note,
+    })
+    setFlashSuccess(true)
+    setPendingApprovalSaleId(null)
+    setIsPollingApproval(false)
+    setTimeout(() => {
+      setFlashSuccess(false)
+      setShowReceipt(true)
+      clearCart()
+      setTendered('')
+      setNumpadBuffer('')
+      setSelectedCustomer(null)
+      setCustomerQuery('')
+      setOrderDiscountValue('')
+      setNote('')
+      setMobileTab('items')
+      loadItems()
+      searchRef.current?.focus()
+    }, 1500)
+  }
+
+  const buildSaleBody = () => {
+    const paidAmount = method === 'CASH'
+      ? (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)
+      : grandTotal
+    return {
+      customerId: selectedCustomer?.id ?? null,
+      items: cart.map(c => ({
+        itemId: c.itemId,
+        quantity: c.qty,
+        price: c.basePrice,
+        discountAmount: resolvedLineDiscount(c) + (orderDiscountNum > 0 && cartSubtotal > 0
+          ? orderDiscountNum * (lineTotal(c) / cartSubtotal)
+          : 0),
+      })),
+      paidAmount,
+      paymentMethod: method,
+      note,
+    }
+  }
+
+  const finaliseSaleResult = (result: Record<string, unknown>, paidAmount: number) => {
+    const saleTaxBreakdown = summariseTaxBreakdown((result.taxLines ?? []) as Parameters<typeof summariseTaxBreakdown>[0])
+    const now = new Date()
+    setLastSaleData({
+      id: (result.id ?? result.data as { id?: string } | null ?? '') as string,
+      receiptNumber: ((result.id as string | undefined)?.slice(0, 8).toUpperCase()) ?? '—',
+      date: now.toLocaleDateString('en-GH'),
+      time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
+      items: ((result.items ?? []) as { quantity: number; price: number; lineTotalAmount?: number; lineTaxAmount?: number; item?: { name: string } }[]).map(line => ({
+        name: line.item?.name ?? 'Item',
+        qty: line.quantity,
+        unitPrice: line.price,
+        lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
+        lineTaxAmount: line.lineTaxAmount ?? 0,
+      })),
+      subtotal: (result.subtotalAmount as number | undefined) ?? cartSubtotal,
+      taxAmount: (result.taxAmount as number | undefined) ?? 0,
+      taxLines: saleTaxBreakdown,
+      orderDiscount: orderDiscountNum,
+      total: (result.totalAmount as number | undefined) ?? grandTotal,
+      paidAmount: (result.paidAmount as number | undefined) ?? paidAmount,
+      change:
+        ((result.paymentMethod ?? method) as string) === 'CASH' &&
+        tenderedNum > ((result.totalAmount as number | undefined) ?? grandTotal)
+          ? tenderedNum - ((result.totalAmount as number | undefined) ?? grandTotal)
+          : 0,
+      method: (result.paymentMethod as PaymentMethod | undefined) ?? method,
+      customerName: (result as { customer?: { name?: string } }).customer?.name ?? selectedCustomer?.name ?? '',
+      note,
+    })
+    setFlashSuccess(true)
+    setTimeout(() => {
+      setFlashSuccess(false)
+      setShowReceipt(true)
+      clearCart()
+      setTendered('')
+      setNumpadBuffer('')
+      setSelectedCustomer(null)
+      setCustomerQuery('')
+      setOrderDiscountValue('')
+      setNote('')
+      setMobileTab('items')
+      loadItems()
+      searchRef.current?.focus()
+    }, 1500)
+  }
+
+  const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return
     setErrorMsg('')
     setNoticeMsg('')
     setIsSubmitting(true)
     try {
-      const paidAmount = method === 'CASH'
-        ? (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)
-        : grandTotal
-
+      const body = buildSaleBody()
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: selectedCustomer?.id ?? null,
-          items: cart.map(c => ({
-            itemId: c.itemId,
-            quantity: c.qty,
-            price: c.basePrice,
-            discountAmount: resolvedLineDiscount(c) + (orderDiscountNum > 0 && cartSubtotal > 0
-              ? orderDiscountNum * (lineTotal(c) / cartSubtotal)  // prorate order discount
-              : 0),
-          })),
-          paidAmount,
-          paymentMethod: method,
-          note,
-          ...(approvalGrant ? { approvalGrant } : {}),
-        }),
+        body: JSON.stringify(body),
       })
 
       const result = await res.json()
 
       if (res.status === 202 && result.requiresApproval) {
-        setNoticeMsg(result.message ?? 'This sale was submitted for approval and is waiting for a manager.')
-        clearCart()
-        setTendered('')
-        setNumpadBuffer('')
-        setSelectedCustomer(null)
-        setCustomerQuery('')
-        setOrderDiscountValue('')
-        setNote('')
-        setMobileTab('items')
-        loadItems()
-        searchRef.current?.focus()
+        // Sale submitted as pending — show PIN modal and start polling for manager approval
+        setPendingApprovalSaleId(result.saleId)
+        setPinDigits('')
+        setPinError('')
+        setShowPinModal(true)
+        setIsPollingApproval(true)
         return
       }
 
       if (!res.ok) {
-        const err = result
-        throw new Error(err.error || 'Failed to record sale')
+        throw new Error(result.error || 'Failed to record sale')
       }
 
-      const saleTaxBreakdown = summariseTaxBreakdown(result.taxLines ?? [])
-
-      const now = new Date()
-      setLastSaleData({
-        id: result.id ?? result.data?.id ?? '',
-        receiptNumber: result.id?.slice(0, 8).toUpperCase() ?? '—',
-        date: now.toLocaleDateString('en-GH'),
-        time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
-        items: (result.items ?? []).map((line: {
-          quantity: number
-          price: number
-          lineTotalAmount?: number
-          lineTaxAmount?: number
-          item?: { name: string }
-        }) => ({
-          name: line.item?.name ?? 'Item',
-          qty: line.quantity,
-          unitPrice: line.price,
-          lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
-          lineTaxAmount: line.lineTaxAmount ?? 0,
-        })),
-        subtotal: result.subtotalAmount ?? cartSubtotal,
-        taxAmount: result.taxAmount ?? 0,
-        taxLines: saleTaxBreakdown,
-        orderDiscount: orderDiscountNum,
-        total: result.totalAmount ?? grandTotal,
-        paidAmount: result.paidAmount ?? paidAmount,
-        change:
-          (result.paymentMethod ?? method) === 'CASH' &&
-          tenderedNum > (result.totalAmount ?? grandTotal)
-            ? tenderedNum - (result.totalAmount ?? grandTotal)
-            : 0,
-        method: result.paymentMethod ?? method,
-        customerName: result.customer?.name ?? selectedCustomer?.name ?? '',
-        note,
-      })
-      setFlashSuccess(true)
-      setTimeout(() => {
-        setFlashSuccess(false)
-        setShowReceipt(true)
-        clearCart()
-        setTendered('')
-        setNumpadBuffer('')
-        setSelectedCustomer(null)
-        setCustomerQuery('')
-        setOrderDiscountValue('')
-        setNote('')
-        setMobileTab('items')
-        loadItems()
-        searchRef.current?.focus()
-      }, 1500)
+      finaliseSaleResult(result, body.paidAmount)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Checkout failed')
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  // Poll for manager-side approval while PIN modal is open
+  useEffect(() => {
+    if (!isPollingApproval || !pendingApprovalSaleId || !showPinModal) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/sales/${pendingApprovalSaleId}`)
+        if (!res.ok) return
+        const sale = await res.json()
+        if (sale.approvalStatus === 'APPROVED') {
+          setShowPinModal(false)
+          setPinDigits('')
+          onSaleApproved(sale.totalAmount, sale.id)
+        } else if (sale.approvalStatus === 'REJECTED') {
+          setShowPinModal(false)
+          setPinDigits('')
+          setPendingApprovalSaleId(null)
+          setIsPollingApproval(false)
+          setErrorMsg('Sale was rejected by the manager.')
+        }
+      } catch { /* ignore network hiccups */ }
+    }, 3000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPollingApproval, pendingApprovalSaleId, showPinModal])
 
   // ── Customer display (second screen) ────────────────────────────────────────
   useCustomerDisplaySender({
@@ -1237,8 +1302,7 @@ export default function PosPage() {
             setShowNumpadDrawer(true)
             return
           }
-          if (cartNeedsApproval()) { setPinDigits(''); setPinError(''); setShowPinModal(true) }
-          else handleCheckout()
+          handleCheckout()
         }}
         disabled={cart.length === 0 || isSubmitting}
         className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
@@ -1447,13 +1511,29 @@ export default function PosPage() {
         body: JSON.stringify({ pin }),
       })
       const data = await res.json()
-      if (data.valid) {
-        setShowPinModal(false)
-        setPinDigits('')
-        handleCheckout(data.grant)
-      } else {
+      if (!data.valid) {
         setPinError(data.error ?? 'Invalid PIN')
         setPinDigits('')
+        return
+      }
+
+      if (pendingApprovalSaleId) {
+        // Sale already submitted as pending — approve it directly with the grant
+        const approveRes = await fetch(`/api/sales/${pendingApprovalSaleId}/approve-with-grant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grant: data.grant }),
+        })
+        if (approveRes.ok) {
+          setIsPollingApproval(false)
+          setShowPinModal(false)
+          setPinDigits('')
+          onSaleApproved(grandTotal, pendingApprovalSaleId)
+        } else {
+          const err = await approveRes.json()
+          setPinError(err.error ?? 'Approval failed')
+          setPinDigits('')
+        }
       }
     } catch {
       setPinError('Verification failed. Please try again.')
@@ -1472,8 +1552,14 @@ export default function PosPage() {
             <div className="w-10 h-10 bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
             <div>
               <p className="font-bold text-gray-900">Manager Approval Required</p>
-              <p className="text-xs text-gray-500">Enter a manager&apos;s approval PIN to proceed.</p>
+              <p className="text-xs text-gray-500">Enter a manager&apos;s PIN below, or wait for a manager to approve on the <strong>Approvals</strong> page.</p>
             </div>
+          </div>
+
+          {/* Waiting indicator */}
+          <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100">
+            <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+            <span className="text-xs text-amber-700 font-semibold">Waiting for manager approval…</span>
           </div>
 
           {/* PIN dots */}
@@ -1536,7 +1622,21 @@ export default function PosPage() {
               {isPinVerifying ? 'Verifying…' : 'Approve'}
             </button>
             <button
-              onClick={() => { setShowPinModal(false); setPinDigits(''); setPinError('') }}
+              onClick={async () => {
+                setShowPinModal(false)
+                setPinDigits('')
+                setPinError('')
+                setIsPollingApproval(false)
+                // Reject the pending sale so it doesn't linger in the approvals queue
+                if (pendingApprovalSaleId) {
+                  await fetch(`/api/sales/${pendingApprovalSaleId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note: 'Cancelled by cashier' }),
+                  }).catch(() => {})
+                  setPendingApprovalSaleId(null)
+                }
+              }}
               className="px-4 py-3 bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
             >
               Cancel
