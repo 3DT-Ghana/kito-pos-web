@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
@@ -163,6 +163,11 @@ export function Sidebar() {
     Object.fromEntries(groups.map(g => [g.label, g.defaultOpen]))
   )
 
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
+  useEffect(() => {
+    setTooltipsEnabled(localStorage.getItem('petros_tooltips') !== 'off')
+  }, [])
+
   const toggleGroup = (label: string) =>
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
 
@@ -183,7 +188,7 @@ export function Sidebar() {
         {/* Brand */}
         <div className={`flex items-center shrink-0 h-14 border-b border-slate-800 ${collapsed ? 'justify-center' : 'px-4 gap-3'}`}>
           {collapsed ? (
-            <Tooltip text="Expand sidebar" side="right">
+            <Tooltip text="Expand sidebar" enabled={tooltipsEnabled}>
               <button
                 onClick={toggle}
                 className="w-9 h-9 bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors"
@@ -200,7 +205,7 @@ export function Sidebar() {
                 <p className="text-sm font-bold text-white leading-tight truncate">My Business</p>
                 <p className="text-xs text-slate-400">Management</p>
               </div>
-              <Tooltip text="Collapse sidebar" side="right">
+              <Tooltip text="Collapse sidebar" enabled={tooltipsEnabled}>
                 <button
                   onClick={toggle}
                   className="p-1.5 text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors shrink-0"
@@ -226,7 +231,7 @@ export function Sidebar() {
                   {group.items.map(item => {
                     const active = isActive(item.href)
                     return (
-                      <Tooltip key={item.href} text={`${item.name} — ${item.tooltip}`} side="right">
+                      <Tooltip key={item.href} text={`${item.name} — ${item.tooltip}`} enabled={tooltipsEnabled}>
                         <Link
                           href={item.href}
                           className={`flex items-center justify-center w-9 h-9 mx-auto transition-all ${
@@ -264,7 +269,7 @@ export function Sidebar() {
                     {group.items.map(item => {
                       const active = isActive(item.href)
                       return (
-                        <Tooltip key={item.href} text={item.tooltip} side="right">
+                        <Tooltip key={item.href} text={item.tooltip} enabled={tooltipsEnabled}>
                           <Link
                             href={item.href}
                             className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-all ${
@@ -290,7 +295,7 @@ export function Sidebar() {
         <div className={`shrink-0 border-t border-slate-800 ${collapsed ? 'p-2 space-y-1' : 'p-3'}`}>
           {collapsed ? (
             <>
-              <Tooltip text="Help & Support" side="right">
+              <Tooltip text="Help & Support" enabled={tooltipsEnabled}>
                 <Link
                   href="/help"
                   className={`w-9 h-9 flex items-center justify-center mx-auto transition-colors ${
@@ -300,7 +305,7 @@ export function Sidebar() {
                   <HelpCircle className="w-4 h-4" />
                 </Link>
               </Tooltip>
-              <Tooltip text={`${user?.name} · ${roleLabel}`} side="right">
+              <Tooltip text={`${user?.name} · ${roleLabel}`} enabled={tooltipsEnabled}>
                 <div className="w-9 h-9 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto">
                   {initials}
                 </div>
@@ -327,7 +332,7 @@ export function Sidebar() {
                   <p className="text-sm font-semibold text-slate-200 truncate">{user?.name}</p>
                   <p className="text-xs text-slate-500 truncate">{roleLabel}</p>
                 </div>
-                <Tooltip text="Sign out" side="top">
+                <Tooltip text="Sign out" enabled={tooltipsEnabled}>
                   <button
                     onClick={openSignOut}
                     className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors shrink-0"

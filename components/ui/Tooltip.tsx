@@ -1,44 +1,93 @@
 'use client'
 
-import { ReactNode } from 'react'
+import { ReactNode, useRef, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 interface TooltipProps {
   text: string
   children: ReactNode
-  side?: 'top' | 'right' | 'bottom' | 'left'
-  className?: string
+  enabled?: boolean
 }
 
 /**
- * Lightweight CSS-only tooltip — no extra packages needed.
- * Wraps any element; shows `text` on hover/focus.
+ * Portal-based balloon tooltip — renders outside the sidebar DOM so it
+ * never triggers horizontal scroll on the parent container.
+ * Shows above the hovered element by default; flips below if near the top edge.
  */
-export function Tooltip({ text, children, side = 'right', className = '' }: TooltipProps) {
-  const positionClasses: Record<string, string> = {
-    right:  'left-full ml-2 top-1/2 -translate-y-1/2',
-    left:   'right-full mr-2 top-1/2 -translate-y-1/2',
-    top:    'bottom-full mb-2 left-1/2 -translate-x-1/2',
-    bottom: 'top-full mt-2 left-1/2 -translate-x-1/2',
-  }
-  const arrowClasses: Record<string, string> = {
-    right:  'right-full top-1/2 -translate-y-1/2 border-r-slate-800 border-y-transparent border-l-transparent border-4',
-    left:   'left-full top-1/2 -translate-y-1/2 border-l-slate-800 border-y-transparent border-r-transparent border-4',
-    top:    'top-full left-1/2 -translate-x-1/2 border-t-slate-800 border-x-transparent border-b-transparent border-4',
-    bottom: 'bottom-full left-1/2 -translate-x-1/2 border-b-slate-800 border-x-transparent border-t-transparent border-4',
+export function Tooltip({ text, children, enabled = true }: TooltipProps) {
+  const ref = useRef<HTMLSpanElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; below: boolean } | null>(null)
+
+  const show = () => {
+    if (!enabled || !ref.current) return
+    const r = ref.current.getBoundingClientRect()
+    const below = r.top < 60
+    setPos({
+      top: below ? r.bottom + 6 : r.top - 6,
+      left: r.left + r.width / 2,
+      below,
+    })
   }
 
-  return (
-    <span className={`relative group/tip inline-flex ${className}`}>
-      {children}
+  const hide = () => setPos(null)
+
+  // Hide on scroll/resize
+  useEffect(() => {
+    if (!pos) return
+    const close = () => setPos(null)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [pos])
+
+  const tip = pos ? (
+    <span
+      role="tooltip"
+      style={{
+        position: 'fixed',
+        top: pos.below ? pos.top : undefined,
+        bottom: pos.below ? undefined : `calc(100vh - ${pos.top}px)`,
+        left: pos.left,
+        transform: 'translateX(-50%)',
+        zIndex: 9999,
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+      }}
+      className="bg-slate-800 text-white text-xs font-medium px-2.5 py-1.5 shadow-lg select-none"
+    >
+      {/* Arrow */}
       <span
-        role="tooltip"
-        className={`pointer-events-none absolute z-50 ${positionClasses[side]}
-          whitespace-nowrap rounded-none bg-slate-800 px-2 py-1 text-xs text-white font-medium
-          opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 select-none shadow-lg`}
-      >
-        {text}
-        <span className={`absolute border ${arrowClasses[side]}`} aria-hidden />
-      </span>
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          ...(pos.below
+            ? { bottom: '100%', borderBottom: '5px solid #1e293b', borderLeft: '5px solid transparent', borderRight: '5px solid transparent' }
+            : { top: '100%',    borderTop:    '5px solid #1e293b', borderLeft: '5px solid transparent', borderRight: '5px solid transparent' }
+          ),
+          width: 0,
+          height: 0,
+        }}
+      />
+      {text}
+    </span>
+  ) : null
+
+  return (
+    <span
+      ref={ref}
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      className="inline-flex"
+    >
+      {children}
+      {typeof window !== 'undefined' && tip ? createPortal(tip, document.body) : null}
     </span>
   )
 }
