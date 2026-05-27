@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { itemSchema, ItemFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
+import { DEFAULT_REORDER_LEVEL } from '@/lib/items/stock'
 
 /**
  * Item Form Component
@@ -82,6 +83,7 @@ export function ItemForm({
       manufacturerId: '',
       name: '',
       quantity: 0,
+      reorderLevel: DEFAULT_REORDER_LEVEL,
       costPrice: 0,
       sellingPrice: 0,
       itemType: 'INVENTORY',
@@ -294,6 +296,26 @@ export function ItemForm({
             <p className="mt-1 text-xs text-gray-500">
               Leave blank or set to 0 if adding via purchase
             </p>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reorder Level
+              </label>
+              <input
+                type="number"
+                {...register('reorderLevel', { valueAsNumber: true })}
+                placeholder={String(DEFAULT_REORDER_LEVEL)}
+                min="0"
+                step="1"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {errors.reorderLevel && (
+                <p className="mt-1 text-sm text-red-600">{errors.reorderLevel.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Low-stock alerts appear when quantity is at or below this level.
+              </p>
+            </div>
           </>
         ) : (
           <>

@@ -5,12 +5,15 @@ import { useState } from 'react'
 import { ShoppingCart, Package, TrendingDown, Plus, ArrowRight, LogOut } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { SignOutConfirmModal } from '@/components/auth/SignOutModal'
+import type { DashboardData } from '@/lib/dashboard/getDashboardData'
 
 interface DashboardProps {
   userName: string
   tenantName: string
   greeting: string
   dateStr: string
+  initialDashboardData: DashboardData | null
+  initialBranchId: string | null
 }
 
 const quickActions = [
@@ -19,7 +22,14 @@ const quickActions = [
   { label: 'Add Item',     href: '/items/new',     icon: Package       },
 ]
 
-export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: DashboardProps) {
+export function ImprovedDashboard({
+  userName,
+  tenantName,
+  greeting,
+  dateStr,
+  initialDashboardData,
+  initialBranchId,
+}: DashboardProps) {
   const [signOutOpen, setSignOutOpen] = useState(false)
 
   return (
@@ -78,7 +88,7 @@ export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: D
 
       {/* ── Body — pulled up over the hero ─────────────────────────────────── */}
       <div className="relative -mt-20 px-4 sm:px-6 lg:px-8 pb-10 max-w-7xl mx-auto">
-        <DashboardCharts />
+        <DashboardCharts initialData={initialDashboardData} initialBranchId={initialBranchId} />
 
         {/* Footer link */}
         <div className="mt-6 flex justify-center">

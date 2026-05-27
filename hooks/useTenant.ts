@@ -8,6 +8,12 @@ import {
   type Role,
   type RolePermissionsMap,
 } from '@/lib/permissions/rbac'
+import {
+  DEFAULT_TENANT_FEATURES,
+  toTenantFeatures,
+  type TenantFeatures,
+} from '@/lib/tenant/clientFeatures'
+import { useTenantBootstrap } from '@/lib/tenant/TenantBootstrapContext'
 
 /**
  * useTenant Hook
@@ -22,9 +28,16 @@ import {
 
 export function useTenant() {
   const { data: session, status } = useSession()
+  const bootstrap = useTenantBootstrap()
+  const tenantId = session?.user?.tenantId ?? bootstrap.tenantId ?? null
+  const tenantName =
+    bootstrap.tenantId && bootstrap.tenantId === tenantId
+      ? bootstrap.tenantName
+      : null
 
   return {
-    tenantId: session?.user?.tenantId || null,
+    tenantId,
+    tenantName,
     isLoading: status === 'loading',
     isAuthenticated: status === 'authenticated',
   }
@@ -36,12 +49,20 @@ export function useRolePermissions(): {
   hasTenantPermission: (role: Role | null | undefined, permission: Permission) => boolean
 } {
   const { data: session, status } = useSession()
-  const tenantId = session?.user?.tenantId
-  const [rolePermissions, setRolePermissions] = useState<RolePermissionsMap | null>(null)
-  const [loadedTenantId, setLoadedTenantId] = useState<string | null>(null)
+  const bootstrap = useTenantBootstrap()
+  const tenantId = session?.user?.tenantId ?? bootstrap.tenantId ?? null
+  const hasBootstrappedPermissions = bootstrap.tenantId === tenantId
+  const [fetchedPermissions, setFetchedPermissions] = useState<{
+    tenantId: string
+    rolePermissions: RolePermissionsMap | null
+  } | null>(null)
 
   useEffect(() => {
     if (status === 'loading' || !tenantId) {
+      return
+    }
+
+    if (fetchedPermissions?.tenantId === tenantId) {
       return
     }
 
@@ -50,26 +71,35 @@ export function useRolePermissions(): {
     fetch('/api/settings/role-permissions')
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (cancelled || !data) return
-        setRolePermissions((data.rolePermissions as RolePermissionsMap | null) ?? null)
-        setLoadedTenantId(tenantId)
+        if (cancelled) return
+        setFetchedPermissions({
+          tenantId,
+          rolePermissions: (data?.rolePermissions as RolePermissionsMap | null) ?? null,
+        })
       })
       .catch(() => {
-        if (!cancelled) {
-          setRolePermissions(null)
-          setLoadedTenantId(tenantId)
-        }
+        if (cancelled) return
+        setFetchedPermissions({
+          tenantId,
+          rolePermissions: null,
+        })
       })
 
     return () => {
       cancelled = true
     }
-  }, [tenantId, status])
+  }, [fetchedPermissions?.tenantId, status, tenantId])
 
-  const effectiveRolePermissions = tenantId && loadedTenantId === tenantId
-    ? rolePermissions
-    : null
-  const isLoading = status === 'loading' || Boolean(tenantId && loadedTenantId !== tenantId)
+  const effectiveRolePermissions =
+    fetchedPermissions?.tenantId === tenantId
+      ? fetchedPermissions.rolePermissions
+      : hasBootstrappedPermissions
+        ? bootstrap.rolePermissions
+        : null
+
+  const isLoading =
+    status === 'loading' ||
+    Boolean(tenantId && !hasBootstrappedPermissions && fetchedPermissions?.tenantId !== tenantId)
 
   return {
     rolePermissions: effectiveRolePermissions,
@@ -81,97 +111,70 @@ export function useRolePermissions(): {
   }
 }
 
-// ─── Feature flags ────────────────────────────────────────────────────────────
-
-export interface TenantFeatures {
-  useUnitSystem: boolean
-  enableRetailPrice: boolean
-  enableWholesalePrice: boolean
-  enablePromoPrice: boolean
-  enableDiscounts: boolean
-  enableSmsNotifications: boolean
-  enablePosTerminal: boolean
-  enableQuotations: boolean
-  enablePurchaseOrders: boolean
-  enableExpiryTracking: boolean
-  enableBranches: boolean
-  enableCreditSales: boolean
-  enableExpenses: boolean
-  enableTill: boolean
-  allowSaleOnZeroStock: boolean
-  enableBarcodeGenerator: boolean
-  enableAccounting: boolean
-  enablePayroll: boolean
-  requireApproval: boolean
-}
-
-const DEFAULT_FEATURES: TenantFeatures = {
-  useUnitSystem: false,
-  enableRetailPrice: false,
-  enableWholesalePrice: false,
-  enablePromoPrice: false,
-  enableDiscounts: false,
-  enableSmsNotifications: false,
-  enablePosTerminal: false,
-  enableQuotations: false,
-  enablePurchaseOrders: false,
-  enableExpiryTracking: false,
-  enableBranches: false,
-  enableCreditSales: false,
-  enableExpenses: false,
-  enableTill: false,
-  allowSaleOnZeroStock: false,
-  enableBarcodeGenerator: false,
-  enableAccounting: false,
-  enablePayroll: false,
-  requireApproval: false,
-}
-
 /**
  * useTenantFeatures — fetches and caches the tenant's feature flags.
  * Used by Sidebar, forms, and pages to conditionally show/hide optional modules.
  */
 export function useTenantFeatures(): { features: TenantFeatures; isLoading: boolean } {
-  const { data: session } = useSession()
-  const tenantId = session?.user?.tenantId
-  const [features, setFeatures] = useState<TenantFeatures>(DEFAULT_FEATURES)
-  const [isLoading, setIsLoading] = useState(true)
+  const { data: session, status } = useSession()
+  const bootstrap = useTenantBootstrap()
+  const tenantId = session?.user?.tenantId ?? bootstrap.tenantId ?? null
+  const bootstrappedFeatures =
+    bootstrap.tenantId && bootstrap.tenantId === tenantId
+      ? bootstrap.features
+      : null
+  const sessionFeatures = session?.user?.tenantFeatures
+
+  const [fetchedFeatures, setFetchedFeatures] = useState<{
+    tenantId: string
+    features: TenantFeatures | null
+  } | null>(null)
 
   useEffect(() => {
-    if (!tenantId) return
+    if (status === 'loading') {
+      return
+    }
+
+    if (!tenantId || sessionFeatures || bootstrappedFeatures || fetchedFeatures?.tenantId === tenantId) {
+      return
+    }
+
     let cancelled = false
 
     fetch(`/api/tenants/${tenantId}`)
       .then(res => (res.ok ? res.json() : null))
       .then(data => {
-        if (cancelled || !data) return
-        setFeatures({
-          useUnitSystem: data.useUnitSystem ?? false,
-          enableRetailPrice: data.enableRetailPrice ?? false,
-          enableWholesalePrice: data.enableWholesalePrice ?? false,
-          enablePromoPrice: data.enablePromoPrice ?? false,
-          enableDiscounts: data.enableDiscounts ?? false,
-          enableSmsNotifications: data.enableSmsNotifications ?? false,
-          enablePosTerminal: data.enablePosTerminal ?? false,
-          enableQuotations: data.enableQuotations ?? false,
-          enablePurchaseOrders: data.enablePurchaseOrders ?? false,
-          enableExpiryTracking: data.enableExpiryTracking ?? false,
-          enableBranches: data.enableBranches ?? false,
-          enableCreditSales: data.enableCreditSales ?? false,
-          enableExpenses: data.enableExpenses ?? false,
-          enableTill: data.enableTill ?? false,
-          allowSaleOnZeroStock: data.allowSaleOnZeroStock ?? false,
-          enableBarcodeGenerator: data.enableBarcodeGenerator ?? false,
-          enableAccounting: data.enableAccounting ?? false,
-          enablePayroll: data.enablePayroll ?? false,
-          requireApproval: data.requireApproval ?? false,
+        if (cancelled) return
+        setFetchedFeatures({
+          tenantId,
+          features: data ? toTenantFeatures(data) : null,
         })
       })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setIsLoading(false) })
+      .catch(() => {
+        if (cancelled) return
+        setFetchedFeatures({
+          tenantId,
+          features: null,
+        })
+      })
 
     return () => { cancelled = true }
-  }, [tenantId])
+  }, [bootstrappedFeatures, fetchedFeatures?.tenantId, sessionFeatures, status, tenantId])
+
+  const features =
+    sessionFeatures ??
+    bootstrappedFeatures ??
+    (fetchedFeatures?.tenantId === tenantId ? fetchedFeatures.features : null) ??
+    DEFAULT_TENANT_FEATURES
+
+  const isLoading =
+    (!sessionFeatures && !bootstrappedFeatures && status === 'loading') ||
+    (
+      !sessionFeatures &&
+      !bootstrappedFeatures &&
+      Boolean(tenantId) &&
+      fetchedFeatures?.tenantId !== tenantId
+    )
 
   return { features, isLoading }
 }

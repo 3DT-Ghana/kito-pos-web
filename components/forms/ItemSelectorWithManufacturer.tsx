@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Search, Package, Factory } from 'lucide-react'
+import { isLowStock } from '@/lib/items/stock'
 
 interface Item {
   id: string
@@ -11,6 +12,7 @@ interface Item {
     name: string
   }
   quantity: number
+  reorderLevel: number
   sellingPrice?: number
   costPrice?: number
 }
@@ -161,7 +163,7 @@ export function ItemSelectorWithManufacturer({
                 <div className="divide-y divide-gray-200">
                   {manufacturerItems.map(item => {
                     const price = priceType === 'selling' ? item.sellingPrice : item.costPrice
-                    const isLowStock = item.quantity <= 10
+                    const itemIsLowStock = isLowStock(item.quantity, item.reorderLevel)
 
                     return (
                       <button
@@ -175,9 +177,9 @@ export function ItemSelectorWithManufacturer({
                               {item.name}
                             </div>
                             <div className="flex items-center gap-4 mt-1 text-sm">
-                              <span className={`font-semibold ${isLowStock ? 'text-red-600' : 'text-green-600'}`}>
+                              <span className={`font-semibold ${itemIsLowStock ? 'text-red-600' : 'text-green-600'}`}>
                                 Stock: {item.quantity}
-                                {isLowStock && ' ⚠️'}
+                                {itemIsLowStock && ' ⚠️'}
                               </span>
                               {price && (
                                 <span className="text-blue-600 font-semibold">

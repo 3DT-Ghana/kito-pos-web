@@ -1,4 +1,5 @@
 import { Role } from '@/lib/permissions/rbac'
+import type { TenantFeatures } from '@/lib/tenant/clientFeatures'
 import 'next-auth'
 import 'next-auth/jwt'
 
@@ -11,6 +12,8 @@ declare module 'next-auth' {
     role: Role
     tenantId?: string | null
     branchId: string | null
+    tenantName?: string | null
+    tenantFeatures?: TenantFeatures
     // Agent/platform fields (populated for agents, absent for tenant users)
     platformRole?: 'AGENT' | 'SUPER_ADMIN'
     agentId?: string
@@ -26,6 +29,8 @@ declare module 'next-auth' {
       role: Role
       tenantId?: string | null
       branchId: string | null
+      tenantName?: string | null
+      tenantFeatures?: TenantFeatures
       // Agent/platform fields
       platformRole?: 'AGENT' | 'SUPER_ADMIN'
       agentId?: string
@@ -43,6 +48,8 @@ declare module 'next-auth/jwt' {
     role: Role
     tenantId?: string | null
     branchId: string | null
+    tenantName?: string | null
+    tenantFeatures?: TenantFeatures
     // Agent/platform fields
     platformRole?: 'AGENT' | 'SUPER_ADMIN'
     agentId?: string

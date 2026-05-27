@@ -54,6 +54,7 @@ export async function GET(req: Request) {
         wholesalePrice: true,
         promoPrice: true,
         quantity: true,
+        reorderLevel: true,
         unitName: true,
         piecesPerUnit: true,
         branchId: true,

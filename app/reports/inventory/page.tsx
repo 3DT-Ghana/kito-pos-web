@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
 import { useBranch } from '@/lib/branch/BranchContext'
+import { isLowStock, isOutOfStock } from '@/lib/items/stock'
 
 /**
  * Inventory Reports Page
@@ -17,6 +18,7 @@ interface InventoryReportItem {
   id: string
   name: string
   quantity: number
+  reorderLevel: number
   sellingPrice: number
   costPrice?: number
   manufacturer: {
@@ -77,8 +79,8 @@ export default function InventoryReportsPage() {
     : items
 
   const totalItems = filtered.length
-  const lowStockItems = filtered.filter(item => item.quantity > 0 && item.quantity <= 10).length
-  const outOfStockItems = filtered.filter(item => item.quantity === 0).length
+  const lowStockItems = filtered.filter(item => isLowStock(item.quantity, item.reorderLevel)).length
+  const outOfStockItems = filtered.filter(item => isOutOfStock(item.quantity)).length
   const totalStockValue = canViewProfitMargins
     ? filtered.reduce((sum, item) => sum + (item.quantity * (item.costPrice ?? 0)), 0)
     : null
@@ -105,6 +107,7 @@ export default function InventoryReportsPage() {
                 Item: i.name,
                 Manufacturer: i.manufacturer?.name || '',
                 Stock: i.quantity,
+                'Reorder Level': i.reorderLevel,
                 'Selling Price (GHS)': i.sellingPrice.toFixed(2),
                 ...(canViewProfitMargins
                   ? {
@@ -229,8 +232,8 @@ export default function InventoryReportsPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(item => {
                   const stockValue = item.quantity * (item.costPrice ?? 0)
-                  const isOut = item.quantity === 0
-                  const isLow = !isOut && item.quantity <= 10
+                  const isOut = isOutOfStock(item.quantity)
+                  const isLow = isLowStock(item.quantity, item.reorderLevel)
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 print:hover:bg-transparent">
                       <td className="px-5 py-3 font-semibold text-gray-900">{item.name}</td>

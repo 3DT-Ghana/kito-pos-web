@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -8,40 +8,12 @@ import {
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format'
 import { useBranch } from '@/lib/branch/BranchContext'
+import type { DashboardData } from '@/lib/dashboard/getDashboardData'
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
   Users, AlertTriangle, ArrowUpRight, ArrowDownRight,
   ChevronRight, Wallet, Activity,
 } from 'lucide-react'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DashboardData {
-  salesLast7Days: { date: string; revenue: number; label: string }[]
-  paymentMethodSplit: { method: string; value: number; color: string }[]
-  topItems: { name: string; revenue: number; qty: number }[]
-  kpis: {
-    todayRevenue: number
-    todaySalesCount: number
-    monthRevenue: number
-    monthSalesCount: number
-    monthTrend: number | null
-    monthExpenses: number
-    totalCustomers: number
-    stockValue: number
-    outstandingDebt: number
-    outstandingDebtCount: number
-  }
-  recentSales: {
-    id: string
-    customer: string
-    total: number
-    paid: number
-    items: number
-    createdAt: string
-  }[]
-  lowStockItems: { id: string; name: string; quantity: number }[]
-}
 
 const EMPTY_DASHBOARD_DATA: DashboardData = {
   salesLast7Days: [],
@@ -263,13 +235,34 @@ function SectionHeader({ title, sub, href, linkLabel }: {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function DashboardCharts() {
-  const { currentBranchId } = useBranch()
-  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA)
-  const [loading, setLoading] = useState(true)
+interface DashboardChartsProps {
+  initialData?: DashboardData | null
+  initialBranchId?: string | null
+}
+
+export function DashboardCharts({
+  initialData = null,
+  initialBranchId = null,
+}: DashboardChartsProps) {
+  const { currentBranchId, isLoading: isBranchLoading } = useBranch()
+  const [data, setData] = useState<DashboardData>(initialData ?? EMPTY_DASHBOARD_DATA)
+  const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(null)
+  const hasHandledInitialRender = useRef(false)
 
   useEffect(() => {
+    if (isBranchLoading) return
+
+    const currentBranchKey = currentBranchId ?? '__all__'
+    const initialBranchKey = initialBranchId ?? '__all__'
+
+    if (!hasHandledInitialRender.current) {
+      hasHandledInitialRender.current = true
+      if (initialData && currentBranchKey === initialBranchKey) {
+        return
+      }
+    }
+
     let cancelled = false
 
     fetch('/api/dashboard')
@@ -301,6 +294,7 @@ export function DashboardCharts() {
 
         if (!cancelled) {
           setData(normalized)
+          setLoading(false)
           setError(null)
         }
       })
@@ -308,22 +302,18 @@ export function DashboardCharts() {
         if (cancelled) return
 
         setData(EMPTY_DASHBOARD_DATA)
+        setLoading(false)
         setError(
           err instanceof Error && err.message
             ? err.message
             : 'Failed to load dashboard data.'
         )
       })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      })
 
     return () => {
       cancelled = true
     }
-  }, [currentBranchId])
+  }, [currentBranchId, initialBranchId, initialData, isBranchLoading])
 
   if (loading) return <Skeleton />
   if (error) {

@@ -41,6 +41,7 @@ export interface ItemWithManufacturer {
   manufacturerId: string
   name: string
   quantity: number
+  reorderLevel: number
   costPrice: number
   sellingPrice: number
   createdAt: Date

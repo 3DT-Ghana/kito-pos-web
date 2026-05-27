@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { requireBranchAccess } from '@/lib/branch/server'
 import { approvedSaleWhere } from '@/lib/approvals/sales'
+import { isLowStock } from '@/lib/items/stock'
 
 /**
  * GET /api/branches/[id]/stats
@@ -45,7 +46,7 @@ export async function GET(
 
     const dateFilter = dateFrom ? { gte: dateFrom } : undefined
 
-    const [salesAgg, purchaseAgg, expenseAgg, itemCount, lowStockCount, transferOutCount, transferInCount, pendingTransferCount] = await Promise.all([
+    const [salesAgg, purchaseAgg, expenseAgg, itemCount, inventoryItems, transferOutCount, transferInCount, pendingTransferCount] = await Promise.all([
       prisma.sale.aggregate({
         where: approvedSaleWhere({
           tenantId: context!.tenantId,
@@ -66,7 +67,10 @@ export async function GET(
         _count: true,
       }),
       prisma.item.count({ where: { tenantId: context!.tenantId, branchId: id } }),
-      prisma.item.count({ where: { tenantId: context!.tenantId, branchId: id, quantity: { lte: 10 } } }),
+      prisma.item.findMany({
+        where: { tenantId: context!.tenantId, branchId: id, itemType: 'INVENTORY' },
+        select: { quantity: true, reorderLevel: true },
+      }),
       prisma.stockTransfer.count({
         where: { tenantId: context!.tenantId, fromBranchId: id, ...(dateFilter && { createdAt: dateFilter }) },
       }),
@@ -82,6 +86,8 @@ export async function GET(
         },
       }),
     ])
+
+    const lowStockCount = inventoryItems.filter(item => isLowStock(item.quantity, item.reorderLevel)).length
 
     return NextResponse.json({
       branch: { id: branch.id, name: branch.name },

@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { applyBranchScope, requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 import { normalizeItemType } from '@/lib/items/type'
+import { isLowStock, normalizeReorderLevel } from '@/lib/items/stock'
 import { syncProductTaxSetting, hasProductTaxSettingPayload } from '@/lib/tax/products'
 import { itemTaxSettingInclude } from '@/lib/tax/server'
 
@@ -63,9 +64,6 @@ export async function GET(req: Request) {
 
     if (lowStock) {
       where.itemType = ItemType.INVENTORY
-      where.quantity = {
-        lte: 10, // Low stock threshold
-      }
     }
 
     const items = await prisma.item.findMany({
@@ -78,7 +76,11 @@ export async function GET(req: Request) {
       orderBy: { name: 'asc' },
     })
 
-    return NextResponse.json(items)
+    return NextResponse.json(
+      lowStock
+        ? items.filter(item => isLowStock(item.quantity, item.reorderLevel))
+        : items
+    )
   } catch (err) {
     console.error('Failed to fetch items:', err)
     return NextResponse.json(
@@ -160,6 +162,9 @@ export async function POST(req: Request) {
           manufacturerId: body.manufacturerId,
           name: body.name.trim(),
           quantity: parseFloat(body.quantity) || 0,
+          ...(body.reorderLevel !== undefined && body.reorderLevel !== null
+            ? { reorderLevel: normalizeReorderLevel(Number(body.reorderLevel)) }
+            : {}),
           costPrice: parseFloat(body.costPrice),
           sellingPrice: parseFloat(body.sellingPrice),
           ...(body.categoryId ? { categoryId: body.categoryId } : {}),
@@ -228,6 +233,14 @@ function validateItemData(data: any): string | null {
 
   if (data.quantity !== undefined && (isNaN(data.quantity) || data.quantity < 0)) {
     return 'Quantity must be a non-negative number'
+  }
+
+  if (
+    data.reorderLevel !== undefined &&
+    data.reorderLevel !== null &&
+    (!Number.isInteger(Number(data.reorderLevel)) || Number(data.reorderLevel) < 0)
+  ) {
+    return 'Reorder level must be a non-negative whole number'
   }
 
   if (data.costPrice === undefined || data.costPrice === null || isNaN(parseFloat(data.costPrice)) || parseFloat(data.costPrice) < 0) {

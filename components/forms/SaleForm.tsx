@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useItems } from "@/hooks/useItems";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useUser } from "@/hooks/useUser";
-import { useRolePermissions } from "@/hooks/useTenant";
+import { useRolePermissions, useTenantFeatures } from "@/hooks/useTenant";
+import { isLowStock } from "@/lib/items/stock";
 import { formatCurrency } from "@/lib/utils/format";
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from "@/lib/items/type";
 
@@ -118,31 +119,19 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   const [formError, setFormError] = useState("");
 
   const { user } = useUser();
+  const { features } = useTenantFeatures();
   const { hasTenantPermission, isLoading: permissionsLoading } = useRolePermissions();
   // While permissions are loading treat as allowed to avoid flashing notice on managers
   const canApplyDiscount = permissionsLoading || hasTenantPermission(user?.role, 'apply_discount');
-  const [useUnitSystem, setUseUnitSystem] = useState(false);
-  const [enableRetailPrice, setEnableRetailPrice] = useState(false);
-  const [enableWholesalePrice, setEnableWholesalePrice] = useState(false);
-  const [enablePromoPrice, setEnablePromoPrice] = useState(false);
-  const [enableDiscounts, setEnableDiscounts] = useState(false);
-  const [enableCreditSales, setEnableCreditSales] = useState(false);
-  const [allowSaleOnZeroStock, setAllowSaleOnZeroStock] = useState(false);
-  useEffect(() => {
-    if (!user?.tenantId) return;
-    fetch(`/api/tenants/${user.tenantId}`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data?.useUnitSystem) setUseUnitSystem(true);
-        if (data?.enableRetailPrice) setEnableRetailPrice(true);
-        if (data?.enableWholesalePrice) setEnableWholesalePrice(true);
-        if (data?.enablePromoPrice) setEnablePromoPrice(true);
-        if (data?.enableDiscounts) setEnableDiscounts(true);
-        if (data?.enableCreditSales) setEnableCreditSales(true);
-        if (data?.allowSaleOnZeroStock) setAllowSaleOnZeroStock(true);
-      })
-      .catch(() => {});
-  }, [user?.tenantId]);
+  const {
+    useUnitSystem,
+    enableRetailPrice,
+    enableWholesalePrice,
+    enablePromoPrice,
+    enableDiscounts,
+    enableCreditSales,
+    allowSaleOnZeroStock,
+  } = features;
 
   const [discountType, setDiscountType] = useState<"amount" | "percent">(
     "percent",
@@ -727,7 +716,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
                           ? "text-slate-500"
                           : outOfStock
                             ? "text-red-500"
-                            : item.quantity <= 10
+                            : isLowStock(item.quantity, item.reorderLevel)
                               ? "text-amber-600"
                               : "text-gray-500"
                       }`}

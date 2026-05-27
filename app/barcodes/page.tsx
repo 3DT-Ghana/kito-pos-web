@@ -5,17 +5,18 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { BarcodeGenerator, type LabelItem } from '@/components/barcode/BarcodeGenerator'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Btn } from '@/components/ui/Btn'
-import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useBranch } from '@/lib/branch/BranchContext'
+import { getStockAlertState, isLowStock, isOutOfStock } from '@/lib/items/stock'
 import { formatCurrency } from '@/lib/utils/format'
-import { Printer, Search, X, Package, CheckSquare, Square, Filter } from 'lucide-react'
+import { Printer, Search, X, Package, CheckSquare, Square } from 'lucide-react'
 
 interface Item {
   id: string
   name: string
   barcode: string | null
   quantity: number
+  reorderLevel: number
   sellingPrice: number
   manufacturer: { name: string } | null
   category: { id: string; name: string; color: string | null } | null
@@ -54,14 +55,19 @@ export default function BarcodesPage() {
       || (i.barcode || '').toLowerCase().includes(q)
     const matchStock =
       stockFilter === 'all' ? true
-      : stockFilter === 'out' ? i.quantity === 0
-      : stockFilter === 'low' ? i.quantity > 0 && i.quantity <= 10
-      : i.quantity > 10
+      : stockFilter === 'out' ? isOutOfStock(i.quantity)
+      : stockFilter === 'low' ? isLowStock(i.quantity, i.reorderLevel)
+      : !isOutOfStock(i.quantity) && !isLowStock(i.quantity, i.reorderLevel)
     return matchSearch && matchStock
   })
 
   const toggleItem = (id: string) =>
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const toggleAll = () => {
     if (selected.size === filtered.length && filtered.length > 0) {
@@ -216,7 +222,7 @@ export default function BarcodesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map(item => {
               const isSelected = selected.has(item.id)
-              const stockStatus = item.quantity === 0 ? 'out' : item.quantity <= 10 ? 'low' : 'ok'
+              const stockStatus = getStockAlertState(item.quantity, item.reorderLevel)
               return (
                 <button
                   key={item.id}

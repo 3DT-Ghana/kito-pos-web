@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useItems } from '@/hooks/useItems'
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useTenantFeatures } from '@/hooks/useTenant'
 import { useUser } from '@/hooks/useUser'
 import { formatCurrency } from '@/lib/utils/format'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
@@ -72,14 +73,8 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
   const [formError, setFormError] = useState('')
 
   const { user } = useUser()
-  const [useUnitSystem, setUseUnitSystem] = useState(false)
-  useEffect(() => {
-    if (!user?.tenantId) return
-    fetch(`/api/tenants/${user.tenantId}`)
-      .then(r => r.json())
-      .then(data => { if (data?.useUnitSystem) setUseUnitSystem(true) })
-      .catch(() => {})
-  }, [user?.tenantId])
+  const { features } = useTenantFeatures()
+  const { useUnitSystem } = features
 
   const [purchaseType, setPurchaseType] = useState<'CASH' | 'CREDIT'>('CASH')
   const [supplierSearch, setSupplierSearch] = useState('')

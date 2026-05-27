@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback, RefObject } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { useUser } from '@/hooks/useUser'
 import { useBranch } from '@/lib/branch/BranchContext'
 import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTenant'
@@ -9,6 +10,7 @@ import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
+import { isLowStock } from '@/lib/items/stock'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,7 @@ interface PosItem {
   wholesalePrice: number | null
   promoPrice: number | null
   quantity: number
+  reorderLevel: number
   unitName: string | null
   piecesPerUnit: number | null
   manufacturer: { id: string; name: string } | null
@@ -75,7 +78,6 @@ type DiscountMode = 'pct' | 'fixed'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HOLD_KEY = 'pos_held_orders'
-const LOW_STOCK_THRESHOLD = 5
 const UNTRACKED_MAX_STOCK = 999999
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -176,16 +178,7 @@ export default function PosPage() {
   } = useBranch()
   const { features } = useTenantFeatures()
   const { hasTenantPermission } = useRolePermissions()
-  const { tenantId } = useTenant()
-
-  // Company name for title bar
-  const [companyName, setCompanyName] = useState('')
-  useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenants/${tenantId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.name) setCompanyName(d.name) })
-  }, [tenantId])
+  const { tenantName } = useTenant()
 
   // Catalog
   const [allItems, setAllItems] = useState<PosItem[]>([])
@@ -281,6 +274,8 @@ export default function PosPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [noticeMsg, setNoticeMsg] = useState('')
   const [mobileTab, setMobileTab] = useState<MobileTab>('items')
+  const [showSessionMenu, setShowSessionMenu] = useState(false)
+  const sessionMenuRef = useRef<HTMLDivElement>(null)
   const isAutoSelectingAssignedBranch =
     !isBranchLoading && branchesEnabled && !currentBranchId && Boolean(assignedBranchId)
   const requiresOperationalBranch =
@@ -309,6 +304,18 @@ export default function PosPage() {
   useEffect(() => { loadItems() }, [loadItems, currentBranchId])
   useEffect(() => { searchRef.current?.focus() }, [])
   useEffect(() => { setHolds(loadHolds()) }, [])
+  useEffect(() => {
+    if (!showSessionMenu) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (sessionMenuRef.current && !sessionMenuRef.current.contains(event.target as Node)) {
+        setShowSessionMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [showSessionMenu])
 
   // ── Barcode scanner state ────────────────────────────────────────────────────
   const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null)
@@ -842,6 +849,16 @@ export default function PosPage() {
   }
 
   // ── Receipt modal ───────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    setShowSessionMenu(false)
+    await signOut({ callbackUrl: '/auth/login' })
+  }
+
+  const handleExitPos = () => {
+    setShowSessionMenu(false)
+    router.push('/sales')
+  }
+
   if (showReceipt && lastSaleData) {
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -1316,7 +1333,7 @@ export default function PosPage() {
   const ItemTile = ({ item }: { item: PosItem }) => {
     const inCart = cart.find(c => c.itemId === item.id)
     const stockTracked = isStockTracked(item)
-    const isLow = stockTracked && item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD
+    const isLow = stockTracked && isLowStock(item.quantity, item.reorderLevel)
     const displayPrice = resolvePrice(item, globalTier)
     return (
       <button
@@ -1330,7 +1347,7 @@ export default function PosPage() {
         }`}
       >
         {inCart && (
-          <span className="absolute top-1 right-1 w-5 h-5 bg-indigo-600 text-white text-xs font-bold -full flex items-center justify-center">
+          <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
             {inCart.qty}
           </span>
         )}
@@ -1568,7 +1585,7 @@ export default function PosPage() {
               {Array.from({ length: PIN_LENGTH }).map((_, i) => (
                 <div
                   key={i}
-                  className={`w-4 h-4 -full border-2 transition-colors ${
+                  className={`h-4 w-4 rounded-full border-2 transition-colors ${
                     i < pinDigits.length ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
                   }`}
                 />
@@ -1675,7 +1692,7 @@ export default function PosPage() {
 
         {/* ── Top bar ──────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 px-3 py-2 bg-indigo-700 text-white shrink-0">
-          <span className="font-bold text-sm tracking-wide">{companyName || 'POS Terminal'}</span>
+          <span className="font-bold text-sm tracking-wide">{tenantName || 'POS Terminal'}</span>
           {currentBranch && <span className="text-indigo-200 text-xs truncate">· {currentBranch.name}</span>}
           <div className="flex-1" />
 
@@ -1699,7 +1716,7 @@ export default function PosPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
             </svg>
             {holds.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-indigo-900 text-[9px] font-bold -full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-indigo-900">
                 {holds.length}
               </span>
             )}
@@ -1716,15 +1733,49 @@ export default function PosPage() {
 
           {user?.name && <span className="text-indigo-200 text-xs hidden sm:inline">Cashier: {user.name}</span>}
 
-          <button
-            onClick={() => router.push('/sales')}
-            title="Exit POS"
-            className="p-1.5 hover:bg-indigo-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div ref={sessionMenuRef} className="relative">
+            <button
+              onClick={() => setShowSessionMenu(v => !v)}
+              title="Logout options"
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 transition-colors text-xs font-semibold"
+            >
+              <span>Logout</span>
+              <svg className={`w-3.5 h-3.5 transition-transform ${showSessionMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showSessionMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden bg-white text-gray-900 shadow-xl ring-1 ring-black/10 z-40">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-sm font-semibold text-gray-900">{user?.name || 'Current user'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {currentBranch ? `Serving ${currentBranch.name}` : 'POS terminal'}
+                  </p>
+                </div>
+                <div className="py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+                    </svg>
+                    Log out
+                  </button>
+                  <button
+                    onClick={handleExitPos}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Exit POS
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── DESKTOP layout (md+) ──────────────────────────────────────────── */}
@@ -1750,7 +1801,7 @@ export default function PosPage() {
             {/* Cart header */}
             <div className="px-4 py-2 flex items-center justify-between shrink-0">
               <span className="font-bold text-gray-800 text-sm">
-                Cart {cart.length > 0 && <span className="ml-1 bg-indigo-600 text-white text-xs px-2 py-0.5 -full">{cart.length}</span>}
+                Cart {cart.length > 0 && <span className="ml-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs text-white">{cart.length}</span>}
               </span>
               {cart.length > 0 && (
                 <button onClick={clearCart} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear</button>
@@ -1837,7 +1888,7 @@ export default function PosPage() {
             >
               Cart
               {cart.length > 0 && (
-                <span className="absolute top-2 right-8 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold -full flex items-center justify-center">
+                <span className="absolute top-2 right-8 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
                   {cart.length}
                 </span>
               )}
@@ -1935,7 +1986,7 @@ export default function PosPage() {
               {cart.length > 0 && numpadDrawer === 'hidden' && (
                 <button
                   onClick={() => setNumpadDrawer('drawer')}
-                  className="absolute bottom-24 right-4 z-30 w-12 h-12 bg-indigo-600 text-white -full shadow-lg flex items-center justify-center text-lg font-bold active:scale-95 touch-manipulation"
+                  className="absolute bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white shadow-lg active:scale-95 touch-manipulation"
                   title="Open numpad"
                 >
                   123
@@ -1957,7 +2008,7 @@ export default function PosPage() {
             <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden  shadow-2xl overflow-hidden">
               {/* Drag handle */}
               <div className="flex justify-center bg-white pt-2 pb-0">
-                <div className="w-10 h-1 bg-gray-300 -full" />
+                <div className="h-1 w-10 rounded-full bg-gray-300" />
               </div>
               <Numpad mobile />
             </div>

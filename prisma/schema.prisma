@@ -369,6 +369,7 @@ model Item {
   category       Category?    @relation(fields: [categoryId], references: [id])
   name           String
   quantity       Float        @default(0)
+  reorderLevel   Int          @default(10)
   costPrice      Float
   sellingPrice   Float
   retailPrice    Float?

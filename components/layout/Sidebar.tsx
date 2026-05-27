@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
@@ -163,10 +163,8 @@ export function Sidebar() {
     Object.fromEntries(groups.map(g => [g.label, g.defaultOpen]))
   )
 
-  const [tooltipsEnabled, setTooltipsEnabled] = useState(false)
-  useEffect(() => {
-    setTooltipsEnabled(localStorage.getItem('petros_tooltips') !== 'off')
-  }, [])
+  const tooltipsEnabled =
+    typeof window === 'undefined' ? true : localStorage.getItem('petros_tooltips') !== 'off'
 
   const toggleGroup = (label: string) =>
     setOpenGroups(prev => ({ ...prev, [label]: !prev[label] }))
@@ -188,7 +186,7 @@ export function Sidebar() {
         {/* Brand */}
         <div className={`flex items-center shrink-0 h-14 border-b border-slate-800 ${collapsed ? 'justify-center' : 'px-4 gap-3'}`}>
           {collapsed ? (
-            <Tooltip text="Expand sidebar" enabled={tooltipsEnabled}>
+            <Tooltip text="Expand sidebar" enabled={tooltipsEnabled} side="right" wrapperClassName="block">
               <button
                 onClick={toggle}
                 className="w-9 h-9 bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors"
@@ -231,7 +229,14 @@ export function Sidebar() {
                   {group.items.map(item => {
                     const active = isActive(item.href)
                     return (
-                      <Tooltip key={item.href} text={`${item.name} — ${item.tooltip}`} enabled={tooltipsEnabled}>
+                      <Tooltip
+                        key={item.href}
+                        text={`${item.name} — ${item.tooltip}`}
+                        enabled={tooltipsEnabled}
+                        side="right"
+                        wrapperClassName="block"
+                        offset={14}
+                      >
                         <Link
                           href={item.href}
                           className={`flex items-center justify-center w-9 h-9 mx-auto transition-all ${
@@ -269,10 +274,10 @@ export function Sidebar() {
                     {group.items.map(item => {
                       const active = isActive(item.href)
                       return (
-                        <Tooltip key={item.href} text={item.tooltip} enabled={tooltipsEnabled}>
+                        <Tooltip key={item.href} text={item.tooltip} enabled={tooltipsEnabled} wrapperClassName="block">
                           <Link
                             href={item.href}
-                            className={`flex items-center gap-2.5 px-3 py-2 text-sm transition-all ${
+                            className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-all ${
                               active
                                 ? 'bg-blue-600 text-white'
                                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -295,7 +300,7 @@ export function Sidebar() {
         <div className={`shrink-0 border-t border-slate-800 ${collapsed ? 'p-2 space-y-1' : 'p-3'}`}>
           {collapsed ? (
             <>
-              <Tooltip text="Help & Support" enabled={tooltipsEnabled}>
+              <Tooltip text="Help & Support" enabled={tooltipsEnabled} side="right" wrapperClassName="block">
                 <Link
                   href="/help"
                   className={`w-9 h-9 flex items-center justify-center mx-auto transition-colors ${
@@ -305,7 +310,7 @@ export function Sidebar() {
                   <HelpCircle className="w-4 h-4" />
                 </Link>
               </Tooltip>
-              <Tooltip text={`${user?.name} · ${roleLabel}`} enabled={tooltipsEnabled}>
+              <Tooltip text={`${user?.name} · ${roleLabel}`} enabled={tooltipsEnabled} side="right" wrapperClassName="block">
                 <div className="w-9 h-9 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto">
                   {initials}
                 </div>

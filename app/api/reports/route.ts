@@ -17,6 +17,7 @@ import {
   roundTaxAmount,
   summariseTaxBreakdown,
 } from '@/lib/tax/summary'
+import { isLowStock, isOutOfStock } from '@/lib/items/stock'
 
 /**
  * Comprehensive Reports API
@@ -104,6 +105,7 @@ interface InventoryReportItem {
   id: string
   name: string
   quantity: number
+  reorderLevel: number
   sellingPrice: number
   manufacturer: {
     id: string
@@ -254,6 +256,7 @@ async function inventoryReport(
       id: true,
       name: true,
       quantity: true,
+      reorderLevel: true,
       costPrice: true,
       sellingPrice: true,
       manufacturer: {
@@ -273,6 +276,7 @@ async function inventoryReport(
         id: item.id,
         name: item.name,
         quantity: item.quantity,
+        reorderLevel: item.reorderLevel,
         costPrice: item.costPrice,
         sellingPrice: item.sellingPrice,
         manufacturer: item.manufacturer
@@ -283,13 +287,14 @@ async function inventoryReport(
         id: item.id,
         name: item.name,
         quantity: item.quantity,
+        reorderLevel: item.reorderLevel,
         sellingPrice: item.sellingPrice,
         manufacturer: item.manufacturer
           ? { id: item.manufacturer.id, name: item.manufacturer.name }
           : null,
       }))
-  const lowStockItems = visibleItems.filter(item => item.quantity <= 10)
-  const outOfStockItems = visibleItems.filter(item => item.quantity === 0)
+  const lowStockItems = visibleItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
+  const outOfStockItems = visibleItems.filter(item => isOutOfStock(item.quantity))
 
   return NextResponse.json({
     type: 'inventory',
@@ -452,7 +457,10 @@ async function dashboardReport(
     prisma.supplier.count({ where: { tenantId: context.tenantId } }),
     prisma.sale.findMany({ where: approvedSaleWhere(applyBranchScope({ tenantId: context.tenantId }, context)) }),
     prisma.purchase.findMany({ where: applyBranchScope({ tenantId: context.tenantId }, context) }),
-    prisma.item.findMany({ where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { lte: 10 } }, context) }),
+    prisma.item.findMany({
+      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY }, context),
+      select: { id: true, name: true, quantity: true, reorderLevel: true },
+    }),
     prisma.customer.findMany({
       where: {
         tenantId: context.tenantId,
@@ -481,13 +489,14 @@ async function dashboardReport(
   const totalCost = totalPurchases.reduce((sum, p) => sum + p.totalAmount, 0)
   const totalDebt = customersWithDebt.reduce((sum, c) => sum + c.balance, 0)
   const totalCredit = suppliersWithCredit.reduce((sum, s) => sum + s.balance, 0)
+  const filteredLowStockItems = lowStockItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
 
   return NextResponse.json({
     type: 'dashboard',
     summary: {
       inventory: {
         totalItems,
-        lowStockCount: lowStockItems.length,
+        lowStockCount: filteredLowStockItems.length,
       },
       contacts: {
         totalCustomers,
@@ -505,7 +514,7 @@ async function dashboardReport(
         netPosition: totalDebt - totalCredit,
       },
       alerts: {
-        lowStockItems: lowStockItems.map(item => ({
+        lowStockItems: filteredLowStockItems.map(item => ({
           id: item.id,
           name: item.name,
           quantity: item.quantity,
@@ -535,8 +544,7 @@ async function endOfDayReport(
     customerPayments,
     supplierPayments,
     stockAdjustmentCount,
-    lowStockItems,
-    outOfStockItems,
+    inventoryItems,
     customers,
   ] = await Promise.all([
     prisma.sale.findMany({
@@ -567,13 +575,9 @@ async function endOfDayReport(
     prisma.supplierPayment.findMany({ where: dayWhere }),
     prisma.stockAdjustment.count({ where: dayWhere }),
     prisma.item.findMany({
-      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { gt: 0, lte: 10 } }, context),
-      select: { id: true, name: true, quantity: true },
+      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY }, context),
+      select: { id: true, name: true, quantity: true, reorderLevel: true },
       orderBy: { quantity: 'asc' },
-    }),
-    prisma.item.findMany({
-      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { equals: 0 } }, context),
-      select: { id: true, name: true, quantity: true },
     }),
     prisma.customer.findMany({
       where: {
@@ -583,6 +587,8 @@ async function endOfDayReport(
       select: { id: true, name: true, phone: true, balance: true },
     }),
   ])
+  const lowStockItems = inventoryItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
+  const outOfStockItems = inventoryItems.filter(item => isOutOfStock(item.quantity))
   const visibleDebtors = await withVisibleCustomerBalances(context, customers)
   const topDebtors = [...visibleDebtors]
     .sort((a, b) => b.balance - a.balance)

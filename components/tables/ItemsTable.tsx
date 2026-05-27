@@ -2,6 +2,7 @@
 
 import { DataTable, Column } from './DataTable'
 import { ItemWithManufacturer } from '@/types'
+import { isLowStock } from '@/lib/items/stock'
 import { formatCurrency } from '@/lib/utils/format'
 
 /**
@@ -35,15 +36,15 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
       label: 'Stock',
       sortable: true,
       render: (item) => {
-        const isLowStock = item.quantity <= 10
+        const itemIsLowStock = isLowStock(item.quantity, item.reorderLevel)
         return (
           <span
             className={`font-semibold ${
-              isLowStock ? 'text-red-600' : 'text-gray-900'
+              itemIsLowStock ? 'text-red-600' : 'text-gray-900'
             }`}
           >
             {item.quantity}
-            {isLowStock && (
+            {itemIsLowStock && (
               <span className="ml-1 text-xs">⚠️</span>
             )}
           </span>

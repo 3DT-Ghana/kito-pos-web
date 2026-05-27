@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { formatDate } from '@/lib/utils/format'
+import { Pagination } from '@/components/ui/Pagination'
+import { formatDateTime } from '@/lib/utils/format'
 
 interface AuditLog {
   id: string
@@ -47,27 +48,32 @@ function actionLabel(action: string): { type: string; entity: string } {
   return { type, entity }
 }
 
+function detailSummary(details?: Record<string, unknown> | null) {
+  if (!details) return '—'
+
+  const summary = Object.entries(details)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${typeof value === 'object' ? JSON.stringify(value) : String(value)}`)
+    .join(' · ')
+
+  return summary || '—'
+}
+
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [users, setUsers] = useState<Record<string, User>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [total, setTotal] = useState(0)
 
   // Filters
   const [entity, setEntity] = useState('')
   const [actionType, setActionType] = useState('')
-  const [page, setPage] = useState(0)
-  const PAGE_SIZE = 50
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
 
-  useEffect(() => {
-    fetchUsers()
-  }, [])
-
-  useEffect(() => {
-    fetchLogs()
-  }, [entity, actionType, page])
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch('/api/users')
       if (!res.ok) return
@@ -76,29 +82,42 @@ export default function AuditLogsPage() {
       ;(data.users || data || []).forEach((u: User) => { map[u.id] = u })
       setUsers(map)
     } catch {}
-  }
+  }, [])
 
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     try {
       setIsLoading(true)
+      setError('')
       const params = new URLSearchParams()
       if (entity) params.set('entity', entity)
       if (actionType) params.set('action', actionType)
       params.set('limit', String(PAGE_SIZE))
-      params.set('offset', String(page * PAGE_SIZE))
+      params.set('offset', String((page - 1) * PAGE_SIZE))
       const res = await fetch(`/api/audit-logs?${params}`)
       if (!res.ok) throw new Error('Failed to load audit logs')
       const data = await res.json()
       setLogs(data.logs || [])
+      setTotal(data.pagination?.total ?? 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load audit logs')
+      setLogs([])
+      setTotal(0)
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [actionType, entity, page])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
 
   const ENTITIES = ['Sale', 'Purchase', 'Item', 'Customer', 'Supplier', 'Payment', 'User', 'Expense', 'StockAdjustment']
   const ACTION_TYPES = ['CREATE', 'UPDATE', 'DELETE', 'VIEW']
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
     <AppLayout>
@@ -120,7 +139,7 @@ export default function AuditLogsPage() {
             <label className="text-xs font-semibold text-gray-500">Entity</label>
             <select
               value={entity}
-              onChange={e => { setEntity(e.target.value); setPage(0) }}
+              onChange={e => { setEntity(e.target.value); setPage(1) }}
               className="px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
             >
               <option value="">All Entities</option>
@@ -131,7 +150,7 @@ export default function AuditLogsPage() {
             <label className="text-xs font-semibold text-gray-500">Action</label>
             <select
               value={actionType}
-              onChange={e => { setActionType(e.target.value); setPage(0) }}
+              onChange={e => { setActionType(e.target.value); setPage(1) }}
               className="px-3 py-2 border border-gray-200 text-sm focus:outline-none focus:border-blue-400"
             >
               <option value="">All Actions</option>
@@ -140,11 +159,11 @@ export default function AuditLogsPage() {
           </div>
         </div>
 
-        {/* Logs list */}
+        {/* Logs table */}
         <div className="bg-white border border-gray-200 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900">Activity</h2>
-            <span className="text-xs text-gray-400">{logs.length} records</span>
+            <span className="text-xs text-gray-400">{total} records</span>
           </div>
 
           {isLoading ? (
@@ -155,59 +174,72 @@ export default function AuditLogsPage() {
               <p className="text-gray-500 font-semibold">No activity recorded yet</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
-              {logs.map(log => {
-                const { type, entity: ent } = actionLabel(log.action)
-                const user = users[log.userId]
-                return (
-                  <div key={log.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50">
-                    <span className="text-xl shrink-0">{ENTITY_ICONS[ent] || '📋'}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-xs font-bold px-2 py-0.5 -full ${ACTION_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
-                          {type}
-                        </span>
-                        <span className="text-sm font-semibold text-gray-800">{ent}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {user ? (
-                          <><span className="font-medium text-gray-600">{user.name}</span> · {user.role.replace(/_/g, ' ')}</>
-                        ) : (
-                          <span className="font-mono">{log.userId.slice(0, 8)}…</span>
-                        )}
-                        {' · '}{formatDate(new Date(log.createdAt))}
-                      </p>
-                      {log.entityId && (
-                        <p className="text-[11px] text-gray-400 mt-0.5 font-mono">
-                          Record {log.entityId.slice(0, 12)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Time</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">User</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Action</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Entity</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Record ID</th>
+                    <th className="px-5 py-3 text-left text-xs font-bold text-gray-500 uppercase">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {logs.map(log => {
+                    const { type, entity: ent } = actionLabel(log.action)
+                    const user = users[log.userId]
+                    return (
+                      <tr key={log.id} className="hover:bg-gray-50">
+                        <td className="px-5 py-3 text-xs text-gray-500 whitespace-nowrap">
+                          {formatDateTime(log.createdAt)}
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-gray-900 truncate">
+                              {user?.name || `${log.userId.slice(0, 8)}…`}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">
+                              {user?.role?.replace(/_/g, ' ') || 'Unknown role'}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`rounded-full text-xs font-bold px-2 py-0.5 ${ACTION_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
+                            {type}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{ENTITY_ICONS[ent] || '📋'}</span>
+                            <span className="font-medium text-gray-800">{ent}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-xs font-mono text-gray-500 whitespace-nowrap">
+                          {log.entityId ? log.entityId.slice(0, 18) : '—'}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-gray-500">
+                          <div className="max-w-md truncate" title={detailSummary(log.details)}>
+                            {detailSummary(log.details)}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
 
-          {/* Pagination */}
-          {(logs.length === PAGE_SIZE || page > 0) && (
-            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between">
-              <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-4 py-1.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-gray-400">Page {page + 1}</span>
-              <button
-                onClick={() => setPage(p => p + 1)}
-                disabled={logs.length < PAGE_SIZE}
-                className="px-4 py-1.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 disabled:opacity-40"
-              >
-                Next
-              </button>
-            </div>
+          {!isLoading && total > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              totalItems={total}
+              pageSize={PAGE_SIZE}
+            />
           )}
         </div>
 

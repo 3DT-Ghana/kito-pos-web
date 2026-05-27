@@ -43,7 +43,7 @@ const tutorials: Tutorial[] = [
       { heading: 'Set stock levels', body: 'Enter the opening stock quantity when creating the item. After that, use Purchases to add stock when goods arrive.' },
       { heading: 'Adjust stock', body: 'For corrections (e.g. after a stock count), go to Admin → Adjust Stock. Select the item and enter the new quantity with a reason.' },
       { heading: 'Categories', body: 'Go to Categories to create groups (e.g. "Beverages", "Electronics"). Assign items to categories to make POS browsing faster.' },
-      { heading: 'Low stock alerts', body: 'Items with 5 or fewer units show a warning on the POS and Items list. Use Reports → Inventory for a full low-stock report.' },
+      { heading: 'Low stock alerts', body: 'Inventory items show a warning when their quantity reaches or drops below the item’s reorder level. Use Reports → Inventory for a full low-stock report.' },
       { heading: 'Barcodes', body: "Set a barcode on an item's detail page. Go to Barcode Labels to print sticker sheets." },
     ],
   },

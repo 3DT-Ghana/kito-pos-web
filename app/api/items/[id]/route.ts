@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/prisma'
 import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
 import { approvedSaleWhere } from '@/lib/approvals/sales'
 import { normalizeItemType } from '@/lib/items/type'
+import { normalizeReorderLevel } from '@/lib/items/stock'
 import { hasProductTaxSettingPayload, syncProductTaxSetting } from '@/lib/tax/products'
 import { itemTaxSettingInclude } from '@/lib/tax/server'
 
@@ -165,6 +166,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
           ...(body.name && { name: body.name.trim() }),
           ...(body.manufacturerId && { manufacturerId: body.manufacturerId }),
           ...(body.quantity !== undefined && { quantity: parseFloat(body.quantity) }),
+          ...(body.reorderLevel !== undefined && body.reorderLevel !== null
+            ? { reorderLevel: normalizeReorderLevel(Number(body.reorderLevel)) }
+            : {}),
           ...(body.costPrice !== undefined && { costPrice: parseFloat(body.costPrice) }),
           ...(body.sellingPrice !== undefined && { sellingPrice: parseFloat(body.sellingPrice) }),
           ...(body.unitName !== undefined && { unitName: (body.unitName as string)?.trim() || 'unit' }),
@@ -293,6 +297,14 @@ function validateItemData(data: any): string | null {
 
   if (data.quantity !== undefined && (isNaN(data.quantity) || data.quantity < 0)) {
     return 'Quantity must be a non-negative number'
+  }
+
+  if (
+    data.reorderLevel !== undefined &&
+    data.reorderLevel !== null &&
+    (!Number.isInteger(Number(data.reorderLevel)) || Number(data.reorderLevel) < 0)
+  ) {
+    return 'Reorder level must be a non-negative whole number'
   }
 
   if (data.costPrice !== undefined) {

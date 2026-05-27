@@ -16,6 +16,34 @@ export interface AuditLogEntry {
   details?: Record<string, unknown>
 }
 
+interface AuditLogQueryOptions {
+  userId?: string
+  entity?: string
+  action?: string
+  limit?: number
+  offset?: number
+}
+
+function buildAuditLogWhere(tenantId: string, options?: AuditLogQueryOptions): Prisma.AuditLogWhereInput {
+  const where: Prisma.AuditLogWhereInput = { tenantId }
+
+  if (options?.userId) {
+    where.userId = options.userId
+  }
+
+  if (options?.entity) {
+    where.entity = options.entity
+  }
+
+  if (options?.action) {
+    where.action = {
+      contains: options.action,
+    }
+  }
+
+  return where
+}
+
 /**
  * Create an audit log entry
  *
@@ -74,36 +102,24 @@ export async function createAuditLogs(entries: AuditLogEntry[]): Promise<void> {
  */
 export async function getAuditLogs(
   tenantId: string,
-  options?: {
-    userId?: string
-    entity?: string
-    action?: string
-    limit?: number
-    offset?: number
-  }
+  options?: AuditLogQueryOptions
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = { tenantId }
-
-  if (options?.userId) {
-    where.userId = options.userId
-  }
-
-  if (options?.entity) {
-    where.entity = options.entity
-  }
-
-  if (options?.action) {
-    where.action = {
-      contains: options.action,
-    }
-  }
+  const where = buildAuditLogWhere(tenantId, options)
 
   return await prisma.auditLog.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     take: options?.limit || 100,
     skip: options?.offset || 0,
+  })
+}
+
+export async function countAuditLogs(
+  tenantId: string,
+  options?: AuditLogQueryOptions
+) {
+  return prisma.auditLog.count({
+    where: buildAuditLogWhere(tenantId, options),
   })
 }
 
