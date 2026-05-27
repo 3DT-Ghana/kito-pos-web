@@ -9,6 +9,7 @@ import {
   mergePlanFeatures,
   type TenantFeatureFlags,
 } from '@/lib/tenant/features'
+import { getTenantPlanFeatureKeys } from '@/lib/tenant/planFeatures'
 
 /**
  * Tenant Enforcement Middleware
@@ -99,21 +100,36 @@ export async function requireTenant(): Promise<TenantContext> {
     }
   }
 
-  const [tenant, plan] = await Promise.all([
-    prisma.tenant.findUnique({
-      where: { id: session.user.tenantId },
-      select: {
-        rolePermissions: true,
-        ...TENANT_FEATURE_SELECT,
-      },
-    }),
-    prisma.tenantBusinessPlan.findUnique({
-      where: { tenantId: session.user.tenantId },
-      select: {
-        features: { select: { feature: { select: { key: true } } } },
-      },
-    }),
-  ])
+  let tenant: ({ rolePermissions: unknown } & TenantFeatureFlags) | null = null
+  let planKeys: string[] = []
+
+  try {
+    ;[tenant, planKeys] = await Promise.all([
+      prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: {
+          rolePermissions: true,
+          ...TENANT_FEATURE_SELECT,
+        },
+      }),
+      getTenantPlanFeatureKeys(session.user.tenantId),
+    ])
+  } catch (error) {
+    console.error(`Failed to load tenant context for tenant ${session.user.tenantId}:`, error)
+    return {
+      error: NextResponse.json(
+        {
+          error: 'Tenant configuration unavailable',
+          message: 'We could not load your business settings right now. Please try again shortly.',
+        },
+        { status: 500 }
+      ),
+      tenantId: null,
+      user: null,
+      rolePermissions: null,
+      features: null,
+    }
+  }
 
   if (!tenant) {
     return {
@@ -149,7 +165,6 @@ export async function requireTenant(): Promise<TenantContext> {
   }
 
   // Merge plan-assigned features (plan features take OR precedence over column flags)
-  const planKeys = plan?.features.map((f) => f.feature.key) ?? []
   const features = mergePlanFeatures(baseFeatures, planKeys)
 
   return {

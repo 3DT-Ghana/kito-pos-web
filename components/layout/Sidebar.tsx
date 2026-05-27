@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useUser } from '@/hooks/useUser'
 import { useTenantFeatures } from '@/hooks/useTenant'
 import { useSidebar } from '@/lib/sidebar/SidebarContext'
@@ -14,7 +14,7 @@ import {
   Landmark, Users, Truck, BarChart2, ClipboardList, UserCog,
   GitBranch, Settings, Download, Sliders, Scale, ChevronDown,
   LogOut, Building2, ClipboardCheck, Printer, BookOpen, List, TrendingUp, Briefcase, ShieldCheck,
-  Settings2, BarChart3, HelpCircle,
+  Settings2, BarChart3, HelpCircle, Bell,
 } from 'lucide-react'
 
 interface NavItem {
@@ -39,10 +39,50 @@ export function Sidebar() {
 
   const ALL = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
   const has = (...roles: string[]) => roles.includes(role)
+  const canSeeApprovals = features.requireApproval && has('OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT')
   const superAdminEmails = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
   const isSuperAdmin = !!user?.email && superAdminEmails.includes(user.email.toLowerCase())
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
   const sz = 'w-4 h-4'
+
+  useEffect(() => {
+    if (!canSeeApprovals) {
+      return
+    }
+
+    let cancelled = false
+
+    const loadPendingApprovalCount = async () => {
+      try {
+        const res = await fetch('/api/approvals?status=PENDING&countOnly=true', { cache: 'no-store' })
+        if (!res.ok) {
+          if (!cancelled) setPendingApprovalCount(0)
+          return
+        }
+
+        const rawPayload = await res.text()
+        const payload = rawPayload ? JSON.parse(rawPayload) : null
+        if (!cancelled) {
+          setPendingApprovalCount(typeof payload?.total === 'number' ? payload.total : 0)
+        }
+      } catch {
+        if (!cancelled) {
+          setPendingApprovalCount(0)
+        }
+      }
+    }
+
+    void loadPendingApprovalCount()
+    const interval = window.setInterval(() => {
+      void loadPendingApprovalCount()
+    }, 10000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [canSeeApprovals])
 
   const rawGroups = [
     {
@@ -115,7 +155,7 @@ export function Sidebar() {
     {
       label: 'Approvals',
       itemsRaw: [
-        { name: 'Approvals', href: '/approvals', icon: <ShieldCheck className={sz} />, tooltip: 'Review and approve flagged transactions that need manager sign-off', show: features.requireApproval && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','ACCOUNTANT') },
+        { name: 'Approvals', href: '/approvals', icon: <ShieldCheck className={sz} />, tooltip: 'Review and approve flagged transactions that need manager sign-off', show: canSeeApprovals },
       ],
     },
     {
@@ -171,6 +211,31 @@ export function Sidebar() {
 
   const isActive = (href: string) =>
     pathname === href || pathname?.startsWith(href + '/')
+
+  const getItemTooltipDetail = (item: NavItem) => (
+    item.href === '/approvals' && pendingApprovalCount > 0
+      ? `${pendingApprovalCount} pending approval${pendingApprovalCount === 1 ? '' : 's'}`
+      : item.tooltip
+  )
+
+  const renderApprovalBadge = (compact: boolean) => {
+    if (pendingApprovalCount <= 0) return null
+
+    if (compact) {
+      return (
+        <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-[10px] font-bold text-white flex items-center justify-center leading-none shadow-sm">
+          {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+        </span>
+      )
+    }
+
+    return (
+      <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
+        <Bell className="w-3 h-3" />
+        {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+      </span>
+    )
+  }
 
   const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
   const roleLabel = user?.role?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? ''
@@ -231,7 +296,7 @@ export function Sidebar() {
                     return (
                       <Tooltip
                         key={item.href}
-                        text={`${item.name} — ${item.tooltip}`}
+                        text={`${item.name} — ${getItemTooltipDetail(item)}`}
                         enabled={tooltipsEnabled}
                         side="right"
                         wrapperClassName="block"
@@ -239,13 +304,14 @@ export function Sidebar() {
                       >
                         <Link
                           href={item.href}
-                          className={`flex items-center justify-center w-9 h-9 mx-auto transition-all ${
+                          className={`relative flex items-center justify-center w-9 h-9 mx-auto transition-all ${
                             active
                               ? 'bg-blue-600 text-white'
                               : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                           }`}
                         >
                           {item.icon}
+                          {item.href === '/approvals' && renderApprovalBadge(true)}
                         </Link>
                       </Tooltip>
                     )
@@ -274,7 +340,7 @@ export function Sidebar() {
                     {group.items.map(item => {
                       const active = isActive(item.href)
                       return (
-                        <Tooltip key={item.href} text={item.tooltip} enabled={tooltipsEnabled} wrapperClassName="block">
+                        <Tooltip key={item.href} text={getItemTooltipDetail(item)} enabled={tooltipsEnabled} wrapperClassName="block">
                           <Link
                             href={item.href}
                             className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-all ${
@@ -285,6 +351,7 @@ export function Sidebar() {
                           >
                             <span className="shrink-0">{item.icon}</span>
                             <span className="truncate font-medium">{item.name}</span>
+                            {item.href === '/approvals' && renderApprovalBadge(false)}
                           </Link>
                         </Tooltip>
                       )

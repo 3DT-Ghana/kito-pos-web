@@ -19,6 +19,7 @@ import {
 } from '@/lib/tenant/clientFeatures'
 import { TenantBootstrapProvider } from '@/lib/tenant/TenantBootstrapContext'
 import { mergePlanFeatures } from '@/lib/tenant/features'
+import { getTenantPlanFeatureKeys } from '@/lib/tenant/planFeatures'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -56,81 +57,79 @@ export default async function RootLayout({
   }
 
   if (tenantId) {
-    const [tenant, plan] = await Promise.all([
-      prisma.tenant.findUnique({
-        where: { id: tenantId },
-        select: {
-          name: true,
-          rolePermissions: true,
-          ...TENANT_CLIENT_FEATURE_SELECT,
-        },
-      }),
-      prisma.tenantBusinessPlan.findUnique({
-        where: { tenantId },
-        select: {
-          features: { select: { feature: { select: { key: true } } } },
-        },
-      }),
-    ])
+    try {
+      const [tenant, planKeys] = await Promise.all([
+        prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: {
+            name: true,
+            rolePermissions: true,
+            ...TENANT_CLIENT_FEATURE_SELECT,
+          },
+        }),
+        getTenantPlanFeatureKeys(tenantId),
+      ])
 
-    if (tenant) {
-      tenantName = tenant.name
-      rolePermissions = (tenant.rolePermissions as RolePermissionsMap | null) ?? null
-      const baseFeatures = toTenantFeatures(tenant)
-      const planKeys = plan?.features.map((entry) => entry.feature.key) ?? []
-      features = {
-        ...baseFeatures,
-        ...mergePlanFeatures(baseFeatures, planKeys),
-      }
-
-      if (features.enableBranches && session?.user?.role) {
-        const cookieStore = await cookies()
-        const rawSelection = cookieStore.get(BRANCH_SELECTION_COOKIE)?.value?.trim()
-        const [userRecord, allBranches] = await Promise.all([
-          prisma.user.findFirst({
-            where: { id: session.user.id, tenantId },
-            select: { branchId: true },
-          }),
-          prisma.branch.findMany({
-            where: { tenantId },
-            select: { id: true, name: true, isDefault: true },
-            orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-          }),
-        ])
-
-        const canViewAllBranches = canViewAllBranchesForRole(session.user.role)
-        const branchIds = new Set(allBranches.map((branch) => branch.id))
-        const assignedBranchId =
-          userRecord?.branchId && branchIds.has(userRecord.branchId)
-            ? userRecord.branchId
-            : null
-        const defaultBranch = allBranches.find((branch) => branch.isDefault) ?? allBranches[0] ?? null
-
-        let currentBranchId: string | null = null
-        if (assignedBranchId && !canViewAllBranches) {
-          currentBranchId = assignedBranchId
-        } else if (!assignedBranchId && !canViewAllBranches) {
-          currentBranchId = defaultBranch?.id ?? null
-        } else if (canViewAllBranches && rawSelection === ALL_BRANCHES_SELECTION) {
-          currentBranchId = null
-        } else if (rawSelection && rawSelection !== ALL_BRANCHES_SELECTION && branchIds.has(rawSelection)) {
-          currentBranchId = rawSelection
-        } else {
-          currentBranchId = assignedBranchId ?? defaultBranch?.id ?? null
+      if (tenant) {
+        tenantName = tenant.name
+        rolePermissions = (tenant.rolePermissions as RolePermissionsMap | null) ?? null
+        const baseFeatures = toTenantFeatures(tenant)
+        features = {
+          ...baseFeatures,
+          ...mergePlanFeatures(baseFeatures, planKeys),
         }
 
-        branchState = {
-          branches:
-            assignedBranchId && !canViewAllBranches
-              ? allBranches.filter((branch) => branch.id === assignedBranchId)
-              : allBranches,
-          branchesEnabled: true,
-          currentBranchId,
-          assignedBranchId,
-          canViewAllBranches,
-          isBranchLocked: Boolean(assignedBranchId && !canViewAllBranches),
+        if (features.enableBranches && session?.user?.role) {
+          const cookieStore = await cookies()
+          const rawSelection = cookieStore.get(BRANCH_SELECTION_COOKIE)?.value?.trim()
+          const [userRecord, allBranches] = await Promise.all([
+            prisma.user.findFirst({
+              where: { id: session.user.id, tenantId },
+              select: { branchId: true },
+            }),
+            prisma.branch.findMany({
+              where: { tenantId },
+              select: { id: true, name: true, isDefault: true },
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+            }),
+          ])
+
+          const canViewAllBranches = canViewAllBranchesForRole(session.user.role)
+          const branchIds = new Set(allBranches.map((branch) => branch.id))
+          const assignedBranchId =
+            userRecord?.branchId && branchIds.has(userRecord.branchId)
+              ? userRecord.branchId
+              : null
+          const defaultBranch = allBranches.find((branch) => branch.isDefault) ?? allBranches[0] ?? null
+
+          let currentBranchId: string | null = null
+          if (assignedBranchId && !canViewAllBranches) {
+            currentBranchId = assignedBranchId
+          } else if (!assignedBranchId && !canViewAllBranches) {
+            currentBranchId = defaultBranch?.id ?? null
+          } else if (canViewAllBranches && rawSelection === ALL_BRANCHES_SELECTION) {
+            currentBranchId = null
+          } else if (rawSelection && rawSelection !== ALL_BRANCHES_SELECTION && branchIds.has(rawSelection)) {
+            currentBranchId = rawSelection
+          } else {
+            currentBranchId = assignedBranchId ?? defaultBranch?.id ?? null
+          }
+
+          branchState = {
+            branches:
+              assignedBranchId && !canViewAllBranches
+                ? allBranches.filter((branch) => branch.id === assignedBranchId)
+                : allBranches,
+            branchesEnabled: true,
+            currentBranchId,
+            assignedBranchId,
+            canViewAllBranches,
+            isBranchLocked: Boolean(assignedBranchId && !canViewAllBranches),
+          }
         }
       }
+    } catch (error) {
+      console.error(`Failed to bootstrap tenant layout for tenant ${tenantId}:`, error)
     }
   }
 

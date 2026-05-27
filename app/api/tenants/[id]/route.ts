@@ -159,6 +159,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.allowSaleOnZeroStock !== undefined && { allowSaleOnZeroStock: Boolean(body.allowSaleOnZeroStock) }),
         ...(body.enableAccounting !== undefined && { enableAccounting: Boolean(body.enableAccounting) }),
         ...(body.enablePayroll !== undefined && { enablePayroll: Boolean(body.enablePayroll) }),
+        ...(body.requireApproval !== undefined && { requireApproval: Boolean(body.requireApproval) }),
       },
     })
 

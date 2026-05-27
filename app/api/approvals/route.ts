@@ -12,6 +12,7 @@ import { applyBranchScope, isBranchFilterActive, requireBranchAccess } from '@/l
  * Query params:
  *   status: PENDING | APPROVED | REJECTED  (default: PENDING)
  *   limit:  number (default 50)
+ *   countOnly: true to return just the visible count for the current branch scope
  */
 export async function GET(req: Request) {
   try {
@@ -24,11 +25,78 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const statusParam = searchParams.get('status')
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 200)
+    const countOnly = searchParams.get('countOnly') === 'true'
 
     const validStatuses = Object.values(ApprovalStatus)
     const status = validStatuses.includes(statusParam as ApprovalStatus)
       ? (statusParam as ApprovalStatus)
       : ApprovalStatus.PENDING
+
+    if (countOnly) {
+      if (!isBranchFilterActive(context!)) {
+        const total = await prisma.transactionApproval.count({
+          where: {
+            tenantId: context!.tenantId,
+            status,
+          },
+        })
+
+        return NextResponse.json({ total })
+      }
+
+      const approvals = await prisma.transactionApproval.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          status,
+        },
+        select: {
+          saleId: true,
+          stockAdjustmentId: true,
+        },
+      })
+
+      const saleIds = approvals.map((approval) => approval.saleId).filter(Boolean) as string[]
+      const adjustmentIds = approvals
+        .map((approval) => approval.stockAdjustmentId)
+        .filter(Boolean) as string[]
+
+      const [visibleSales, visibleAdjustments] = await Promise.all([
+        saleIds.length > 0
+          ? prisma.sale.findMany({
+              where: applyBranchScope(
+                {
+                  tenantId: context!.tenantId,
+                  id: { in: saleIds },
+                },
+                context!
+              ),
+              select: { id: true },
+            })
+          : Promise.resolve([]),
+        adjustmentIds.length > 0
+          ? prisma.stockAdjustment.findMany({
+              where: applyBranchScope(
+                {
+                  tenantId: context!.tenantId,
+                  id: { in: adjustmentIds },
+                },
+                context!
+              ),
+              select: { id: true },
+            })
+          : Promise.resolve([]),
+      ])
+
+      const visibleSaleIds = new Set(visibleSales.map((sale) => sale.id))
+      const visibleAdjustmentIds = new Set(visibleAdjustments.map((adjustment) => adjustment.id))
+      const total = approvals.filter((approval) => {
+        if (approval.saleId) return visibleSaleIds.has(approval.saleId)
+        if (approval.stockAdjustmentId) return visibleAdjustmentIds.has(approval.stockAdjustmentId)
+        return false
+      }).length
+
+      return NextResponse.json({ total })
+    }
 
     const approvals = await prisma.transactionApproval.findMany({
       where: {
