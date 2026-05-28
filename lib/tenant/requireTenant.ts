@@ -104,16 +104,58 @@ export async function requireTenant(): Promise<TenantContext> {
   let planKeys: string[] = []
 
   try {
-    ;[tenant, planKeys] = await Promise.all([
-      prisma.tenant.findUnique({
-        where: { id: session.user.tenantId },
+    const [userRecord, resolvedPlanKeys] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: session.user.id },
         select: {
-          rolePermissions: true,
-          ...TENANT_FEATURE_SELECT,
+          tenantId: true,
+          isActive: true,
+          tenant: {
+            select: {
+              rolePermissions: true,
+              ...TENANT_FEATURE_SELECT,
+            },
+          },
         },
       }),
       getTenantPlanFeatureKeys(session.user.tenantId),
     ])
+
+    planKeys = resolvedPlanKeys
+
+    if (!userRecord || userRecord.tenantId !== session.user.tenantId) {
+      return {
+        error: NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: 'Your user record could not be found. Please sign in again.',
+          },
+          { status: 401 }
+        ),
+        tenantId: null,
+        user: null,
+        rolePermissions: null,
+        features: null,
+      }
+    }
+
+    if (!userRecord.isActive) {
+      return {
+        error: NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: 'Your account has been disabled. Please contact your administrator.',
+          },
+          { status: 403 }
+        ),
+        tenantId: null,
+        user: null,
+        rolePermissions: null,
+        features: null,
+      }
+    }
+
+    tenant = userRecord.tenant
   } catch (error) {
     console.error(`Failed to load tenant context for tenant ${session.user.tenantId}:`, error)
     return {

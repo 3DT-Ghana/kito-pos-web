@@ -295,6 +295,7 @@ model User {
   name             String
   email            String            @unique
   password         String
+  isActive         Boolean           @default(true)
   approvalPin      String?
   role             Role
   branchId         String?

@@ -26,7 +26,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
       include: {
         users: {
-          select: { id: true, name: true, email: true, role: true, createdAt: true },
+          select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         },
         _count: {

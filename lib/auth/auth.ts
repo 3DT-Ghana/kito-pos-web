@@ -30,6 +30,10 @@ async function authorizeBusinessUser(normalizedEmail: string, password: string) 
     return null
   }
 
+  if (!user.isActive) {
+    throw new Error('Your account has been disabled. Please contact your administrator.')
+  }
+
   if (user.tenant.status === 'SUSPENDED') {
     throw new Error('Your account has been suspended. Please contact support.')
   }
@@ -98,30 +102,29 @@ export const authOptions: NextAuthOptions = {
         try {
           const normalizedEmail = credentials.email.trim().toLowerCase()
           const requestedPortal = getRequestedPortal(credentials.portal)
-          const platformAdminAttempt = await authorizePlatformAdminCredentials(
-            normalizedEmail,
-            credentials.password
-          )
-
-          if (platformAdminAttempt.status === 'success') {
-            return platformAdminAttempt.user
-          }
-
-          if (platformAdminAttempt.status === 'invalid_password') {
-            throw new Error('Invalid email or password')
-          }
 
           if (requestedPortal === 'business') {
             const businessUser = await authorizeBusinessUser(normalizedEmail, credentials.password)
             if (businessUser) {
               return businessUser
             }
+            throw new Error('Invalid email or password')
           } else if (requestedPortal === 'agent') {
             const agentUser = await authorizeAgentUser(normalizedEmail, credentials.password)
             if (agentUser) {
               return agentUser
             }
+            throw new Error('Invalid email or password')
           } else {
+            const platformAdminAttempt = await authorizePlatformAdminCredentials(
+              normalizedEmail,
+              credentials.password
+            )
+
+            if (platformAdminAttempt.status === 'success') {
+              return platformAdminAttempt.user
+            }
+
             const [businessUser, agentUser] = await Promise.all([
               authorizeBusinessUser(normalizedEmail, credentials.password),
               authorizeAgentUser(normalizedEmail, credentials.password),
@@ -133,6 +136,10 @@ export const authOptions: NextAuthOptions = {
 
             if (agentUser) {
               return agentUser
+            }
+
+            if (platformAdminAttempt.status === 'invalid_password') {
+              throw new Error('Invalid email or password')
             }
           }
 

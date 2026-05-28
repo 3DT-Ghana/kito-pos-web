@@ -7,12 +7,14 @@ import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { Building2, PencilLine, Users, TrendingUp, DollarSign, Wallet } from 'lucide-react'
 
 type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
+type TenantAdminRole = 'OWNER' | 'STORE_MANAGER'
 
 interface TenantUser {
   id: string
   name: string
   email: string
   role: string
+  isActive: boolean
   createdAt: string
 }
 
@@ -66,6 +68,13 @@ interface TenantEditForm {
   phone: string
 }
 
+interface AdminUserForm {
+  name: string
+  email: string
+  role: TenantAdminRole
+  password: string
+}
+
 const STATUS_STYLES: Record<TenantStatus, string> = {
   TRIAL:     'bg-amber-100 text-amber-800',
   ACTIVE:    'bg-emerald-100 text-emerald-800',
@@ -86,6 +95,17 @@ const FEATURE_LABELS: Record<string, string> = {
   sms:            'SMS Notifications',
 }
 
+const ADMIN_ROLE_OPTIONS: TenantAdminRole[] = ['OWNER', 'STORE_MANAGER']
+
+function createEmptyAdminUserForm(): AdminUserForm {
+  return {
+    name: '',
+    email: '',
+    role: 'STORE_MANAGER',
+    password: '',
+  }
+}
+
 export default function AdminCompaniesPage() {
   const [tenants, setTenants] = useState<TenantRecord[]>([])
   const [agentMap, setAgentMap] = useState<Record<string, AgentStub>>({})
@@ -99,6 +119,10 @@ export default function AdminCompaniesPage() {
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null)
   const [savingTenantId, setSavingTenantId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<TenantEditForm>({ name: '', phone: '' })
+  const [adminUserEditor, setAdminUserEditor] = useState<{ tenantId: string; userId: string | null } | null>(null)
+  const [adminUserForm, setAdminUserForm] = useState<AdminUserForm>(createEmptyAdminUserForm())
+  const [savingAdminUserKey, setSavingAdminUserKey] = useState<string | null>(null)
+  const [togglingAdminUserId, setTogglingAdminUserId] = useState<string | null>(null)
 
   useEffect(() => { fetchData() }, [])
 
@@ -173,6 +197,29 @@ export default function AdminCompaniesPage() {
     setEditForm({ name: '', phone: '' })
   }
 
+  function startAddingAdminUser(tenantId: string) {
+    setAdminUserEditor({ tenantId, userId: null })
+    setAdminUserForm(createEmptyAdminUserForm())
+    setError(null)
+  }
+
+  function startEditingAdminUser(tenantId: string, user: TenantUser) {
+    setAdminUserEditor({ tenantId, userId: user.id })
+    setAdminUserForm({
+      name: user.name,
+      email: user.email,
+      role: user.role === 'OWNER' ? 'OWNER' : 'STORE_MANAGER',
+      password: '',
+    })
+    setError(null)
+  }
+
+  function cancelAdminUserEditor() {
+    setAdminUserEditor(null)
+    setSavingAdminUserKey(null)
+    setAdminUserForm(createEmptyAdminUserForm())
+  }
+
   async function saveTenantDetails(tenantId: string) {
     const name = editForm.name.trim()
     const phone = editForm.phone.trim()
@@ -217,6 +264,129 @@ export default function AdminCompaniesPage() {
       setError(e instanceof Error ? e.message : 'Failed to update tenant details')
     } finally {
       setSavingTenantId(null)
+    }
+  }
+
+  async function saveAdminUser(tenantId: string) {
+    const name = adminUserForm.name.trim()
+    const email = adminUserForm.email.trim().toLowerCase()
+    const password = adminUserForm.password
+    const userId = adminUserEditor?.tenantId === tenantId ? adminUserEditor.userId : null
+    const requestKey = `${tenantId}:${userId ?? 'new'}`
+
+    if (!name) {
+      setError('Admin user name is required')
+      return
+    }
+
+    if (!email) {
+      setError('Admin user email is required')
+      return
+    }
+
+    if (!userId && password.length < 8) {
+      setError('New admin users must have a password of at least 8 characters')
+      return
+    }
+
+    if (userId && password && password.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+
+    setSavingAdminUserKey(requestKey)
+    setError(null)
+
+    try {
+      const res = await fetch(
+        userId
+          ? `/api/admin/tenants/${tenantId}/admin-users/${userId}`
+          : `/api/admin/tenants/${tenantId}/admin-users`,
+        {
+          method: userId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            email,
+            role: adminUserForm.role,
+            ...(password ? { password } : {}),
+          }),
+        }
+      )
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to save admin user')
+      }
+
+      setTenants((prev) =>
+        prev.map((tenant) => {
+          if (tenant.id !== tenantId) {
+            return tenant
+          }
+
+          if (userId) {
+            return {
+              ...tenant,
+              users: tenant.users.map((user) => (user.id === userId ? { ...user, ...data } : user)),
+            }
+          }
+
+          return {
+            ...tenant,
+            userCount: tenant.userCount + 1,
+            users: [...tenant.users, data],
+          }
+        })
+      )
+      setSummary((prev) => prev ? { ...prev, totalUsers: prev.totalUsers + (userId ? 0 : 1) } : prev)
+
+      cancelAdminUserEditor()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to save admin user')
+    } finally {
+      setSavingAdminUserKey(null)
+    }
+  }
+
+  async function toggleAdminUser(tenantId: string, user: TenantUser) {
+    const nextIsActive = !user.isActive
+
+    if (!nextIsActive && !confirm(`Disable "${user.name}"? They will no longer be able to log in.`)) {
+      return
+    }
+
+    setTogglingAdminUserId(user.id)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}/admin-users/${user.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: nextIsActive }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update admin user status')
+      }
+
+      setTenants((prev) =>
+        prev.map((tenant) =>
+          tenant.id === tenantId
+            ? {
+                ...tenant,
+                users: tenant.users.map((tenantUser) =>
+                  tenantUser.id === user.id ? { ...tenantUser, ...data } : tenantUser
+                ),
+              }
+            : tenant
+        )
+      )
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update admin user status')
+    } finally {
+      setTogglingAdminUserId(null)
     }
   }
 
@@ -332,7 +502,13 @@ export default function AdminCompaniesPage() {
           <div className="space-y-3">
             {filtered.map(tenant => {
               const isExpanded = expandedId === tenant.id
-              const owner = tenant.users.find(u => u.role === 'OWNER')
+              const owner = tenant.users.find(u => u.role === 'OWNER' && u.isActive)
+                ?? tenant.users.find(u => u.role === 'OWNER')
+              const adminUsers = tenant.users.filter(
+                (user) => user.role === 'OWNER' || user.role === 'STORE_MANAGER'
+              )
+              const isEditingAdminForTenant = adminUserEditor?.tenantId === tenant.id
+              const adminUserRequestKey = `${tenant.id}:${isEditingAdminForTenant ? adminUserEditor?.userId ?? 'new' : 'new'}`
               const profit = tenant.totalCollected - tenant.totalPurchased
               const featCount = Object.values(tenant.features).filter(Boolean).length
               const agent = tenant.agentId ? agentMap[tenant.agentId] : null
@@ -348,9 +524,18 @@ export default function AdminCompaniesPage() {
                         if (editingTenantId === tenant.id) {
                           cancelEditingTenant()
                         }
+                        if (adminUserEditor?.tenantId === tenant.id) {
+                          cancelAdminUserEditor()
+                        }
                         return
                       }
 
+                      if (editingTenantId && editingTenantId !== tenant.id) {
+                        cancelEditingTenant()
+                      }
+                      if (adminUserEditor?.tenantId && adminUserEditor.tenantId !== tenant.id) {
+                        cancelAdminUserEditor()
+                      }
                       setExpandedId(tenant.id)
                     }}
                   >
@@ -500,6 +685,190 @@ export default function AdminCompaniesPage() {
                         )}
                       </div>
 
+                      <div>
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Admin Users</h4>
+                            <p className="mt-1 text-sm text-gray-500">
+                              Create, edit, and disable tenant company admin accounts.
+                            </p>
+                          </div>
+                          {isEditingAdminForTenant ? (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  cancelAdminUserEditor()
+                                }}
+                                className="border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void saveAdminUser(tenant.id)
+                                }}
+                                disabled={savingAdminUserKey === adminUserRequestKey}
+                                className="border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {savingAdminUserKey === adminUserRequestKey ? 'Saving...' : 'Save Admin User'}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startAddingAdminUser(tenant.id)
+                              }}
+                              className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                            >
+                              <span className="text-base leading-none">+</span>
+                              Add Admin User
+                            </button>
+                          )}
+                        </div>
+
+                        {isEditingAdminForTenant && (
+                          <div className="mb-3 grid gap-3 border border-gray-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Full name
+                              </span>
+                              <input
+                                type="text"
+                                value={adminUserForm.name}
+                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, name: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                                placeholder="Admin name"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Email
+                              </span>
+                              <input
+                                type="email"
+                                value={adminUserForm.email}
+                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, email: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                                placeholder="admin@company.com"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Role
+                              </span>
+                              <select
+                                value={adminUserForm.role}
+                                onChange={(e) =>
+                                  setAdminUserForm((prev) => ({
+                                    ...prev,
+                                    role: e.target.value as TenantAdminRole,
+                                  }))
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                              >
+                                {ADMIN_ROLE_OPTIONS.map((role) => (
+                                  <option key={role} value={role}>
+                                    {role === 'OWNER' ? 'Owner' : 'Store Manager'}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Password
+                              </span>
+                              <input
+                                type="password"
+                                value={adminUserForm.password}
+                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, password: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                                placeholder={adminUserEditor?.userId ? 'Leave blank to keep current password' : 'Minimum 8 characters'}
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        {adminUsers.length === 0 ? (
+                          <div className="border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
+                            No tenant admin users yet. Create an owner or store manager account for this business.
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-gray-200 overflow-hidden">
+                            <table className="w-full text-sm">
+                              <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                  <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Joined</th>
+                                  <th className="px-4 py-2.5 text-right text-xs font-bold text-gray-500 uppercase">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {adminUsers.map((user) => (
+                                  <tr key={user.id} className={`hover:bg-gray-50 ${!user.isActive ? 'bg-gray-50/60' : ''}`}>
+                                    <td className="px-4 py-2.5 font-medium text-gray-900">{user.name}</td>
+                                    <td className="px-4 py-2.5 text-gray-500 text-xs font-mono">{user.email}</td>
+                                    <td className="px-4 py-2.5">
+                                      <UserRoleBadge role={user.role} />
+                                    </td>
+                                    <td className="px-4 py-2.5">
+                                      <UserStatusBadge isActive={user.isActive} />
+                                    </td>
+                                    <td className="px-4 py-2.5 text-gray-400 text-xs">{formatDate(user.createdAt)}</td>
+                                    <td className="px-4 py-2.5">
+                                      <div className="flex justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            startEditingAdminUser(tenant.id, user)
+                                          }}
+                                          disabled={togglingAdminUserId === user.id}
+                                          className="border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            void toggleAdminUser(tenant.id, user)
+                                          }}
+                                          disabled={togglingAdminUserId === user.id}
+                                          className={`px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                            user.isActive
+                                              ? 'border border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                                              : 'border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                          }`}
+                                        >
+                                          {togglingAdminUserId === user.id
+                                            ? 'Saving...'
+                                            : user.isActive
+                                              ? 'Disable'
+                                              : 'Enable'}
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
                       {/* Financial overview */}
                       <div>
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Financial Overview</h4>
@@ -553,7 +922,7 @@ export default function AdminCompaniesPage() {
                       {/* Users */}
                       <div>
                         <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
-                          Users ({tenant.userCount})
+                          All Users ({tenant.userCount})
                         </h4>
                         <div className="bg-white border border-gray-200 overflow-hidden">
                           <table className="w-full text-sm">
@@ -562,24 +931,20 @@ export default function AdminCompaniesPage() {
                                 <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                                 <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Joined</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                               {tenant.users.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50">
+                                <tr key={u.id} className={`hover:bg-gray-50 ${!u.isActive ? 'bg-gray-50/60' : ''}`}>
                                   <td className="px-4 py-2.5 font-medium text-gray-900">{u.name}</td>
                                   <td className="px-4 py-2.5 text-gray-500 text-xs font-mono">{u.email}</td>
                                   <td className="px-4 py-2.5">
-                                    <span className={`px-2 py-0.5 -full text-xs font-bold ${
-                                      u.role === 'OWNER'          ? 'bg-purple-100 text-purple-800'
-                                      : u.role === 'STORE_MANAGER'  ? 'bg-blue-100 text-blue-800'
-                                      : u.role === 'BRANCH_MANAGER' ? 'bg-cyan-100 text-cyan-800'
-                                      : u.role === 'CASHIER'        ? 'bg-green-100 text-green-800'
-                                      : 'bg-gray-100 text-gray-700'
-                                    }`}>
-                                      {u.role.replace(/_/g, ' ')}
-                                    </span>
+                                    <UserRoleBadge role={u.role} />
+                                  </td>
+                                  <td className="px-4 py-2.5">
+                                    <UserStatusBadge isActive={u.isActive} />
                                   </td>
                                   <td className="px-4 py-2.5 text-gray-400 text-xs">{formatDate(u.createdAt)}</td>
                                 </tr>
@@ -690,5 +1055,33 @@ function DetailsCard({ label, value, mono }: { label: string; value: string; mon
         {value}
       </p>
     </div>
+  )
+}
+
+function UserRoleBadge({ role }: { role: string }) {
+  return (
+    <span className={`px-2 py-0.5 -full text-xs font-bold ${
+      role === 'OWNER' ? 'bg-purple-100 text-purple-800'
+      : role === 'STORE_MANAGER' ? 'bg-blue-100 text-blue-800'
+      : role === 'BRANCH_MANAGER' ? 'bg-cyan-100 text-cyan-800'
+      : role === 'CASHIER' ? 'bg-green-100 text-green-800'
+      : role === 'INVENTORY_MANAGER' ? 'bg-amber-100 text-amber-800'
+      : role === 'ACCOUNTANT' ? 'bg-pink-100 text-pink-800'
+      : 'bg-gray-100 text-gray-700'
+    }`}>
+      {role.replace(/_/g, ' ')}
+    </span>
+  )
+}
+
+function UserStatusBadge({ isActive }: { isActive: boolean }) {
+  return (
+    <span className={`px-2 py-0.5 -full text-xs font-bold ${
+      isActive
+        ? 'bg-emerald-100 text-emerald-800'
+        : 'bg-gray-200 text-gray-700'
+    }`}>
+      {isActive ? 'Active' : 'Disabled'}
+    </span>
   )
 }

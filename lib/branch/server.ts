@@ -8,10 +8,7 @@ import {
   canViewAllBranchesForRole,
   type RolePermissionsMap,
 } from '@/lib/permissions/rbac'
-import {
-  TENANT_FEATURE_SELECT,
-  type TenantFeatureFlags,
-} from '@/lib/tenant/features'
+import type { TenantFeatureFlags } from '@/lib/tenant/features'
 
 export interface BranchSummary {
   id: string
@@ -48,12 +45,6 @@ export async function requireBranchAccess(): Promise<{
       where: { id: base.user!.id, tenantId: base.tenantId! },
       select: {
         branchId: true,
-        tenant: {
-          select: {
-            rolePermissions: true,
-            ...TENANT_FEATURE_SELECT,
-          },
-        },
       },
     }),
     prisma.branch.findMany({
@@ -80,21 +71,7 @@ export async function requireBranchAccess(): Promise<{
     }
   }
 
-  const features: TenantFeatureFlags = {
-    enableBranches: Boolean(userRecord.tenant.enableBranches),
-    enableQuotations: Boolean(userRecord.tenant.enableQuotations),
-    enablePurchaseOrders: Boolean(userRecord.tenant.enablePurchaseOrders),
-    enableTill: Boolean(userRecord.tenant.enableTill),
-    enableAccounting: Boolean(userRecord.tenant.enableAccounting),
-    enablePayroll: Boolean(userRecord.tenant.enablePayroll),
-    requireApproval: Boolean(userRecord.tenant.requireApproval),
-    enablePosTerminal: Boolean(userRecord.tenant.enablePosTerminal),
-    enableExpenses: Boolean(userRecord.tenant.enableExpenses),
-    enableBarcodeGenerator: Boolean(userRecord.tenant.enableBarcodeGenerator),
-    enableExpiryTracking: Boolean(userRecord.tenant.enableExpiryTracking),
-    enableCreditSales: Boolean(userRecord.tenant.enableCreditSales),
-    enableSmsNotifications: Boolean(userRecord.tenant.enableSmsNotifications),
-  }
+  const features: TenantFeatureFlags = base.features!
   const branchesEnabled = features.enableBranches
   const canViewAllBranches = canViewAllBranchesForRole(base.user!.role)
   const branchIds = new Set(allBranches.map((branch) => branch.id))
@@ -154,7 +131,7 @@ export async function requireBranchAccess(): Promise<{
     context: {
       tenantId: base.tenantId!,
       user: base.user!,
-      rolePermissions: (userRecord.tenant.rolePermissions as RolePermissionsMap | null) ?? null,
+      rolePermissions: base.rolePermissions as RolePermissionsMap | null,
       features,
       branchesEnabled,
       branches: visibleBranches,
