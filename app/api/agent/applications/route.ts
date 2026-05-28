@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireApprovedAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
-import { BusinessType } from '@prisma/client'
+import { type Prisma } from '@prisma/client'
 import { getGlobalKYCSettings } from '@/lib/kyc/settings'
+import { normalizeBusinessApplicationPayload } from '@/lib/agent/businessApplications'
 
 /**
  * GET /api/agent/applications
@@ -44,39 +45,15 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json()
-    const {
-      businessName,
-      businessType,
-      businessAddress,
-      businessPhone,
-      businessEmail,
-      businessRegistrationNumber,
-      directors,
-      ownerFullName,
-      ownerPhone,
-      ownerEmail,
-      ownerGhanaCardNumber,
-      gpsLatitude,
-      gpsLongitude,
-    } = body
-
-    if (!businessName || !businessAddress || !ownerFullName || !ownerPhone || !ownerEmail) {
-      return NextResponse.json(
-        { error: 'businessName, businessAddress, ownerFullName, ownerPhone and ownerEmail are required' },
-        { status: 400 }
-      )
-    }
 
     // Fetch KYC settings — upsert guarantees a row with correct defaults always exists
     const kycSettings = await getGlobalKYCSettings()
-
-    // Business reg number required only when admin has enabled that setting
-    if (kycSettings.requireBusinessRegNumber && !businessRegistrationNumber?.trim()) {
-      return NextResponse.json(
-        { error: 'Business Registration Number is required by platform settings' },
-        { status: 400 }
-      )
+    const normalized = normalizeBusinessApplicationPayload(body, kycSettings)
+    if (!normalized.ok) {
+      return NextResponse.json({ error: normalized.error }, { status: 400 })
     }
+
+    const data = normalized.data
 
     // Business certificate upload required only when admin has enabled that setting
     if (kycSettings.requireBusinessCertUpload) {
@@ -84,58 +61,21 @@ export async function POST(req: Request) {
       // Flag is checked on the admin review side. No block needed at submission time.
     }
 
-    const validTypes = ['SHOP', 'COMPANY', 'OTHER']
-    const resolvedType: BusinessType =
-      businessType && validTypes.includes(businessType) ? businessType : 'SHOP'
-
-    // Build directors array — always include the primary owner as first entry
-    const directorsArray: { fullName: string; ghanaCardNumber?: string }[] = []
-    if (Array.isArray(directors) && directors.length > 0) {
-      for (const d of directors) {
-        if (d?.fullName?.trim()) {
-          directorsArray.push({
-            fullName: d.fullName.trim(),
-            ghanaCardNumber: d.ghanaCardNumber?.trim() || undefined,
-          })
-        }
-      }
-    }
-    // Ensure the primary owner is represented
-    const ownerAlreadyListed = directorsArray.some(
-      (d) => d.fullName.toLowerCase() === ownerFullName.trim().toLowerCase()
-    )
-    if (!ownerAlreadyListed) {
-      directorsArray.unshift({
-        fullName: ownerFullName.trim(),
-        ghanaCardNumber: ownerGhanaCardNumber?.trim() || undefined,
-      })
-    }
-
-    if (
-      kycSettings.requireDirectorGhanaCardNumber &&
-      directorsArray.some((director) => !director.ghanaCardNumber?.trim())
-    ) {
-      return NextResponse.json(
-        { error: 'Every listed director must have a Ghana Card Number' },
-        { status: 400 }
-      )
-    }
-
     const application = await prisma.businessApplication.create({
       data: {
-        businessName: businessName.trim(),
-        businessType: resolvedType,
-        businessRegistrationNumber: businessRegistrationNumber?.trim() || null,
-        businessAddress: businessAddress.trim(),
-        businessPhone: businessPhone?.trim() || null,
-        businessEmail: businessEmail?.trim() || null,
-        gpsLatitude: gpsLatitude ?? null,
-        gpsLongitude: gpsLongitude ?? null,
-        directors: directorsArray,
-        ownerFullName: ownerFullName.trim(),
-        ownerPhone: ownerPhone.trim(),
-        ownerEmail: ownerEmail.trim(),
-        ownerGhanaCardNumber: ownerGhanaCardNumber?.trim() || null,
+        businessName: data.businessName,
+        businessType: data.businessType,
+        businessRegistrationNumber: data.businessRegistrationNumber,
+        businessAddress: data.businessAddress,
+        businessPhone: data.businessPhone,
+        businessEmail: data.businessEmail,
+        gpsLatitude: data.gpsLatitude,
+        gpsLongitude: data.gpsLongitude,
+        directors: data.directors as unknown as Prisma.InputJsonValue,
+        ownerFullName: data.ownerFullName,
+        ownerPhone: data.ownerPhone,
+        ownerEmail: data.ownerEmail,
+        ownerGhanaCardNumber: data.ownerGhanaCardNumber,
         agentId: context!.agent.id,
       },
       include: {

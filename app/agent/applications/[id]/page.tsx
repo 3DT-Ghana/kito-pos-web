@@ -1,10 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
+import { useRouter } from 'next/navigation'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ChevronLeft, AlertCircle, CheckCircle, Clock, Upload, XCircle, FileText } from 'lucide-react'
+import {
+  ChevronLeft,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Upload,
+  XCircle,
+  FileText,
+  PencilLine,
+  Trash2,
+} from 'lucide-react'
 
 interface Director {
   fullName: string
@@ -58,21 +69,24 @@ const DOC_LABEL: Record<string, string> = {
 
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [application, setApplication] = useState<Application | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [kyc, setKyc] = useState<KYCSettings>({
     requireBusinessCertUpload: false,
     requireDirectorGhanaCardUpload: false,
   })
   const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [businessCertFile, setBusinessCertFile] = useState<File | null>(null)
   const [directorCardFile, setDirectorCardFile] = useState<File | null>(null)
   const businessCertRef = useRef<HTMLInputElement>(null)
   const directorCardRef = useRef<HTMLInputElement>(null)
 
-  async function loadApplication() {
+  const loadApplication = useCallback(async () => {
     const response = await fetch(`/api/agent/applications/${id}`)
     const data = await response.json()
 
@@ -83,7 +97,7 @@ export default function ApplicationDetailPage() {
       setApplication(data)
       setError(null)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     Promise.all([
@@ -108,7 +122,7 @@ export default function ApplicationDetailPage() {
       .finally(() => {
         setLoading(false)
       })
-  }, [id])
+  }, [loadApplication])
 
   async function uploadDocument(params: {
     file: File | null
@@ -123,6 +137,7 @@ export default function ApplicationDetailPage() {
 
     setUploadingDoc(documentType)
     setUploadMessage(null)
+    setActionError(null)
 
     const formData = new FormData()
     formData.append('file', file)
@@ -155,6 +170,44 @@ export default function ApplicationDetailPage() {
       setUploadMessage({ type: 'error', text: `Failed to upload ${label}.` })
     } finally {
       setUploadingDoc(null)
+    }
+  }
+
+  async function deleteApplication() {
+    if (!application) {
+      return
+    }
+
+    if (
+      !window.confirm(
+        `Delete "${application.businessName}"? This rejected application will be removed permanently.`
+      )
+    ) {
+      return
+    }
+
+    setDeleting(true)
+    setActionError(null)
+
+    try {
+      const response = await fetch(`/api/agent/applications/${application.id}`, {
+        method: 'DELETE',
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete application')
+      }
+
+      router.push('/agent/applications')
+    } catch (deleteError) {
+      setActionError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Failed to delete application'
+      )
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -210,10 +263,34 @@ export default function ApplicationDetailPage() {
         <Link href="/agent/applications" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-3">
           <ChevronLeft className="w-4 h-4" /> Back to Applications
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">{application.businessName}</h1>
-        <p className="text-xs text-gray-400 mt-0.5">
-          Submitted {new Date(application.createdAt).toLocaleDateString()}
-        </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{application.businessName}</h1>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Submitted {new Date(application.createdAt).toLocaleDateString()}
+            </p>
+          </div>
+          {application.status === 'REJECTED' && (
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/agent/applications/${application.id}/edit`}
+                className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+              >
+                <PencilLine className="h-4 w-4" />
+                Edit & Resubmit
+              </Link>
+              <button
+                type="button"
+                onClick={() => void deleteApplication()}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 border border-red-200 bg-white px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Status banner */}
@@ -223,6 +300,11 @@ export default function ApplicationDetailPage() {
           <p className="text-sm font-medium">{cfg.label}</p>
           {application.status === 'REJECTED' && application.rejectionReason && (
             <p className="text-xs mt-1">{application.rejectionReason}</p>
+          )}
+          {application.status === 'REJECTED' && (
+            <p className="text-xs mt-1">
+              You can edit this registration and resubmit it, or delete it if you no longer need it.
+            </p>
           )}
           {application.status === 'APPROVED' && application.approvalNote && (
             <p className="text-xs mt-1">{application.approvalNote}</p>
@@ -245,6 +327,12 @@ export default function ApplicationDetailPage() {
         </div>
       )}
 
+      {actionError && (
+        <div className="border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {actionError}
+        </div>
+      )}
+
       {application.status === 'PENDING' && missingRequiredDocs.length > 0 && (
         <div className="bg-amber-50 border border-amber-100 p-4 text-sm text-amber-700">
           Required before approval: {missingRequiredDocs.join(', ')}.
@@ -261,7 +349,7 @@ export default function ApplicationDetailPage() {
         )}
         {application.businessPhone && <Row label="Phone" value={application.businessPhone} />}
         {application.businessEmail && <Row label="Email" value={application.businessEmail} />}
-        {application.gpsLatitude && application.gpsLongitude && (
+        {application.gpsLatitude !== null && application.gpsLongitude !== null && (
           <Row label="GPS" value={`${application.gpsLatitude}, ${application.gpsLongitude}`} />
         )}
       </div>
@@ -428,7 +516,7 @@ function UploadRow({
   label: string
   helper: string
   file: File | null
-  inputRef: React.RefObject<HTMLInputElement | null>
+  inputRef: RefObject<HTMLInputElement | null>
   accept: string
   buttonLabel: string
   disabled: boolean

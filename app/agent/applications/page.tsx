@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { PencilLine, Plus, Trash2 } from 'lucide-react'
 
 interface Application {
   id: string
@@ -18,16 +18,65 @@ interface Application {
 export default function AgentApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/agent/applications')
-      .then((r) => r.json())
-      .then((data) => {
+      .then(async (response) => {
+        const data = await response.json()
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to load applications')
+        }
+
         setApplications(Array.isArray(data) ? data : [])
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((loadError) => {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Failed to load applications'
+        )
+        setLoading(false)
+      })
   }, [])
+
+  async function deleteApplication(app: Application) {
+    if (
+      !window.confirm(
+        `Delete "${app.businessName}"? This rejected application will be removed permanently.`
+      )
+    ) {
+      return
+    }
+
+    setDeletingId(app.id)
+    setError(null)
+
+    try {
+      const response = await fetch(`/api/agent/applications/${app.id}`, {
+        method: 'DELETE',
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to delete application')
+      }
+
+      setApplications((prev) =>
+        prev.filter((application) => application.id !== app.id)
+      )
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Failed to delete application'
+      )
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -44,6 +93,12 @@ export default function AgentApplicationsPage() {
           New Application
         </Link>
       </div>
+
+      {error && (
+        <div className="border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       <div className="bg-white border border-gray-200 overflow-hidden">
         {loading ? (
@@ -64,6 +119,7 @@ export default function AgentApplicationsPage() {
                 <th className="text-left px-5 py-3 font-medium text-gray-500 hidden md:table-cell">Owner</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Status</th>
                 <th className="text-left px-5 py-3 font-medium text-gray-500 hidden sm:table-cell">Date</th>
+                <th className="text-right px-5 py-3 font-medium text-gray-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -87,6 +143,30 @@ export default function AgentApplicationsPage() {
                   </td>
                   <td className="px-5 py-3 hidden sm:table-cell text-gray-400 text-xs">
                     {new Date(app.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-5 py-3">
+                    {app.status === 'REJECTED' ? (
+                      <div className="flex justify-end gap-2">
+                        <Link
+                          href={`/agent/applications/${app.id}/edit`}
+                          className="inline-flex items-center gap-1 border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-indigo-600 transition-colors hover:bg-indigo-50"
+                        >
+                          <PencilLine className="h-3.5 w-3.5" />
+                          Edit
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => void deleteApplication(app)}
+                          disabled={deletingId === app.id}
+                          className="inline-flex items-center gap-1 border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {deletingId === app.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-right text-xs text-gray-300">-</div>
+                    )}
                   </td>
                 </tr>
               ))}

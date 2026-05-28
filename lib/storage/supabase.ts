@@ -67,3 +67,30 @@ export async function getSignedUrl(path: string): Promise<string> {
   const data = await res.json()
   return `${SUPABASE_URL}/storage/v1${data.signedURL}`
 }
+
+export async function deleteStoredFileBySignedUrl(fileUrl: string): Promise<void> {
+  const marker = `/storage/v1/object/sign/${BUCKET}/`
+  const index = fileUrl.indexOf(marker)
+
+  if (index === -1) {
+    return
+  }
+
+  const pathWithQuery = fileUrl.slice(index + marker.length)
+  const path = decodeURIComponent(pathWithQuery.split('?')[0] ?? '')
+
+  if (!path) {
+    return
+  }
+
+  const url = `${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: storageHeaders(),
+  })
+
+  if (!res.ok && res.status !== 404) {
+    const err = await res.text()
+    throw new Error(`Storage delete failed: ${err}`)
+  }
+}

@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireApprovedAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
-import { uploadGhanaCard, getSignedUrl } from '@/lib/storage/supabase'
+import {
+  deleteStoredFileBySignedUrl,
+  getSignedUrl,
+  uploadGhanaCard,
+} from '@/lib/storage/supabase'
 import { DocumentType } from '@prisma/client'
 
 interface RouteParams {
@@ -76,14 +80,43 @@ export async function POST(req: Request, { params }: RouteParams) {
     await uploadGhanaCard(path, buffer, file.type)
     const fileUrl = await getSignedUrl(path)
 
-    const document = await prisma.businessDocument.create({
-      data: {
+    const existingDocuments = await prisma.businessDocument.findMany({
+      where: {
         applicationId: id,
         documentType: documentType as DocumentType,
-        label,
-        fileUrl,
+      },
+      select: {
+        id: true,
+        fileUrl: true,
       },
     })
+
+    const document = await prisma.$transaction(async (tx) => {
+      if (existingDocuments.length > 0) {
+        await tx.businessDocument.deleteMany({
+          where: {
+            id: { in: existingDocuments.map((existing) => existing.id) },
+          },
+        })
+      }
+
+      return tx.businessDocument.create({
+        data: {
+          applicationId: id,
+          documentType: documentType as DocumentType,
+          label,
+          fileUrl,
+        },
+      })
+    })
+
+    for (const existingDocument of existingDocuments) {
+      try {
+        await deleteStoredFileBySignedUrl(existingDocument.fileUrl)
+      } catch (storageError) {
+        console.error('Failed to delete replaced application document from storage:', storageError)
+      }
+    }
 
     return NextResponse.json(document, { status: 201 })
   } catch (err) {
