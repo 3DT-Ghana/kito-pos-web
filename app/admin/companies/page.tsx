@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { Building2, Users, TrendingUp, DollarSign, Wallet } from 'lucide-react'
+import { Building2, PencilLine, Users, TrendingUp, DollarSign, Wallet } from 'lucide-react'
 
 type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
 
@@ -61,6 +61,11 @@ interface Summary {
   totalRevenue: number
 }
 
+interface TenantEditForm {
+  name: string
+  phone: string
+}
+
 const STATUS_STYLES: Record<TenantStatus, string> = {
   TRIAL:     'bg-amber-100 text-amber-800',
   ACTIVE:    'bg-emerald-100 text-emerald-800',
@@ -91,6 +96,9 @@ export default function AdminCompaniesPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | TenantStatus>('all')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<string | null>(null)
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null)
+  const [savingTenantId, setSavingTenantId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<TenantEditForm>({ name: '', phone: '' })
 
   useEffect(() => { fetchData() }, [])
 
@@ -147,6 +155,68 @@ export default function AdminCompaniesPage() {
       }
     } finally {
       setUpdatingId(null)
+    }
+  }
+
+  function startEditingTenant(tenant: TenantRecord) {
+    setEditingTenantId(tenant.id)
+    setEditForm({
+      name: tenant.name,
+      phone: tenant.phone ?? '',
+    })
+    setError(null)
+  }
+
+  function cancelEditingTenant() {
+    setEditingTenantId(null)
+    setSavingTenantId(null)
+    setEditForm({ name: '', phone: '' })
+  }
+
+  async function saveTenantDetails(tenantId: string) {
+    const name = editForm.name.trim()
+    const phone = editForm.phone.trim()
+
+    if (!name) {
+      setError('Business name is required')
+      return
+    }
+
+    setSavingTenantId(tenantId)
+    setError(null)
+
+    try {
+      const res = await fetch(`/api/admin/tenants/${tenantId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          phone: phone || null,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to update tenant details')
+      }
+
+      setTenants((prev) =>
+        prev.map((tenant) =>
+          tenant.id === tenantId
+            ? {
+                ...tenant,
+                name: data.name,
+                phone: data.phone,
+                status: data.status,
+              }
+            : tenant
+        )
+      )
+      cancelEditingTenant()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to update tenant details')
+    } finally {
+      setSavingTenantId(null)
     }
   }
 
@@ -272,7 +342,17 @@ export default function AdminCompaniesPage() {
                 <div key={tenant.id} className="bg-white border border-gray-200 shadow-sm overflow-hidden">
                   <div
                     className="p-4 sm:p-5 cursor-pointer hover:bg-gray-50 transition-colors"
-                    onClick={() => setExpandedId(isExpanded ? null : tenant.id)}
+                    onClick={() => {
+                      if (isExpanded) {
+                        setExpandedId(null)
+                        if (editingTenantId === tenant.id) {
+                          cancelEditingTenant()
+                        }
+                        return
+                      }
+
+                      setExpandedId(tenant.id)
+                    }}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -334,6 +414,91 @@ export default function AdminCompaniesPage() {
 
                   {isExpanded && (
                     <div className="border-t border-gray-100 bg-gray-50/60 px-4 sm:px-5 py-5 space-y-5">
+
+                      <div>
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Business Details</h4>
+                            <p className="mt-1 text-sm text-gray-500">Edit the stored tenant business profile from the platform side.</p>
+                          </div>
+                          {editingTenantId === tenant.id ? (
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  cancelEditingTenant()
+                                }}
+                                className="border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void saveTenantDetails(tenant.id)
+                                }}
+                                disabled={savingTenantId === tenant.id}
+                                className="inline-flex items-center gap-2 bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <PencilLine className="h-4 w-4" />
+                                {savingTenantId === tenant.id ? 'Saving...' : 'Save Changes'}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                startEditingTenant(tenant)
+                              }}
+                              className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                            >
+                              <PencilLine className="h-4 w-4" />
+                              Edit Details
+                            </button>
+                          )}
+                        </div>
+
+                        {editingTenantId === tenant.id ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Business name
+                              </span>
+                              <input
+                                type="text"
+                                value={editForm.name}
+                                onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                                placeholder="Business name"
+                              />
+                            </label>
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
+                                Phone
+                              </span>
+                              <input
+                                type="text"
+                                value={editForm.phone}
+                                onChange={(e) => setEditForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
+                                placeholder="Business phone"
+                              />
+                            </label>
+                          </div>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <DetailsCard label="Business Name" value={tenant.name} />
+                            <DetailsCard label="Phone" value={tenant.phone || 'Not set'} />
+                            <DetailsCard label="Owner Email" value={owner?.email || 'Not set'} />
+                            <DetailsCard label="Tenant ID" value={tenant.id} mono />
+                          </div>
+                        )}
+                      </div>
 
                       {/* Financial overview */}
                       <div>
@@ -513,6 +678,17 @@ function FinCard({ label, value, color }: { label: string; value: string; color:
     <div className="bg-white border border-gray-200 px-4 py-3">
       <p className="text-xs text-gray-400 font-semibold">{label}</p>
       <p className={`text-base font-bold mt-0.5 ${color}`}>{value}</p>
+    </div>
+  )
+}
+
+function DetailsCard({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="bg-white border border-gray-200 px-4 py-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className={`mt-1 break-all text-sm font-semibold text-gray-800 ${mono ? 'font-mono text-xs' : ''}`}>
+        {value}
+      </p>
     </div>
   )
 }

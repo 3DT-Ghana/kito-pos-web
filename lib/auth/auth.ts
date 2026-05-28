@@ -3,18 +3,16 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { Role } from '@/lib/permissions/rbac'
+import {
+  authorizePlatformAdminCredentials,
+  findPlatformAdminForSession,
+} from '@/lib/admin/platformAdmins'
+import { getCachedPlatformSettings } from '@/lib/admin/platformSettings'
 
 type LoginPortal = 'business' | 'agent'
 
 function getRequestedPortal(portal?: string): LoginPortal | null {
   return portal === 'business' || portal === 'agent' ? portal : null
-}
-
-function getSuperAdminEmails() {
-  return (process.env.SUPER_ADMIN_EMAILS ?? '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean)
 }
 
 async function authorizeBusinessUser(normalizedEmail: string, password: string) {
@@ -30,17 +28,6 @@ async function authorizeBusinessUser(normalizedEmail: string, password: string) 
   const valid = await compare(password, user.password)
   if (!valid) {
     return null
-  }
-
-  if (getSuperAdminEmails().includes(normalizedEmail)) {
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role as unknown as Role,
-      branchId: null,
-      platformRole: 'SUPER_ADMIN' as const,
-    }
   }
 
   if (user.tenant.status === 'SUSPENDED') {
@@ -111,6 +98,18 @@ export const authOptions: NextAuthOptions = {
         try {
           const normalizedEmail = credentials.email.trim().toLowerCase()
           const requestedPortal = getRequestedPortal(credentials.portal)
+          const platformAdminAttempt = await authorizePlatformAdminCredentials(
+            normalizedEmail,
+            credentials.password
+          )
+
+          if (platformAdminAttempt.status === 'success') {
+            return platformAdminAttempt.user
+          }
+
+          if (platformAdminAttempt.status === 'invalid_password') {
+            throw new Error('Invalid email or password')
+          }
 
           if (requestedPortal === 'business') {
             const businessUser = await authorizeBusinessUser(normalizedEmail, credentials.password)
@@ -169,8 +168,41 @@ export const authOptions: NextAuthOptions = {
         token.branchId = user.branchId ?? null
         // Agent/platform fields
         if (user.platformRole) token.platformRole = user.platformRole
+        if (user.platformAdminId) token.platformAdminId = user.platformAdminId
         if (user.agentId) token.agentId = user.agentId
         if (user.agentStatus) token.agentStatus = user.agentStatus
+      }
+
+      if (token.platformRole === 'SUPER_ADMIN') {
+        try {
+          const platformAdmin = await findPlatformAdminForSession({
+            platformAdminId: token.platformAdminId as string | null | undefined,
+            email: token.email as string | null | undefined,
+          })
+
+          if (!platformAdmin) {
+            token.expired = true
+          } else {
+            token.id = platformAdmin.id
+            token.email = platformAdmin.email
+            token.name = platformAdmin.name
+            token.role = Role.OWNER
+            token.tenantId = null
+            token.branchId = null
+            token.platformAdminId = platformAdmin.id
+          }
+        } catch (error) {
+          console.error('Failed to refresh platform admin session:', error)
+
+          if (token.platformAdminId && token.email && token.name) {
+            token.id = token.platformAdminId as string
+            token.role = Role.OWNER
+            token.tenantId = null
+            token.branchId = null
+          } else {
+            token.expired = true
+          }
+        }
       }
 
       if (token.platformRole === 'AGENT' && token.agentId) {
@@ -194,11 +226,8 @@ export const authOptions: NextAuthOptions = {
 
       // Enforce the admin-configured absolute session limit.
       if (token.loginAt) {
-        let sessionMaxHours = 4 // fallback default
-        try {
-          const ps = await prisma.platformSettings.findUnique({ where: { id: 'global' } })
-          if (ps?.sessionMaxHours) sessionMaxHours = ps.sessionMaxHours
-        } catch { /* DB hiccup — use default */ }
+        const settings = await getCachedPlatformSettings()
+        const sessionMaxHours = settings.sessionMaxHours
 
         const elapsedSecs = Math.floor(Date.now() / 1000) - (token.loginAt as number)
         if (elapsedSecs > sessionMaxHours * 60 * 60) {
@@ -222,10 +251,11 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string
         // Tenant user fields
         if (token.role) session.user.role = token.role as unknown as Role
-        if (token.tenantId) session.user.tenantId = token.tenantId as string
+        session.user.tenantId = (token.tenantId as string | null | undefined) ?? null
         session.user.branchId = (token.branchId as string | null | undefined) ?? null
         // Agent/platform fields
         if (token.platformRole) session.user.platformRole = token.platformRole as 'AGENT' | 'SUPER_ADMIN'
+        session.user.platformAdminId = (token.platformAdminId as string | null | undefined) ?? null
         if (token.agentId) session.user.agentId = token.agentId as string
         if (token.agentStatus) session.user.agentStatus = token.agentStatus as string
       }

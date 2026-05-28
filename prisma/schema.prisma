@@ -1192,6 +1192,16 @@ model PayrollLine {
 // PLATFORM — AGENTS & ONBOARDING
 // =====================
 
+model PlatformAdmin {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  createdByEmail String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Agent {
   id                  String      @id @default(uuid())
   agentCode           String      @unique // e.g. "AGT-0001"

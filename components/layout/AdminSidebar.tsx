@@ -63,6 +63,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Platform',
     items: [
+      { name: 'Platform Admins', href: '/admin/platform-admins', icon: <ShieldCheck className={sz} /> },
       { name: 'Audit Log',        href: '/admin/audit-log',        icon: <ClipboardList className={sz} /> },
       { name: 'KYC Settings',     href: '/admin/kyc-settings',     icon: <Settings2 className={sz} /> },
       { name: 'Session Settings', href: '/admin/session-settings', icon: <Timer className={sz} /> },

@@ -16,6 +16,7 @@ declare module 'next-auth' {
     tenantFeatures?: TenantFeatures
     // Agent/platform fields (populated for agents, absent for tenant users)
     platformRole?: 'AGENT' | 'SUPER_ADMIN'
+    platformAdminId?: string | null
     agentId?: string
     agentStatus?: string
   }
@@ -33,6 +34,7 @@ declare module 'next-auth' {
       tenantFeatures?: TenantFeatures
       // Agent/platform fields
       platformRole?: 'AGENT' | 'SUPER_ADMIN'
+      platformAdminId?: string | null
       agentId?: string
       agentStatus?: string
     }
@@ -52,6 +54,7 @@ declare module 'next-auth/jwt' {
     tenantFeatures?: TenantFeatures
     // Agent/platform fields
     platformRole?: 'AGENT' | 'SUPER_ADMIN'
+    platformAdminId?: string | null
     agentId?: string
     agentStatus?: string
   }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
@@ -90,23 +90,31 @@ export default function AdminDashboardPage() {
   const [tab, setTab]         = useState<Tab>('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
+
     try {
       const [tenantsRes, agentsRes, appsRes] = await Promise.all([
-        fetch('/api/admin/tenants'),
-        fetch('/api/admin/agents'),
-        fetch('/api/admin/applications'),
+        fetch('/api/admin/tenants', { signal }),
+        fetch('/api/admin/agents', { signal }),
+        fetch('/api/admin/applications', { signal }),
       ])
+
+      if (signal?.aborted) {
+        return
+      }
+
       if (tenantsRes.status === 403) throw new Error('Access denied — super-admin only')
       if (!tenantsRes.ok || !agentsRes.ok || !appsRes.ok) throw new Error('Failed to load dashboard data')
 
       const [tenantsData, agentsData, appsData] = await Promise.all([
         tenantsRes.json(), agentsRes.json(), appsRes.json(),
       ])
+
+      if (signal?.aborted) {
+        return
+      }
 
       const agents: RecentAgent[] = Array.isArray(agentsData) ? agentsData : []
       const apps: RecentApplication[] = Array.isArray(appsData) ? appsData : []
@@ -133,11 +141,24 @@ export default function AdminDashboardPage() {
           .slice(0, 8),
       })
     } catch (e) {
+      if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
+        return
+      }
+
       setError(e instanceof Error ? e.message : 'Failed')
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void load(controller.signal)
+
+    return () => controller.abort()
+  }, [load])
 
   const name = session?.user?.name ?? 'Admin'
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -198,7 +219,7 @@ export default function AdminDashboardPage() {
                 <span className="hidden sm:inline">Companies</span>
               </Link>
               <button
-                onClick={load}
+                onClick={() => void load()}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-medium backdrop-blur-sm transition-all"
                 title="Refresh"
               >
@@ -489,6 +510,7 @@ function AdminBottomNav({
       label: 'Platform',
       links: [
         { name: 'Reports',   href: '/admin/reports',    Icon: BarChart2 },
+        { name: 'Platform Admins', href: '/admin/platform-admins', Icon: ShieldAlert },
         { name: 'Audit Log', href: '/admin/audit-log',  Icon: ClipboardList },
       ],
     },

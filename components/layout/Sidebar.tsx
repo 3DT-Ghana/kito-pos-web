@@ -40,8 +40,7 @@ export function Sidebar() {
   const ALL = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
   const has = (...roles: string[]) => roles.includes(role)
   const canSeeApprovals = features.requireApproval && has('OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'ACCOUNTANT')
-  const superAdminEmails = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS ?? '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean)
-  const isSuperAdmin = !!user?.email && superAdminEmails.includes(user.email.toLowerCase())
+  const isSuperAdmin = user?.platformRole === 'SUPER_ADMIN'
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0)
 
   const sz = 'w-4 h-4'
