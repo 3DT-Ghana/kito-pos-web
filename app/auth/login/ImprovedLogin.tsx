@@ -92,7 +92,7 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
 
             <div className="mb-8">
               <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
-              <p className="mt-1.5 text-sm text-gray-500">Sign in to your workspace</p>
+              <p className="mt-1.5 text-sm text-gray-500">Sign in to your business workspace or platform admin portal</p>
             </div>
 
             {/* Animated card */}

@@ -102,12 +102,30 @@ export const authOptions: NextAuthOptions = {
         try {
           const normalizedEmail = credentials.email.trim().toLowerCase()
           const requestedPortal = getRequestedPortal(credentials.portal)
+          const tryPlatformAdminSignIn = async () => {
+            const platformAdminAttempt = await authorizePlatformAdminCredentials(
+              normalizedEmail,
+              credentials.password
+            )
+
+            if (platformAdminAttempt.status === 'success') {
+              return platformAdminAttempt.user
+            }
+
+            return null
+          }
 
           if (requestedPortal === 'business') {
             const businessUser = await authorizeBusinessUser(normalizedEmail, credentials.password)
             if (businessUser) {
               return businessUser
             }
+
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
+            }
+
             throw new Error('Invalid email or password')
           } else if (requestedPortal === 'agent') {
             const agentUser = await authorizeAgentUser(normalizedEmail, credentials.password)
@@ -116,13 +134,9 @@ export const authOptions: NextAuthOptions = {
             }
             throw new Error('Invalid email or password')
           } else {
-            const platformAdminAttempt = await authorizePlatformAdminCredentials(
-              normalizedEmail,
-              credentials.password
-            )
-
-            if (platformAdminAttempt.status === 'success') {
-              return platformAdminAttempt.user
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
             }
 
             const [businessUser, agentUser] = await Promise.all([
@@ -136,10 +150,6 @@ export const authOptions: NextAuthOptions = {
 
             if (agentUser) {
               return agentUser
-            }
-
-            if (platformAdminAttempt.status === 'invalid_password') {
-              throw new Error('Invalid email or password')
             }
           }
 
