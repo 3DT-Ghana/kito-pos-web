@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server'
-import { verify } from 'jsonwebtoken'
+import { requireTenant } from '@/lib/tenant/requireTenant'
 
 /**
  * GET /api/auth/mobile-session
  * Validates the Bearer token stored on the mobile device.
- * Returns the user payload if valid, 401 if expired/invalid.
+ * Returns the current tenant user if valid and still active.
  */
-export async function GET(req: Request) {
+export async function GET() {
   try {
-    const auth = req.headers.get('authorization') ?? ''
-    const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
-    if (!token) return NextResponse.json({ error: 'No token' }, { status: 401 })
+    const { error, tenantId, user } = await requireTenant()
+    if (error) return error
 
-    const secret = process.env.NEXTAUTH_SECRET
-    if (!secret) return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
-
-    const payload = verify(token, secret) as Record<string, unknown>
-    const { iat, exp, ...user } = payload
-    void iat; void exp
-    return NextResponse.json(user)
+    return NextResponse.json({
+      id: user!.id,
+      email: user!.email,
+      name: user!.name,
+      role: user!.role,
+      tenantId,
+      branchId: user!.branchId ?? null,
+    })
   } catch {
     return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 })
   }

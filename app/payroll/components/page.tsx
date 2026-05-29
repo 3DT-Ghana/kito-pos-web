@@ -20,14 +20,33 @@ export default function PayrollComponentsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch('/api/payroll/components')
-    if (r.ok) setComponents(await r.json())
-    setLoading(false)
+  const fetchComponents = useCallback(async () => {
+    const response = await fetch('/api/payroll/components')
+    if (!response.ok) return []
+    return response.json() as Promise<PayrollComponent[]>
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => {
+    setLoading(true)
+    setComponents(await fetchComponents())
+    setLoading(false)
+  }, [fetchComponents])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const nextComponents = await fetchComponents()
+      if (cancelled) return
+
+      setComponents(nextComponents)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchComponents])
 
   function openCreate() {
     setEditing(null)

@@ -41,14 +41,35 @@ export default function InvoiceDetailPage() {
   const [updating, setUpdating] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  async function fetchInvoice() {
+    const response = await fetch(`/api/admin/invoices/${id}`)
+    const data = await response.json()
+
+    return response.ok ? data : null
+  }
+
   async function load() {
-    const r = await fetch(`/api/admin/invoices/${id}`)
-    const data = await r.json()
-    setInvoice(r.ok ? data : null)
+    setLoading(true)
+    const data = await fetchInvoice()
+    setInvoice(data)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const data = await fetchInvoice()
+      if (cancelled) return
+
+      setInvoice(data)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   async function changeStatus(status: string) {
     setUpdating(true)

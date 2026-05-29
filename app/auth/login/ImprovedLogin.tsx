@@ -5,13 +5,24 @@ import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, AlertCircle, Info, ArrowRight } from 'lucide-react'
 
-export function ImprovedLogin({ error: initialError, notice }: { error?: string; notice?: string }) {
+type LoginView = 'business' | 'admin'
+
+export function ImprovedLogin({
+  error: initialError,
+  notice,
+  portal = 'business',
+}: {
+  error?: string
+  notice?: string
+  portal?: LoginView
+}) {
   const router   = useRouter()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [showPw,   setShowPw]   = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(initialError || '')
+  const isAdminPortal = portal === 'admin'
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -22,7 +33,7 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
         redirect: false,
         email,
         password,
-        portal: 'business',
+        portal,
       })
       if (result?.error) {
         setError('Invalid email or password.')
@@ -91,8 +102,14 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
           <div className="w-full max-w-sm mx-auto lg:mx-0">
 
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
-              <p className="mt-1.5 text-sm text-gray-500">Sign in to your business workspace or platform admin portal</p>
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+                {isAdminPortal ? 'Platform admin sign in' : 'Welcome back'}
+              </h2>
+              <p className="mt-1.5 text-sm text-gray-500">
+                {isAdminPortal
+                  ? 'Sign in to the platform administration portal'
+                  : 'Sign in to your business workspace or platform admin portal'}
+              </p>
             </div>
 
             {/* Animated card */}
@@ -174,8 +191,27 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
                 </button>
               </form>
 
-              <div className="mt-6 pt-5 border-t border-gray-100">
-                <p className="text-xs text-gray-400 mb-3">Not a business staff member?</p>
+              <div className="mt-6 pt-5 border-t border-gray-100 space-y-3">
+                <a
+                  href={isAdminPortal ? '/auth/login' : '/auth/login?portal=admin'}
+                  className="flex items-center justify-between w-full px-4 py-3 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition group"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      {isAdminPortal ? 'Business Staff Portal' : 'Platform Admin Portal'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {isAdminPortal
+                        ? 'Switch back to the normal business login'
+                        : 'Sign in as a tenantless platform admin'}
+                    </p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
+                </a>
+
+                <p className="text-xs text-gray-400">
+                  {isAdminPortal ? 'Not a platform admin?' : 'Not a business staff member?'}
+                </p>
                 <a
                   href="/agent/login"
                   className="flex items-center justify-between w-full px-4 py-3 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition group"

@@ -26,6 +26,7 @@ interface AgentReportRow {
   approvedApplications: number
   totalApplications: number
   pendingApplications: number
+  rejectedApplications: number
 }
 
 type FilterStatus = 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED'
@@ -76,18 +77,39 @@ export default function AdminAgentsPage() {
     }
   }
 
-  async function load(status?: string) {
-    setLoading(true)
+  async function fetchPageData(status?: string) {
     const [agentData, report] = await Promise.all([
       fetchAgents(status ?? filter),
       fetchReport(),
     ])
-    setAgents(agentData)
-    setReportMap(report)
+
+    return { agentData, report }
+  }
+
+  async function load(status?: string) {
+    setLoading(true)
+    const data = await fetchPageData(status)
+    setAgents(data.agentData)
+    setReportMap(data.report)
     setLoading(false)
   }
 
-  useEffect(() => { load(filter) }, [filter])
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const data = await fetchPageData(filter)
+      if (cancelled) return
+
+      setAgents(data.agentData)
+      setReportMap(data.report)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [filter])
 
   async function updateStatus(id: string, status: string) {
     let rejectionReason: string | undefined
@@ -139,8 +161,6 @@ export default function AdminAgentsPage() {
   const pendingCount = agents.filter(a => a.status === 'PENDING').length
   const approvedCount = agents.filter(a => a.status === 'APPROVED').length
   const suspendedCount = agents.filter(a => a.status === 'SUSPENDED').length
-  const rejectedCount = agents.filter(a => a.status === 'REJECTED').length
-
   const totalCommission = Object.values(reportMap).reduce((s, r) => s + r.estimatedCommission, 0)
 
   const filtered = agents.filter(a => {

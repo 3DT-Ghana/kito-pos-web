@@ -16,14 +16,33 @@ export default function StatutoryDeductionsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch('/api/payroll/statutory')
-    if (r.ok) setDeductions(await r.json())
-    setLoading(false)
+  const fetchDeductions = useCallback(async () => {
+    const response = await fetch('/api/payroll/statutory')
+    if (!response.ok) return []
+    return response.json() as Promise<StatutoryDeduction[]>
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => {
+    setLoading(true)
+    setDeductions(await fetchDeductions())
+    setLoading(false)
+  }, [fetchDeductions])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const nextDeductions = await fetchDeductions()
+      if (cancelled) return
+
+      setDeductions(nextDeductions)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchDeductions])
 
   function openEdit(d: StatutoryDeduction) {
     setEditing(d)

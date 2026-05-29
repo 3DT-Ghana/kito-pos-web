@@ -19,6 +19,7 @@ function LoginPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const reason = searchParams.get('reason')
+  const portal = searchParams.get('portal') === 'admin' ? 'admin' : 'business'
 
   const notice = reason === 'idle'
     ? 'You were signed out due to inactivity. Please sign in again.'
@@ -26,7 +27,7 @@ function LoginPageContent() {
     ? 'Your 4-hour session has expired. Please sign in again.'
     : undefined
 
-  return <ImprovedLogin error={error || undefined} notice={notice} />
+  return <ImprovedLogin error={error || undefined} notice={notice} portal={portal} />
 }
 
 export default function LoginPage() {

@@ -74,24 +74,52 @@ export default function AdminAgentDetailPage() {
   const [rejectionReasonInput, setRejectionReasonInput] = useState('')
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  async function load() {
+  async function fetchPageData() {
     const [agentRes, reportRes] = await Promise.all([
       fetch(`/api/admin/agents/${id}`),
       fetch('/api/admin/reports'),
     ])
     const agentData = await agentRes.json()
-    setAgent(agentData.id ? agentData : null)
-    setRejectionReasonInput(agentData?.rejectionReason ?? '')
 
+    let nextReport: AgentReportRow | null = null
     if (reportRes.ok) {
       const reportData = await reportRes.json()
-      const row = (reportData.agentReport ?? []).find((r: AgentReportRow) => r.id === id) ?? null
-      setReport(row)
+      nextReport = (reportData.agentReport ?? []).find((r: AgentReportRow) => r.id === id) ?? null
     }
+
+    return {
+      agent: agentData.id ? agentData : null,
+      rejectionReason: agentData?.rejectionReason ?? '',
+      report: nextReport,
+    }
+  }
+
+  async function load() {
+    setLoading(true)
+    const data = await fetchPageData()
+    setAgent(data.agent)
+    setRejectionReasonInput(data.rejectionReason)
+    setReport(data.report)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const data = await fetchPageData()
+      if (cancelled) return
+
+      setAgent(data.agent)
+      setRejectionReasonInput(data.rejectionReason)
+      setReport(data.report)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   async function updateStatus(status: string) {
     const trimmedRejectionReason = rejectionReasonInput.trim()

@@ -97,21 +97,19 @@ interface IdleWarningProps {
 }
 
 export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
+  if (!open) return null
+
+  return <IdleWarningDialog onStaySignedIn={onStaySignedIn} />
+}
+
+function IdleWarningDialog({ onStaySignedIn }: Omit<IdleWarningProps, 'open'>) {
   const [secs, setSecs] = useState(WARNING_SECS)
   const interval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (!open) {
-      setSecs(WARNING_SECS)
-      if (interval.current) clearInterval(interval.current)
-      return
-    }
-
-    setSecs(WARNING_SECS)
     interval.current = setInterval(() => {
-      setSecs(prev => {
+      setSecs((prev) => {
         if (prev <= 1) {
-          // Timer expires — sign-out is handled by useIdleTimeout; just clean up
           if (interval.current) clearInterval(interval.current)
           return 0
         }
@@ -122,9 +120,7 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
     return () => {
       if (interval.current) clearInterval(interval.current)
     }
-  }, [open])
-
-  if (!open) return null
+  }, [])
 
   const pct = (secs / WARNING_SECS) * 100
   const urgent = secs <= 15
@@ -139,7 +135,7 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
 
         <h2 className="text-base font-bold text-gray-900">Still there?</h2>
         <p className="mt-1.5 text-sm text-gray-500">
-          You've been inactive. You'll be signed out automatically in{' '}
+          You&apos;ve been inactive. You&apos;ll be signed out automatically in{' '}
           <span className={`font-bold ${urgent ? 'text-red-600' : 'text-amber-600'}`}>{secs}s</span>.
         </p>
 

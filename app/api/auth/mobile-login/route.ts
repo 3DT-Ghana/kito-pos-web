@@ -38,6 +38,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: 'Your account has been disabled. Please contact your administrator.' },
+        { status: 403 }
+      )
+    }
+
     if (user.tenant.status === 'SUSPENDED') {
       return NextResponse.json({ error: 'Your account has been suspended. Please contact support.' }, { status: 403 })
     }

@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'A module with that key already exists' }, { status: 409 })
     }
 
-    const module = await prisma.featureModule.create({
+    const featureModule = await prisma.featureModule.create({
       data: {
         key: key.trim(),
         name: name.trim(),
@@ -61,12 +61,12 @@ export async function POST(req: Request) {
         actorEmail: context!.email,
         action: 'feature_module.created',
         entity: 'FeatureModule',
-        entityId: module.id,
-        details: { key: module.key, name: module.name },
+        entityId: featureModule.id,
+        details: { key: featureModule.key, name: featureModule.name },
       },
     })
 
-    return NextResponse.json(module, { status: 201 })
+    return NextResponse.json(featureModule, { status: 201 })
   } catch (err) {
     console.error(err)
     return NextResponse.json({ error: 'Failed to create feature module' }, { status: 500 })

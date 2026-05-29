@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ItemType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
  * GET /api/pos/items
@@ -16,6 +17,9 @@ export async function GET(req: Request) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    const featureError = requireTenantFeature(context!.features, 'enablePosTerminal')
+    if (featureError) return featureError
 
     const { searchParams } = new URL(req.url)
     const q = searchParams.get('q')?.trim() ?? ''

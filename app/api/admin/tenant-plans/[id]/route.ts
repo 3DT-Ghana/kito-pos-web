@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
   const { id } = await params
 
   // Try by plan id first, then by tenantId
-  let plan = await prisma.tenantBusinessPlan.findFirst({
+  const plan = await prisma.tenantBusinessPlan.findFirst({
     where: { OR: [{ id }, { tenantId: id }] },
     include: PLAN_INCLUDE,
   })

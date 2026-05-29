@@ -3,6 +3,10 @@ import { authOptions } from '@/lib/auth/auth'
 import { NextResponse } from 'next/server'
 import type { Session } from 'next-auth'
 import { prisma } from '@/lib/db/prisma'
+import {
+  getBearerTenantSessionUser,
+  normalizeTenantSessionUser,
+} from '@/lib/auth/mobileBearer'
 import type { RolePermissionsMap } from '@/lib/permissions/rbac'
 import {
   TENANT_FEATURE_SELECT,
@@ -65,9 +69,45 @@ export type TenantContext =
  */
 export async function requireTenant(): Promise<TenantContext> {
   const session = await getServerSession(authOptions)
+  const rawSessionUser = session?.user ?? null
+  const sessionUser = normalizeTenantSessionUser(rawSessionUser)
+  const bearerAuth = rawSessionUser ? null : await getBearerTenantSessionUser()
+  const authUser = sessionUser ?? bearerAuth?.user ?? null
 
   // Check if user is authenticated
-  if (!session || !session.user) {
+  if (!authUser) {
+    if (rawSessionUser && !rawSessionUser.tenantId) {
+      return {
+        error: NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: 'No tenant associated with your account. Please contact support.'
+          },
+          { status: 403 }
+        ),
+        tenantId: null,
+        user: null,
+        rolePermissions: null,
+        features: null,
+      }
+    }
+
+    if (bearerAuth?.configError) {
+      return {
+        error: NextResponse.json(
+          {
+            error: 'Server configuration error',
+            message: 'Authentication is not configured correctly. Please contact support.',
+          },
+          { status: 500 }
+        ),
+        tenantId: null,
+        user: null,
+        rolePermissions: null,
+        features: null,
+      }
+    }
+
     return {
       error: NextResponse.json(
         {
@@ -84,7 +124,7 @@ export async function requireTenant(): Promise<TenantContext> {
   }
 
   // Check if user has a tenant associated
-  if (!session.user.tenantId) {
+  if (!authUser.tenantId) {
     return {
       error: NextResponse.json(
         {
@@ -100,30 +140,43 @@ export async function requireTenant(): Promise<TenantContext> {
     }
   }
 
-  let tenant: ({ rolePermissions: unknown } & TenantFeatureFlags) | null = null
+  let tenant: ({ rolePermissions: unknown; status: string } & TenantFeatureFlags) | null = null
+  let liveUser:
+    | {
+        email: string
+        name: string
+        role: Session['user']['role']
+        branchId: string | null
+      }
+    | null = null
   let planKeys: string[] = []
 
   try {
     const [userRecord, resolvedPlanKeys] = await Promise.all([
       prisma.user.findUnique({
-        where: { id: session.user.id },
+        where: { id: authUser.id },
         select: {
           tenantId: true,
           isActive: true,
+          email: true,
+          name: true,
+          role: true,
+          branchId: true,
           tenant: {
             select: {
+              status: true,
               rolePermissions: true,
               ...TENANT_FEATURE_SELECT,
             },
           },
         },
       }),
-      getTenantPlanFeatureKeys(session.user.tenantId),
+      getTenantPlanFeatureKeys(authUser.tenantId),
     ])
 
     planKeys = resolvedPlanKeys
 
-    if (!userRecord || userRecord.tenantId !== session.user.tenantId) {
+    if (!userRecord || userRecord.tenantId !== authUser.tenantId) {
       return {
         error: NextResponse.json(
           {
@@ -155,9 +208,31 @@ export async function requireTenant(): Promise<TenantContext> {
       }
     }
 
+    if (userRecord.tenant.status === 'SUSPENDED') {
+      return {
+        error: NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: 'Your account has been suspended. Please contact support.',
+          },
+          { status: 403 }
+        ),
+        tenantId: null,
+        user: null,
+        rolePermissions: null,
+        features: null,
+      }
+    }
+
     tenant = userRecord.tenant
+    liveUser = {
+      email: userRecord.email,
+      name: userRecord.name,
+      role: userRecord.role,
+      branchId: userRecord.branchId ?? null,
+    }
   } catch (error) {
-    console.error(`Failed to load tenant context for tenant ${session.user.tenantId}:`, error)
+    console.error(`Failed to load tenant context for tenant ${authUser.tenantId}:`, error)
     return {
       error: NextResponse.json(
         {
@@ -211,8 +286,14 @@ export async function requireTenant(): Promise<TenantContext> {
 
   return {
     error: null,
-    tenantId: session.user.tenantId,
-    user: session.user,
+    tenantId: authUser.tenantId,
+    user: {
+      ...authUser,
+      email: liveUser?.email ?? authUser.email,
+      name: liveUser?.name ?? authUser.name,
+      role: liveUser?.role ?? authUser.role,
+      branchId: liveUser?.branchId ?? authUser.branchId ?? null,
+    },
     rolePermissions: (tenant.rolePermissions as RolePermissionsMap | null) ?? null,
     features,
   }

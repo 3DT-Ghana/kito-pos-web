@@ -9,10 +9,10 @@ import {
 } from '@/lib/admin/platformAdmins'
 import { getCachedPlatformSettings } from '@/lib/admin/platformSettings'
 
-type LoginPortal = 'business' | 'agent'
+type LoginPortal = 'business' | 'agent' | 'admin'
 
 function getRequestedPortal(portal?: string): LoginPortal | null {
-  return portal === 'business' || portal === 'agent' ? portal : null
+  return portal === 'business' || portal === 'agent' || portal === 'admin' ? portal : null
 }
 
 async function authorizeBusinessUser(normalizedEmail: string, password: string) {
@@ -121,6 +121,13 @@ export const authOptions: NextAuthOptions = {
               return businessUser
             }
 
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
+            }
+
+            throw new Error('Invalid email or password')
+          } else if (requestedPortal === 'admin') {
             const platformAdminUser = await tryPlatformAdminSignIn()
             if (platformAdminUser) {
               return platformAdminUser
