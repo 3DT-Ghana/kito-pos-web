@@ -1,6 +1,7 @@
 import type { Session } from 'next-auth'
 import { headers } from 'next/headers'
 import { verify } from 'jsonwebtoken'
+import { getMobileAuthToken } from '@/lib/auth/mobileHeaders'
 import { Role, type Role as RoleValue } from '@/lib/permissions/rbac'
 
 const VALID_TENANT_ROLES = new Set<RoleValue>(Object.values(Role))
@@ -30,13 +31,12 @@ export async function getBearerTenantSessionUser(): Promise<{
   user: TenantSessionUser | null
 }> {
   const headerStore = await headers()
-  const authHeader = headerStore.get('authorization')?.trim() ?? ''
+  const { token, hasAuthHeader } = getMobileAuthToken((name) => headerStore.get(name))
 
-  if (!authHeader.toLowerCase().startsWith('bearer ')) {
+  if (!hasAuthHeader) {
     return { hasBearerToken: false, configError: false, user: null }
   }
 
-  const token = authHeader.slice(7).trim()
   if (!token) {
     return { hasBearerToken: true, configError: false, user: null }
   }

@@ -1,5 +1,6 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
+import { getMobileAuthToken } from '@/lib/auth/mobileHeaders'
 
 function applySecurityHeaders(response: NextResponse) {
   response.headers.set('X-Frame-Options', 'DENY')
@@ -31,9 +32,8 @@ function decodeBase64Url(value: string): Uint8Array {
   return bytes
 }
 
-async function getMobileBearerUser(authorizationHeader: string | null): Promise<MobileBearerUser | null> {
-  const authHeader = authorizationHeader?.trim() ?? ''
-  if (!authHeader.toLowerCase().startsWith('bearer ')) {
+async function getMobileBearerUser(token: string | null): Promise<MobileBearerUser | null> {
+  if (!token) {
     return null
   }
 
@@ -42,7 +42,6 @@ async function getMobileBearerUser(authorizationHeader: string | null): Promise<
     return null
   }
 
-  const token = authHeader.slice(7).trim()
   const parts = token.split('.')
   if (parts.length !== 3) {
     return null
@@ -66,11 +65,12 @@ async function getMobileBearerUser(authorizationHeader: string | null): Promise<
       false,
       ['verify']
     )
+    const signature = decodeBase64Url(encodedSignature).buffer as ArrayBuffer
 
     const isValid = await crypto.subtle.verify(
       'HMAC',
       key,
-      decodeBase64Url(encodedSignature),
+      signature,
       new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
     )
 
@@ -162,9 +162,10 @@ export default withAuth(
     const defaultAgentDestination = isPendingAgent
       ? '/agent/profile'
       : '/agent/dashboard'
+    const mobileAuth = getMobileAuthToken((name) => req.headers.get(name))
     const mobileBearerUser =
       !token && isApi && !isAdminApi && !isAgentApi
-        ? await getMobileBearerUser(req.headers.get('authorization'))
+        ? await getMobileBearerUser(mobileAuth.token)
         : null
 
     // Log requests in development
