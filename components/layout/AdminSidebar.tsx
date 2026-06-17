@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import {
   LayoutDashboard, Users, Building2, ClipboardList,
-  FileText, ShieldCheck, LogOut, ChevronDown, BarChart2, X, Settings2,
+  FileText, ShieldCheck, ChevronDown, BarChart2, X, Settings2,
   Layers, Package, Wallet, Receipt, TrendingUp, Timer,
 } from 'lucide-react'
 import { useState } from 'react'
@@ -63,7 +63,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Platform',
     items: [
-      { name: 'Platform Admins', href: '/admin/platform-admins', icon: <ShieldCheck className={sz} /> },
+      { name: 'Admins',          href: '/admin/platform-admins', icon: <ShieldCheck className={sz} /> },
       { name: 'Audit Log',        href: '/admin/audit-log',        icon: <ClipboardList className={sz} /> },
       { name: 'KYC Settings',     href: '/admin/kyc-settings',     icon: <Settings2 className={sz} /> },
       { name: 'Session Settings', href: '/admin/session-settings', icon: <Timer className={sz} /> },
@@ -108,8 +108,8 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           <ShieldCheck className="w-4 h-4 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white leading-tight truncate">Platform Admin</p>
-          <p className="text-xs text-indigo-400 font-semibold">Super Admin</p>
+          <p className="text-sm font-bold text-white leading-tight truncate">Admin Portal</p>
+          <p className="text-xs text-indigo-400 font-semibold">Administration</p>
         </div>
         {/* Close button — mobile only */}
         {onMobileClose && (
@@ -174,26 +174,6 @@ export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebar
           )
         })}
       </nav>
-
-      {/* User footer */}
-      <div className="shrink-0 border-t border-slate-800 p-3">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-indigo-700 flex items-center justify-center text-white font-bold text-xs shrink-0">
-            {initials}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-200 truncate">{session?.user?.name ?? 'Super Admin'}</p>
-            <p className="text-xs text-indigo-400 font-medium">Platform Admin</p>
-          </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/auth/login' })}
-            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors shrink-0"
-            title="Sign out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
 
     </div>
   )

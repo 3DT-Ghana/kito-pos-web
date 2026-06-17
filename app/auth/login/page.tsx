@@ -19,7 +19,7 @@ function LoginPageContent() {
   const searchParams = useSearchParams()
   const error = searchParams.get('error')
   const reason = searchParams.get('reason')
-  const portal = searchParams.get('portal') === 'admin' ? 'admin' : 'business'
+  const portal = 'business'
 
   const notice = reason === 'idle'
     ? 'You were signed out due to inactivity. Please sign in again.'

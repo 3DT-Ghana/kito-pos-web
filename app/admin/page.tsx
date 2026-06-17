@@ -194,7 +194,7 @@ export default function AdminDashboardPage() {
               <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {greeting}, {name.split(' ')[0]}
               </h1>
-              <p className="mt-1 text-indigo-300 text-sm font-medium">Platform Admin</p>
+              <p className="mt-1 text-indigo-300 text-sm font-medium">Administrator</p>
             </div>
 
             {/* Hero actions */}
@@ -510,7 +510,7 @@ function AdminBottomNav({
       label: 'Platform',
       links: [
         { name: 'Reports',   href: '/admin/reports',    Icon: BarChart2 },
-        { name: 'Platform Admins', href: '/admin/platform-admins', Icon: ShieldAlert },
+        { name: 'Admins', href: '/admin/platform-admins', Icon: ShieldAlert },
         { name: 'Audit Log', href: '/admin/audit-log',  Icon: ClipboardList },
       ],
     },
@@ -569,7 +569,7 @@ function AdminBottomNav({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{name}</p>
-                  <p className="text-xs text-indigo-600 font-medium">Platform Admin</p>
+                  <p className="text-xs text-indigo-600 font-medium">Administrator</p>
                 </div>
               </div>
               <button
