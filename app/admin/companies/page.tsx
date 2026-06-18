@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { AdminLayout } from '@/components/layout/AdminLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { Building2, PencilLine, Users, TrendingUp, DollarSign, Wallet } from 'lucide-react'
+import { Building2, PencilLine, Users, TrendingUp, DollarSign, Wallet, X } from 'lucide-react'
 
 type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED'
 type TenantAdminRole = 'OWNER' | 'STORE_MANAGER'
@@ -121,6 +121,7 @@ export default function AdminCompaniesPage() {
   const [editForm, setEditForm] = useState<TenantEditForm>({ name: '', phone: '' })
   const [adminUserEditor, setAdminUserEditor] = useState<{ tenantId: string; userId: string | null } | null>(null)
   const [adminUserForm, setAdminUserForm] = useState<AdminUserForm>(createEmptyAdminUserForm())
+  const [adminUserModalOpen, setAdminUserModalOpen] = useState(false)
   const [savingAdminUserKey, setSavingAdminUserKey] = useState<string | null>(null)
   const [togglingAdminUserId, setTogglingAdminUserId] = useState<string | null>(null)
 
@@ -200,6 +201,7 @@ export default function AdminCompaniesPage() {
   function startAddingAdminUser(tenantId: string) {
     setAdminUserEditor({ tenantId, userId: null })
     setAdminUserForm(createEmptyAdminUserForm())
+    setAdminUserModalOpen(true)
     setError(null)
   }
 
@@ -211,6 +213,7 @@ export default function AdminCompaniesPage() {
       role: user.role === 'OWNER' ? 'OWNER' : 'STORE_MANAGER',
       password: '',
     })
+    setAdminUserModalOpen(true)
     setError(null)
   }
 
@@ -218,6 +221,7 @@ export default function AdminCompaniesPage() {
     setAdminUserEditor(null)
     setSavingAdminUserKey(null)
     setAdminUserForm(createEmptyAdminUserForm())
+    setAdminUserModalOpen(false)
   }
 
   async function saveTenantDetails(tenantId: string) {
@@ -507,8 +511,6 @@ export default function AdminCompaniesPage() {
               const adminUsers = tenant.users.filter(
                 (user) => user.role === 'OWNER' || user.role === 'STORE_MANAGER'
               )
-              const isEditingAdminForTenant = adminUserEditor?.tenantId === tenant.id
-              const adminUserRequestKey = `${tenant.id}:${isEditingAdminForTenant ? adminUserEditor?.userId ?? 'new' : 'new'}`
               const profit = tenant.totalCollected - tenant.totalPurchased
               const featCount = Object.values(tenant.features).filter(Boolean).length
               const agent = tenant.agentId ? agentMap[tenant.agentId] : null
@@ -693,110 +695,18 @@ export default function AdminCompaniesPage() {
                               Create, edit, and disable tenant company admin accounts.
                             </p>
                           </div>
-                          {isEditingAdminForTenant ? (
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  cancelAdminUserEditor()
-                                }}
-                                className="border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  void saveAdminUser(tenant.id)
-                                }}
-                                disabled={savingAdminUserKey === adminUserRequestKey}
-                                className="border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {savingAdminUserKey === adminUserRequestKey ? 'Saving...' : 'Save Admin User'}
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                startAddingAdminUser(tenant.id)
-                              }}
-                              className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
-                            >
-                              <span className="text-base leading-none">+</span>
-                              Add Admin User
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              startAddingAdminUser(tenant.id)
+                            }}
+                            className="inline-flex items-center gap-2 border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <span className="text-base leading-none">+</span>
+                            Add Admin User
+                          </button>
                         </div>
-
-                        {isEditingAdminForTenant && (
-                          <div className="mb-3 grid gap-3 border border-gray-200 bg-white p-4 sm:grid-cols-2 xl:grid-cols-4">
-                            <label className="block">
-                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                                Full name
-                              </span>
-                              <input
-                                type="text"
-                                value={adminUserForm.name}
-                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, name: e.target.value }))}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
-                                placeholder="Admin name"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                                Email
-                              </span>
-                              <input
-                                type="email"
-                                value={adminUserForm.email}
-                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, email: e.target.value }))}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
-                                placeholder="admin@company.com"
-                              />
-                            </label>
-                            <label className="block">
-                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                                Role
-                              </span>
-                              <select
-                                value={adminUserForm.role}
-                                onChange={(e) =>
-                                  setAdminUserForm((prev) => ({
-                                    ...prev,
-                                    role: e.target.value as TenantAdminRole,
-                                  }))
-                                }
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
-                              >
-                                {ADMIN_ROLE_OPTIONS.map((role) => (
-                                  <option key={role} value={role}>
-                                    {role === 'OWNER' ? 'Owner' : 'Store Manager'}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-gray-500">
-                                Password
-                              </span>
-                              <input
-                                type="password"
-                                value={adminUserForm.password}
-                                onChange={(e) => setAdminUserForm((prev) => ({ ...prev, password: e.target.value }))}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/15"
-                                placeholder={adminUserEditor?.userId ? 'Leave blank to keep current password' : 'Minimum 8 characters'}
-                              />
-                            </label>
-                          </div>
-                        )}
 
                         {adminUsers.length === 0 ? (
                           <div className="border border-dashed border-gray-300 bg-white px-4 py-6 text-sm text-gray-500">
@@ -1004,6 +914,97 @@ export default function AdminCompaniesPage() {
           </div>
         )}
       </div>
+
+      {/* Admin user create/edit modal */}
+      {adminUserModalOpen && adminUserEditor && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-bold text-gray-900">
+                {adminUserEditor.userId ? 'Edit Admin User' : 'Add Admin User'}
+              </h2>
+              <button onClick={cancelAdminUserEditor} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="px-5 py-5 space-y-4">
+              {error && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2">{error}</p>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Full name</label>
+                <input
+                  type="text"
+                  value={adminUserForm.name}
+                  onChange={(e) => setAdminUserForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none"
+                  placeholder="Admin name"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Email</label>
+                <input
+                  type="email"
+                  value={adminUserForm.email}
+                  onChange={(e) => setAdminUserForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none"
+                  placeholder="admin@company.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">Role</label>
+                <select
+                  value={adminUserForm.role}
+                  onChange={(e) => setAdminUserForm((prev) => ({ ...prev, role: e.target.value as TenantAdminRole }))}
+                  className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none"
+                >
+                  {ADMIN_ROLE_OPTIONS.map((role) => (
+                    <option key={role} value={role}>
+                      {role === 'OWNER' ? 'Owner' : 'Store Manager'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1.5">
+                  Password {adminUserEditor.userId && <span className="normal-case font-normal text-gray-400">(leave blank to keep current)</span>}
+                </label>
+                <input
+                  type="password"
+                  value={adminUserForm.password}
+                  onChange={(e) => setAdminUserForm((prev) => ({ ...prev, password: e.target.value }))}
+                  className="w-full border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none"
+                  placeholder={adminUserEditor.userId ? 'Leave blank to keep current' : 'Minimum 8 characters'}
+                />
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={cancelAdminUserEditor}
+                  className="flex-1 border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void saveAdminUser(adminUserEditor.tenantId)}
+                  disabled={!!savingAdminUserKey}
+                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {savingAdminUserKey ? 'Saving…' : adminUserEditor.userId ? 'Save Changes' : 'Create User'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

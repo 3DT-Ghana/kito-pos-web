@@ -355,11 +355,13 @@ export default withAuth(
         // Allow public routes (login, register, onboarding, etc.)
         if (
           pathname.startsWith('/auth/') ||
+          pathname === '/account-suspended' ||
           pathname.startsWith('/agent/login') ||
           pathname.startsWith('/agent/register') ||
           pathname.startsWith('/onboarding') ||
           pathname.startsWith('/api/tenants') ||
-          pathname.startsWith('/api/agent/register')
+          pathname.startsWith('/api/agent/register') ||
+          pathname.startsWith('/api/auth/login-check')
         ) {
           return true
         }

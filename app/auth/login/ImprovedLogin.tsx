@@ -33,7 +33,23 @@ export function ImprovedLogin({
         portal,
       })
       if (result?.error) {
-        setError('Invalid email or password.')
+        try {
+          const check = await fetch('/api/auth/login-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          })
+          const data = await check.json() as { reason: string }
+          if (data.reason === 'suspended') {
+            setError('Your account has been suspended for malicious actions or the company has been deactivated. Please contact support.')
+          } else if (data.reason === 'disabled') {
+            setError('Your account has been disabled. Please contact your administrator.')
+          } else {
+            setError('Invalid email or password.')
+          }
+        } catch {
+          setError('Invalid email or password.')
+        }
         setLoading(false)
       } else {
         const session = await getSession()

@@ -18,6 +18,7 @@ import {
   toTenantFeatures,
 } from '@/lib/tenant/clientFeatures'
 import { TenantBootstrapProvider } from '@/lib/tenant/TenantBootstrapContext'
+import { SuspensionGuard } from '@/components/providers/SuspensionGuard'
 import { mergePlanFeatures } from '@/lib/tenant/features'
 import { getTenantPlanFeatureKeys } from '@/lib/tenant/planFeatures'
 
@@ -147,7 +148,9 @@ export default async function RootLayout({
       >
         <SessionProvider session={session}>
           <TenantBootstrapProvider value={{ tenantId, tenantName, features, rolePermissions }}>
-            <BranchProvider initialState={branchState}>{children}</BranchProvider>
+            <BranchProvider initialState={branchState}>
+              <SuspensionGuard>{children}</SuspensionGuard>
+            </BranchProvider>
           </TenantBootstrapProvider>
         </SessionProvider>
       </body>
