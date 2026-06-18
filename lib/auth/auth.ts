@@ -45,6 +45,7 @@ async function authorizeBusinessUser(normalizedEmail: string, password: string) 
     role: user.role as unknown as Role,
     tenantId: user.tenantId,
     branchId: user.branchId,
+    tenantStatus: user.tenant.status as 'TRIAL' | 'ACTIVE' | 'SUSPENDED',
   }
 }
 
@@ -195,6 +196,7 @@ export const authOptions: NextAuthOptions = {
         if (user.platformAdminId) token.platformAdminId = user.platformAdminId
         if (user.agentId) token.agentId = user.agentId
         if (user.agentStatus) token.agentStatus = user.agentStatus
+        if (user.tenantStatus) token.tenantStatus = user.tenantStatus
       }
 
       if (token.platformRole === 'SUPER_ADMIN') {
@@ -282,6 +284,7 @@ export const authOptions: NextAuthOptions = {
         session.user.platformAdminId = (token.platformAdminId as string | null | undefined) ?? null
         if (token.agentId) session.user.agentId = token.agentId as string
         if (token.agentStatus) session.user.agentStatus = token.agentStatus as string
+        session.user.tenantStatus = (token.tenantStatus as 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | null | undefined) ?? null
       }
       return session
     },

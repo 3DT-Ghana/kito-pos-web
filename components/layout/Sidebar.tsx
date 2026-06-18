@@ -36,6 +36,8 @@ export function Sidebar() {
   const { collapsed, toggle } = useSidebar()
   const { openSignOut } = useSessionGuard()
   const role = user?.role || ''
+  const isTrial = user?.tenantStatus === 'TRIAL'
+  const TRIAL_LOCKED_GROUPS = new Set(['Finance', 'Accounting', 'Payroll'])
 
   const ALL = ['OWNER', 'STORE_MANAGER', 'BRANCH_MANAGER', 'CASHIER', 'INVENTORY_MANAGER', 'ACCOUNTANT', 'STAFF']
   const has = (...roles: string[]) => roles.includes(role)
@@ -286,32 +288,47 @@ export function Sidebar() {
           {groups.map((group) => {
             const groupActive = group.items.some(i => isActive(i.href))
             const isOpen = openGroups[group.label] ?? group.defaultOpen
+            const groupLocked = isTrial && TRIAL_LOCKED_GROUPS.has(group.label)
 
             if (collapsed) {
               return (
                 <div key={group.label} className="space-y-0.5 py-1 border-b border-slate-800 last:border-0">
                   {group.items.map(item => {
                     const active = isActive(item.href)
+                    const locked = groupLocked
+                    const tooltipText = locked
+                      ? `${item.name} — Upgrade from Trial to access`
+                      : `${item.name} — ${getItemTooltipDetail(item)}`
                     return (
                       <Tooltip
                         key={item.href}
-                        text={`${item.name} — ${getItemTooltipDetail(item)}`}
+                        text={tooltipText}
                         enabled={tooltipsEnabled}
                         side="right"
                         wrapperClassName="block"
                         offset={14}
                       >
-                        <Link
-                          href={item.href}
-                          className={`relative flex items-center justify-center w-9 h-9 mx-auto transition-all ${
-                            active
-                              ? 'bg-blue-600 text-white'
-                              : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                          }`}
-                        >
-                          {item.icon}
-                          {item.href === '/approvals' && renderApprovalBadge(true)}
-                        </Link>
+                        {locked ? (
+                          <div className="relative flex items-center justify-center w-9 h-9 mx-auto text-slate-600 cursor-not-allowed">
+                            {item.icon}
+                            <span className="absolute -top-1 -right-1 bg-amber-500 text-[8px] font-bold text-white px-0.5 leading-tight">T</span>
+                          </div>
+                        ) : (
+                          <Link
+                            href={item.href}
+                            className={`relative flex items-center justify-center w-9 h-9 mx-auto transition-all ${
+                              active
+                                ? 'bg-blue-600 text-white'
+                                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                            }`}
+                          >
+                            {item.icon}
+                            {isTrial && (
+                              <span className="absolute -top-1 -right-1 bg-amber-500 text-[8px] font-bold text-white px-0.5 leading-tight">T</span>
+                            )}
+                            {item.href === '/approvals' && renderApprovalBadge(true)}
+                          </Link>
+                        )}
                       </Tooltip>
                     )
                   })}
@@ -329,6 +346,11 @@ export function Sidebar() {
                   }`}
                 >
                   <span className="flex-1 text-left">{group.label}</span>
+                  {isTrial && (
+                    <span className="mr-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white leading-tight">
+                      Trial
+                    </span>
+                  )}
                   <ChevronDown
                     className={`w-3 h-3 transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}
                   />
@@ -338,20 +360,41 @@ export function Sidebar() {
                   <div className="mt-0.5 space-y-0.5">
                     {group.items.map(item => {
                       const active = isActive(item.href)
+                      const locked = groupLocked
                       return (
-                        <Tooltip key={item.href} text={getItemTooltipDetail(item)} enabled={tooltipsEnabled} wrapperClassName="block">
-                          <Link
-                            href={item.href}
-                            className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-all ${
-                              active
-                                ? 'bg-blue-600 text-white'
-                                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                            }`}
-                          >
-                            <span className="shrink-0">{item.icon}</span>
-                            <span className="truncate font-medium">{item.name}</span>
-                            {item.href === '/approvals' && renderApprovalBadge(false)}
-                          </Link>
+                        <Tooltip
+                          key={item.href}
+                          text={locked ? 'Upgrade from Trial to access this feature' : getItemTooltipDetail(item)}
+                          enabled={tooltipsEnabled}
+                          wrapperClassName="block"
+                        >
+                          {locked ? (
+                            <div className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm cursor-not-allowed text-slate-600 select-none`}>
+                              <span className="shrink-0 opacity-50">{item.icon}</span>
+                              <span className="truncate font-medium opacity-50">{item.name}</span>
+                              <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white leading-tight shrink-0">
+                                Trial
+                              </span>
+                            </div>
+                          ) : (
+                            <Link
+                              href={item.href}
+                              className={`flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-all ${
+                                active
+                                  ? 'bg-blue-600 text-white'
+                                  : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                              }`}
+                            >
+                              <span className="shrink-0">{item.icon}</span>
+                              <span className="truncate font-medium">{item.name}</span>
+                              {isTrial && (
+                                <span className="ml-auto px-1.5 py-0.5 text-[10px] font-bold bg-amber-500 text-white leading-tight shrink-0">
+                                  Trial
+                                </span>
+                              )}
+                              {item.href === '/approvals' && renderApprovalBadge(false)}
+                            </Link>
+                          )}
                         </Tooltip>
                       )
                     })}

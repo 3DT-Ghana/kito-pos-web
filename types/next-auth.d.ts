@@ -19,6 +19,7 @@ declare module 'next-auth' {
     platformAdminId?: string | null
     agentId?: string
     agentStatus?: string
+    tenantStatus?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | null
   }
 
   interface Session {
@@ -37,6 +38,7 @@ declare module 'next-auth' {
       platformAdminId?: string | null
       agentId?: string
       agentStatus?: string
+      tenantStatus?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | null
     }
   }
 }
@@ -57,5 +59,6 @@ declare module 'next-auth/jwt' {
     platformAdminId?: string | null
     agentId?: string
     agentStatus?: string
+    tenantStatus?: 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | null
   }
 }
