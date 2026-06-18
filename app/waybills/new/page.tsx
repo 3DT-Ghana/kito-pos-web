@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import Link from 'next/link'
@@ -19,7 +19,7 @@ function emptyLine(): LineItem {
   return { description: '', quantity: '1', unit: 'pcs', weight: '', notes: '' }
 }
 
-export default function NewWaybillPage() {
+function NewWaybillContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useUser()
@@ -293,5 +293,13 @@ export default function NewWaybillPage() {
         </form>
       </div>
     </AppLayout>
+  )
+}
+
+export default function NewWaybillPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" /></div>}>
+      <NewWaybillContent />
+    </Suspense>
   )
 }
