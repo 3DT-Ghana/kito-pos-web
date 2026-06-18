@@ -25,6 +25,9 @@ const TENANT_PUBLIC_SUMMARY_SELECT = {
   enablePromoPrice: true,
   enableDiscounts: true,
   enableSmsNotifications: true,
+  enableWhatsApp: true,
+  metaWabaToken: true,
+  metaWabaPhoneNumberId: true,
   enablePosTerminal: true,
   enableQuotations: true,
   enablePurchaseOrders: true,
@@ -145,6 +148,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.hubtelClientId !== undefined && { hubtelClientId: body.hubtelClientId ? String(body.hubtelClientId).trim() : null }),
         ...(body.hubtelClientSecret !== undefined && { hubtelClientSecret: body.hubtelClientSecret ? String(body.hubtelClientSecret).trim() : null }),
         ...(body.hubtelSenderId !== undefined && { hubtelSenderId: body.hubtelSenderId ? String(body.hubtelSenderId).trim().slice(0, 11) : null }),
+        // WhatsApp settings
+        ...(body.enableWhatsApp !== undefined && { enableWhatsApp: Boolean(body.enableWhatsApp) }),
+        ...(body.metaWabaToken !== undefined && { metaWabaToken: body.metaWabaToken ? String(body.metaWabaToken).trim() : null }),
+        ...(body.metaWabaPhoneNumberId !== undefined && { metaWabaPhoneNumberId: body.metaWabaPhoneNumberId ? String(body.metaWabaPhoneNumberId).trim() : null }),
         // Feature flags
         ...(body.enablePosTerminal !== undefined && { enablePosTerminal: Boolean(body.enablePosTerminal) }),
         ...(body.enableQuotations !== undefined && { enableQuotations: Boolean(body.enableQuotations) }),

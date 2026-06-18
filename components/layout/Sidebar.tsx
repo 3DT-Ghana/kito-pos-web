@@ -98,6 +98,7 @@ export function Sidebar() {
       itemsRaw: [
         { name: 'Sales',      href: '/sales',      icon: <ShoppingCart className={sz} />, tooltip: 'View and record all completed sales',                                   show: true },
         { name: 'Quotations', href: '/quotations', icon: <FileText className={sz} />,      tooltip: 'Create price quotes to send to customers before confirming a sale',    show: features.enableQuotations && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','CASHIER') },
+        { name: 'Waybills',   href: '/waybills',   icon: <Truck className={sz} />,         tooltip: 'Create and track delivery notes for goods in transit',                  show: has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER','CASHIER','STAFF') },
         { name: 'Returns',    href: '/returns',    icon: <CornerUpLeft className={sz} />,  tooltip: 'Process customer returns and refunds',                                  show: has('OWNER','STORE_MANAGER','BRANCH_MANAGER','STAFF') },
       ],
     },

@@ -7,6 +7,7 @@ import { ReceiptSettings } from './ReceiptSettings'
 import { UnitSettings } from './UnitSettings'
 import { PricingSettings } from './PricingSettings'
 import { SmsSettings } from './SmsSettings'
+import { WhatsAppSettings } from './WhatsAppSettings'
 import { FeaturesSettings } from './FeaturesSettings'
 import { RolePermissionsSettings } from './RolePermissionsSettings'
 import { TaxSettings } from './TaxSettings'
@@ -105,6 +106,9 @@ export default async function SettingsPage() {
       hubtelClientId: true,
       hubtelClientSecret: true,
       hubtelSenderId: true,
+      enableWhatsApp: true,
+      metaWabaToken: true,
+      metaWabaPhoneNumberId: true,
       enablePosTerminal: true,
       enableQuotations: true,
       enablePurchaseOrders: true,
@@ -193,6 +197,16 @@ export default async function SettingsPage() {
             hubtelClientId: tenant.hubtelClientId,
             hubtelClientSecret: tenant.hubtelClientSecret,
             hubtelSenderId: tenant.hubtelSenderId,
+          }}
+        />
+
+        {/* WhatsApp Notifications */}
+        <WhatsAppSettings
+          tenantId={tenant.id}
+          initialSettings={{
+            enableWhatsApp: tenant.enableWhatsApp,
+            metaWabaToken: tenant.metaWabaToken,
+            metaWabaPhoneNumberId: tenant.metaWabaPhoneNumberId,
           }}
         />
 

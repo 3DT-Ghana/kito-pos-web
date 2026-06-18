@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { PaymentMethod } from '@prisma/client'
 import { sendSms, buildPaymentReceivedSms } from '@/lib/sms/hubtel'
+import { sendWhatsApp, buildWhatsAppPaymentReceipt } from '@/lib/whatsapp/meta'
 import {
   applyBranchScope,
   isBranchFilterActive,
@@ -199,7 +200,7 @@ export async function POST(req: Request) {
     })
     const scopedNewBalance = Math.max(0, visibleBalance - amount)
 
-    // Send SMS notification (fire-and-forget — don't block or fail the payment)
+    // Send SMS / WhatsApp notifications (fire-and-forget — don't block or fail the payment)
     if (customer.phone) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: context!.tenantId },
@@ -209,8 +210,16 @@ export async function POST(req: Request) {
           hubtelClientId: true,
           hubtelClientSecret: true,
           hubtelSenderId: true,
+          enableWhatsApp: true,
+          metaWabaToken: true,
+          metaWabaPhoneNumberId: true,
         },
       })
+
+      const newBalance = isBranchFilterActive(context!)
+        ? scopedNewBalance
+        : (updatedCustomer?.balance ?? 0)
+
       if (
         tenant?.enableSmsNotifications &&
         tenant.hubtelClientId &&
@@ -221,15 +230,28 @@ export async function POST(req: Request) {
           businessName: tenant.name,
           customerName: customer.name,
           amount,
-          balance: isBranchFilterActive(context!)
-            ? scopedNewBalance
-            : (updatedCustomer?.balance ?? 0),
+          balance: newBalance,
         })
         sendSms(
           { clientId: tenant.hubtelClientId, clientSecret: tenant.hubtelClientSecret, senderId: tenant.hubtelSenderId },
           customer.phone,
           message,
-        ).catch(() => {}) // silent fail
+        ).catch(() => {})
+      }
+
+      if (tenant?.enableWhatsApp && tenant.metaWabaToken && tenant.metaWabaPhoneNumberId) {
+        const message = buildWhatsAppPaymentReceipt({
+          businessName: tenant.name,
+          customerName: customer.name,
+          amount,
+          balance: newBalance,
+          paymentMethod: body.paymentMethod,
+        })
+        sendWhatsApp(
+          { token: tenant.metaWabaToken, phoneNumberId: tenant.metaWabaPhoneNumberId },
+          customer.phone,
+          message,
+        ).catch(() => {})
       }
     }
 

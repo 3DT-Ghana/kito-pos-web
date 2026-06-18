@@ -11,6 +11,7 @@ import {
   buildSaleConfirmationSms,
   sendSms,
 } from '@/lib/sms/hubtel'
+import { sendWhatsApp, buildWhatsAppSaleConfirmation } from '@/lib/whatsapp/meta'
 import { type BranchAccessContext } from '@/lib/branch/server'
 import { hasPermission } from '@/lib/permissions/rbac'
 import {
@@ -580,8 +581,20 @@ export async function createSaleFromInput(
         hubtelClientId: true,
         hubtelClientSecret: true,
         hubtelSenderId: true,
+        enableWhatsApp: true,
+        metaWabaToken: true,
+        metaWabaPhoneNumberId: true,
       },
     })
+
+    const customer = body.customerId
+      ? await prisma.customer.findUnique({
+          where: { id: body.customerId },
+          select: { balance: true },
+        })
+      : null
+    const currentBalance = customer?.balance ?? 0
+    const itemCount = completeSale.items?.length ?? 0
 
     if (
       tenant?.enableSmsNotifications &&
@@ -589,21 +602,13 @@ export async function createSaleFromInput(
       tenant.hubtelClientSecret &&
       tenant.hubtelSenderId
     ) {
-      const customer = body.customerId
-        ? await prisma.customer.findUnique({
-            where: { id: body.customerId },
-            select: { balance: true },
-          })
-        : null
-
       const message = buildSaleConfirmationSms({
         businessName: tenant.name,
         customerName: completeSale.customer.name,
         totalAmount,
         paidAmount,
-        balance: customer?.balance ?? 0,
+        balance: currentBalance,
       })
-
       sendSms(
         {
           clientId: tenant.hubtelClientId,
@@ -612,6 +617,22 @@ export async function createSaleFromInput(
         },
         completeSale.customer.phone,
         message
+      ).catch(() => {})
+    }
+
+    if (tenant?.enableWhatsApp && tenant.metaWabaToken && tenant.metaWabaPhoneNumberId) {
+      const message = buildWhatsAppSaleConfirmation({
+        businessName: tenant.name,
+        customerName: completeSale.customer.name,
+        totalAmount,
+        paidAmount,
+        balance: currentBalance,
+        itemCount,
+      })
+      sendWhatsApp(
+        { token: tenant.metaWabaToken, phoneNumberId: tenant.metaWabaPhoneNumberId },
+        completeSale.customer.phone,
+        message,
       ).catch(() => {})
     }
   }
