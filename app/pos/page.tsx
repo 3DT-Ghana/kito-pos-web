@@ -71,7 +71,7 @@ interface Customer {
   balance: number
 }
 
-type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
+type PaymentMethod = 'CASH' | 'MOMO'
 type MobileTab = 'items' | 'cart'
 type DiscountMode = 'pct' | 'fixed'
 
@@ -209,6 +209,7 @@ export default function PosPage() {
 
   // Payment
   const [method, setMethod] = useState<PaymentMethod>('CASH')
+  const [momoPhone, setMomoPhone] = useState('')
   const [tendered, setTendered] = useState('')
   const [numpadBuffer, setNumpadBuffer] = useState('')
   const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'qty' | 'lineDiscount' | 'price'>('tendered')
@@ -707,6 +708,7 @@ export default function PosPage() {
       })),
       paidAmount,
       paymentMethod: method,
+      momoPhone: method === 'MOMO' ? momoPhone.trim() || undefined : undefined,
       note,
     }
   }
@@ -760,6 +762,10 @@ export default function PosPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return
+    if (method === 'MOMO' && !momoPhone.trim()) {
+      setErrorMsg('Please enter the MoMo phone number before charging.')
+      return
+    }
     setErrorMsg('')
     setNoticeMsg('')
     setIsSubmitting(true)
@@ -1276,16 +1282,30 @@ export default function PosPage() {
       </div>
 
       {/* ── Payment method tabs ── */}
-      <div className="grid grid-cols-3 border-t border-b border-gray-200">
-        {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
-          <button key={m} onClick={() => { setMethod(m); setTendered('') }}
+      <div className="grid grid-cols-2 border-t border-b border-gray-200">
+        {(['CASH', 'MOMO'] as PaymentMethod[]).map(m => (
+          <button key={m} onClick={() => { setMethod(m); setTendered(''); setMomoPhone('') }}
             className={`py-2.5 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
               method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
             }`}>
-            {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'} {m}
+            {m === 'CASH' ? '💵' : '📱'} {m === 'CASH' ? 'Cash' : 'MoMo'}
           </button>
         ))}
       </div>
+
+      {/* ── MoMo phone input ── */}
+      {method === 'MOMO' && (
+        <div className="px-3 pt-2">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">MoMo Phone Number *</label>
+          <input
+            type="tel"
+            value={momoPhone}
+            onChange={e => setMomoPhone(e.target.value)}
+            placeholder="e.g. 0244123456"
+            className="w-full px-3 py-2 border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-sm"
+          />
+        </div>
+      )}
 
       {/* ── Cash tendered display — tap to open numpad drawer ── */}
       {method === 'CASH' && (

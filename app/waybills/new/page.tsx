@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import Link from 'next/link'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
@@ -21,24 +21,64 @@ function emptyLine(): LineItem {
 
 export default function NewWaybillPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useUser()
 
+  const prefillSaleId    = searchParams.get('saleId') ?? ''
+  const prefillConsignee = searchParams.get('consigneeName') ?? ''
+
   const [form, setForm] = useState({
-    shipperName:      user?.name ?? '',
+    shipperName:      '',
     shipperAddress:   '',
     shipperPhone:     '',
-    consigneeName:    '',
+    consigneeName:    prefillConsignee,
     consigneeAddress: '',
     consigneePhone:   '',
     driverName:       '',
     vehicleNumber:    '',
     carrierName:      '',
     notes:            '',
-    saleId:           '',
+    saleId:           prefillSaleId,
   })
   const [items, setItems] = useState<LineItem[]>([emptyLine()])
   const [saving, setSaving] = useState(false)
   const [error,  setError]  = useState('')
+  const [loadingFromSale, setLoadingFromSale] = useState(false)
+
+  // Set shipper name once user is loaded
+  useEffect(() => {
+    if (user?.name) setForm(prev => ({ ...prev, shipperName: prev.shipperName || user.name! }))
+  }, [user?.name])
+
+  // Pre-fill from sale if saleId present
+  useEffect(() => {
+    if (!prefillSaleId) return
+    setLoadingFromSale(true)
+    fetch(`/api/sales/${prefillSaleId}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((sale: {
+        customer?: { name: string; phone?: string | null } | null
+        items?: { quantity: number; price: number; item?: { name: string } | null }[]
+      } | null) => {
+        if (!sale) return
+        setForm(prev => ({
+          ...prev,
+          consigneeName:  sale.customer?.name ?? prev.consigneeName,
+          consigneePhone: sale.customer?.phone ?? '',
+        }))
+        if (sale.items && sale.items.length > 0) {
+          setItems(sale.items.map(i => ({
+            description: i.item?.name ?? 'Item',
+            quantity:    String(i.quantity),
+            unit:        'pcs',
+            weight:      '',
+            notes:       '',
+          })))
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoadingFromSale(false))
+  }, [prefillSaleId])
 
   function setField(k: keyof typeof form, v: string) {
     setForm(prev => ({ ...prev, [k]: v }))
@@ -109,6 +149,14 @@ export default function NewWaybillPage() {
             <p className="text-sm text-gray-400">Create a delivery note for goods in transit</p>
           </div>
         </div>
+
+        {prefillSaleId && (
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm px-4 py-3 flex items-center gap-2">
+            {loadingFromSale
+              ? '⏳ Loading sale details…'
+              : `✅ Pre-filled from Sale ${prefillSaleId.slice(0, 8).toUpperCase()}. Review and adjust before creating.`}
+          </div>
+        )}
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3">{error}</div>

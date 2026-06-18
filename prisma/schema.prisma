@@ -460,8 +460,12 @@ model Sale {
   totalAmount   Float
   paidAmount    Float
   paymentType   PaymentType // CASH = fully paid, CREDIT = balance owed
-  paymentMethod PaymentMethod    @default(CASH) // how money was received: CASH, MOMO, BANK
-  createdAt     DateTime         @default(now())
+  paymentMethod     PaymentMethod @default(CASH) // how money was received: CASH, MOMO, BANK
+  momoPhone         String?       // captured when paymentMethod = MOMO
+  bankName          String?       // captured when paymentMethod = BANK (sales invoice only)
+  bankAccountName   String?       // account holder name
+  bankReference     String?       // transaction / reference number
+  createdAt         DateTime      @default(now())
   items         SaleItem[]
   returns       CustomerReturn[]
   taxLines      TransactionTaxLine[] @relation("SaleTaxLines")
@@ -524,23 +528,31 @@ model PurchaseItem {
 // =====================
 
 model CustomerPayment {
-  id         String        @id @default(uuid())
-  tenantId   String
-  branchId   String? // optional: which branch received this payment
-  customerId String
-  amount     Float
-  method     PaymentMethod
-  createdAt  DateTime      @default(now())
+  id              String        @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  customerId      String
+  amount          Float
+  method          PaymentMethod
+  momoPhone       String?       // captured when method = MOMO
+  bankName        String?       // captured when method = BANK
+  bankAccountName String?
+  bankReference   String?
+  createdAt       DateTime      @default(now())
 }
 
 model SupplierPayment {
-  id         String        @id @default(uuid())
-  tenantId   String
-  branchId   String? // optional: which branch made this payment
-  supplierId String
-  amount     Float
-  method     PaymentMethod
-  createdAt  DateTime      @default(now())
+  id              String        @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  supplierId      String
+  amount          Float
+  method          PaymentMethod
+  momoPhone       String?       // captured when method = MOMO
+  bankName        String?       // captured when method = BANK
+  bankAccountName String?
+  bankReference   String?
+  createdAt       DateTime      @default(now())
 }
 
 // =====================

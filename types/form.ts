@@ -94,9 +94,16 @@ export const paymentSchema = z.object({
   method: z.enum(['CASH', 'MOMO', 'BANK'], {
     message: 'Payment method is required',
   }),
+  momoPhone: z.string().optional(),
+  bankName: z.string().optional(),
+  bankAccountName: z.string().optional(),
+  bankReference: z.string().optional(),
 }).refine(data => data.customerId || data.supplierId, {
   message: 'Either customer or supplier is required',
   path: ['customerId'],
+}).refine(data => data.method !== 'MOMO' || (data.momoPhone && data.momoPhone.trim().length > 0), {
+  message: 'MoMo phone number is required',
+  path: ['momoPhone'],
 })
 
 export type PaymentFormData = z.infer<typeof paymentSchema>

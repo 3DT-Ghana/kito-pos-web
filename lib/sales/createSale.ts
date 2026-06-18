@@ -55,6 +55,10 @@ export interface CreateSaleInput {
   customerId?: string | null
   paidAmount?: number | string
   paymentMethod?: string
+  momoPhone?: string
+  bankName?: string
+  bankAccountName?: string
+  bankReference?: string
   approvalGrant?: string
   items: SaleRequestItem[]
   sourceQuotationId?: string
@@ -418,6 +422,10 @@ export async function createSaleFromInput(
         paidAmount,
         paymentType: creditAmount > 0 ? PaymentType.CREDIT : PaymentType.CASH,
         paymentMethod,
+        momoPhone: paymentMethod === PaymentMethod.MOMO && body.momoPhone ? String(body.momoPhone).trim() : null,
+        bankName: paymentMethod === PaymentMethod.BANK && body.bankName ? String(body.bankName).trim() : null,
+        bankAccountName: paymentMethod === PaymentMethod.BANK && body.bankAccountName ? String(body.bankAccountName).trim() : null,
+        bankReference: paymentMethod === PaymentMethod.BANK && body.bankReference ? String(body.bankReference).trim() : null,
         createdById: context.user.id,
         ...(needsApproval || inlineApproval
           ? {

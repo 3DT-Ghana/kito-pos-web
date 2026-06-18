@@ -110,11 +110,15 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!body.method || !Object.values(PaymentMethod).includes(body.method)) {
+    const allowedMethods = [PaymentMethod.CASH, PaymentMethod.MOMO, PaymentMethod.BANK]
+    if (!body.method || !allowedMethods.includes(body.method)) {
       return NextResponse.json(
         { error: 'Valid payment method is required (CASH, MOMO, BANK)' },
         { status: 400 }
       )
+    }
+    if (body.method === PaymentMethod.MOMO && !body.momoPhone?.trim()) {
+      return NextResponse.json({ error: 'MoMo phone number is required' }, { status: 400 })
     }
 
     // Verify customer belongs to tenant
@@ -167,6 +171,10 @@ export async function POST(req: Request) {
           customerId: body.customerId,
           amount,
           method: body.method as PaymentMethod,
+          momoPhone:       body.method === PaymentMethod.MOMO ? String(body.momoPhone ?? '').trim() || null : null,
+          bankName:        body.method === PaymentMethod.BANK ? String(body.bankName ?? '').trim() || null : null,
+          bankAccountName: body.method === PaymentMethod.BANK ? String(body.bankAccountName ?? '').trim() || null : null,
+          bankReference:   body.method === PaymentMethod.BANK ? String(body.bankReference ?? '').trim() || null : null,
         },
       })
 

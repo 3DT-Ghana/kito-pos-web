@@ -234,8 +234,8 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
       )}
 
       {/* Payment Method */}
-      <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+      <div className="space-y-2">
+        <label className="block text-sm font-semibold text-gray-700">
           Payment Method <span className="text-red-500">*</span>
         </label>
         <div className="grid grid-cols-3 gap-2">
@@ -256,6 +256,53 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         </div>
         {errors.method && (
           <p className="mt-1 text-sm text-red-600">{errors.method.message}</p>
+        )}
+        {watch('method') === 'MOMO' && (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+              MoMo Phone Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="tel"
+              placeholder="e.g. 0244123456"
+              {...register('momoPhone')}
+              className="w-full px-3 py-2.5 border-2 border-blue-200 focus:border-blue-500 focus:outline-none text-sm"
+            />
+            {errors.momoPhone && (
+              <p className="mt-1 text-sm text-red-600">{errors.momoPhone.message}</p>
+            )}
+          </div>
+        )}
+        {watch('method') === 'BANK' && (
+          <div className="space-y-2 border border-blue-100 bg-blue-50/50 p-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Bank Name</label>
+              <input
+                type="text"
+                placeholder="e.g. GCB Bank, Ecobank, Fidelity"
+                {...register('bankName')}
+                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Account Holder Name</label>
+              <input
+                type="text"
+                placeholder="Name on the bank account"
+                {...register('bankAccountName')}
+                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Transaction / Reference No.</label>
+              <input
+                type="text"
+                placeholder="Bank transaction or reference number"
+                {...register('bankReference')}
+                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
+              />
+            </div>
+          </div>
         )}
       </div>
 
