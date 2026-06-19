@@ -118,17 +118,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
+    // Resolve manufacturer: use provided ID or fall back to "System" manufacturer
+    let resolvedManufacturerId: string = body.manufacturerId
+    if (!resolvedManufacturerId) {
+      let systemMfr = await prisma.manufacturer.findFirst({
+        where: { tenantId: context!.tenantId, name: { equals: 'System', mode: 'insensitive' } },
+      })
+      if (!systemMfr) {
+        systemMfr = await prisma.manufacturer.create({
+          data: { tenantId: context!.tenantId, name: 'System' },
+        })
+      }
+      resolvedManufacturerId = systemMfr.id
+    }
+
     // Verify manufacturer belongs to tenant
     const manufacturer = await prisma.manufacturer.findFirst({
       where: {
-        id: body.manufacturerId,
+        id: resolvedManufacturerId,
         tenantId: context!.tenantId,
       },
     })
 
     if (!manufacturer) {
       return NextResponse.json(
-        { error: 'Manufacturer not found or does not belong to your tenant' },
+        { error: 'Brand / Manufacturer not found or does not belong to your tenant' },
         { status: 404 }
       )
     }
@@ -137,7 +151,7 @@ export async function POST(req: Request) {
     const existing = await prisma.item.findFirst({
       where: {
         tenantId: context!.tenantId,
-        manufacturerId: body.manufacturerId,
+        manufacturerId: resolvedManufacturerId,
         ...(context!.branchesEnabled ? { branchId } : {}),
         name: {
           equals: body.name.trim(),
@@ -148,7 +162,7 @@ export async function POST(req: Request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'An item with this name already exists for this manufacturer' },
+        { error: 'An item with this name already exists for this brand / manufacturer' },
         { status: 409 }
       )
     }
@@ -159,7 +173,7 @@ export async function POST(req: Request) {
         data: {
           tenantId: context!.tenantId,
           ...(context!.branchesEnabled ? { branchId } : {}),
-          manufacturerId: body.manufacturerId,
+          manufacturerId: resolvedManufacturerId,
           name: body.name.trim(),
           quantity: parseFloat(body.quantity) || 0,
           ...(body.reorderLevel !== undefined && body.reorderLevel !== null
@@ -225,10 +239,6 @@ export async function POST(req: Request) {
 function validateItemData(data: any): string | null {
   if (!data.name || typeof data.name !== 'string') {
     return 'Item name is required'
-  }
-
-  if (!data.manufacturerId || typeof data.manufacturerId !== 'string') {
-    return 'Manufacturer ID is required'
   }
 
   if (data.quantity !== undefined && (isNaN(data.quantity) || data.quantity < 0)) {

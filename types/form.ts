@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 // Item form schema
 export const itemSchema = z.object({
-  manufacturerId: z.string().min(1, 'Manufacturer is required'),
+  manufacturerId: z.string().optional(),
   name: z.string().min(1, 'Item name is required'),
   quantity: z.number().min(0, 'Quantity must be 0 or greater').optional(),
   reorderLevel: z.number().int().min(0, 'Reorder level must be 0 or greater').optional(),

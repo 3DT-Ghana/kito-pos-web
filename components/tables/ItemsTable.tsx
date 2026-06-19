@@ -20,13 +20,13 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
   const columns: Column<ItemWithManufacturer>[] = [
     {
       key: 'name',
-      label: 'Item Name & Manufacturer',
+      label: 'Item Name & Brand',
       sortable: true,
       render: (item) => (
         <div>
           <div className="font-bold text-gray-900 text-base">{item.name}</div>
           <div className="text-sm font-semibold text-blue-600 mt-1">
-            📦 {item.manufacturer?.name || 'Unknown Manufacturer'}
+            📦 {item.manufacturer?.name || 'System'}
           </div>
         </div>
       ),
@@ -100,7 +100,7 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
     <DataTable
       data={items}
       columns={columns}
-      searchPlaceholder="Search items by name, manufacturer..."
+      searchPlaceholder="Search items by name, brand / manufacturer..."
       emptyMessage="No items found"
       onRowClick={onItemClick}
     />

@@ -223,7 +223,7 @@ export function ItemsCatalog({
                 getData={() => filtered.map(i => ({
                   Name: i.name,
                   Type: itemTypeLabel(i.itemType),
-                  Manufacturer: i.manufacturer?.name || '',
+                  'Brand / Manufacturer': i.manufacturer?.name || '',
                   Quantity: isInventoryItemType(i.itemType) ? i.quantity : '',
                   'Reorder Level': isInventoryItemType(i.itemType) ? i.reorderLevel : '',
                   'Cost Price (GHS)': i.costPrice.toFixed(2),
@@ -254,7 +254,7 @@ export function ItemsCatalog({
                 )
               )}
               <Btn variant="secondary" icon={Factory} size="sm" onClick={() => router.push('/manufacturers')}>
-                Manufacturers
+                Brands / Mfr.
               </Btn>
               <Btn variant="secondary" icon={Sliders} size="sm" onClick={() => router.push('/items/adjust-bulk')}>
                 Bulk Adjust
@@ -322,7 +322,7 @@ export function ItemsCatalog({
               onChange={e => setManufacturerFilter(e.target.value)}
               className="px-3 py-2 bg-white border border-gray-200 text-sm font-medium focus:outline-none focus:border-blue-400"
             >
-              <option value="">All Manufacturers</option>
+              <option value="">All Brands / Manufacturers</option>
               {manufacturers.map(m => <option key={m} value={m!}>{m}</option>)}
             </select>
           )}
@@ -345,7 +345,7 @@ export function ItemsCatalog({
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by item or manufacturer..."
+              placeholder="Search by item or brand / manufacturer..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
@@ -459,7 +459,7 @@ export function ItemsCatalog({
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Type</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Category</th>
-                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Manufacturer</th>
+                    <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Brand / Manufacturer</th>
                     <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Stock</th>
                     <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Cost</th>
                     <th className="px-5 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Selling</th>

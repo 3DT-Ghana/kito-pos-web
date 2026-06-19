@@ -221,18 +221,25 @@ function NewWaybillContent() {
           {/* Items */}
           <div className="bg-white border border-gray-200 p-5">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Goods / Items</h3>
-              <button type="button" onClick={addLine}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700">
-                <Plus className="w-3.5 h-3.5" /> Add Line
-              </button>
+              <div>
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Goods / Items</h3>
+                {prefillSaleId && (
+                  <p className="text-xs text-amber-600 mt-0.5">Items are locked to the sale — edit quantity, weight or notes only.</p>
+                )}
+              </div>
+              {!prefillSaleId && (
+                <button type="button" onClick={addLine}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700">
+                  <Plus className="w-3.5 h-3.5" /> Add Line
+                </button>
+              )}
             </div>
 
             {/* Table header */}
             <div className="hidden sm:grid grid-cols-12 gap-2 px-2 mb-1">
-              {['Description', 'Qty', 'Unit', 'Weight (kg)', 'Notes', ''].map((h, i) => (
+              {['Description', 'Qty', 'Unit', 'Weight (kg)', 'Notes', ...(prefillSaleId ? [] : [''])].map((h, i) => (
                 <span key={i} className={`text-xs font-semibold text-gray-400 uppercase ${
-                  i === 0 ? 'col-span-4' : i === 5 ? 'col-span-1' : 'col-span-2'
+                  i === 0 ? 'col-span-4' : (prefillSaleId ? 'col-span-2' : i === 5 ? 'col-span-1' : 'col-span-2')
                 }`}>{h}</span>
               ))}
             </div>
@@ -240,22 +247,28 @@ function NewWaybillContent() {
             <div className="space-y-2">
               {items.map((item, i) => (
                 <div key={i} className="grid sm:grid-cols-12 gap-2 items-start">
-                  <input value={item.description} onChange={e => setItem(i, 'description', e.target.value)}
-                    className={`${inputCls} sm:col-span-4`} placeholder="Item description" />
+                  <input value={item.description} onChange={e => !prefillSaleId && setItem(i, 'description', e.target.value)}
+                    readOnly={!!prefillSaleId}
+                    className={`${inputCls} sm:col-span-4 ${prefillSaleId ? 'bg-gray-50 text-gray-500 cursor-default' : ''}`}
+                    placeholder="Item description" />
                   <input value={item.quantity} onChange={e => setItem(i, 'quantity', e.target.value)}
                     type="number" min="0" step="any"
                     className={`${inputCls} sm:col-span-2`} placeholder="Qty" />
-                  <input value={item.unit} onChange={e => setItem(i, 'unit', e.target.value)}
-                    className={`${inputCls} sm:col-span-2`} placeholder="pcs" />
+                  <input value={item.unit} onChange={e => !prefillSaleId && setItem(i, 'unit', e.target.value)}
+                    readOnly={!!prefillSaleId}
+                    className={`${inputCls} sm:col-span-2 ${prefillSaleId ? 'bg-gray-50 text-gray-500 cursor-default' : ''}`}
+                    placeholder="pcs" />
                   <input value={item.weight} onChange={e => setItem(i, 'weight', e.target.value)}
                     type="number" min="0" step="any"
                     className={`${inputCls} sm:col-span-2`} placeholder="kg" />
                   <input value={item.notes} onChange={e => setItem(i, 'notes', e.target.value)}
-                    className={`${inputCls} sm:col-span-1`} placeholder="Note" />
-                  <button type="button" onClick={() => removeLine(i)} disabled={items.length === 1}
-                    className="sm:col-span-1 flex items-center justify-center h-9 text-gray-400 hover:text-red-500 disabled:opacity-30 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                    className={`${inputCls} ${prefillSaleId ? 'sm:col-span-2' : 'sm:col-span-1'}`} placeholder="Note" />
+                  {!prefillSaleId && (
+                    <button type="button" onClick={() => removeLine(i)} disabled={items.length === 1}
+                      className="sm:col-span-1 flex items-center justify-center h-9 text-gray-400 hover:text-red-500 disabled:opacity-30 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

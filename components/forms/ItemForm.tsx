@@ -199,16 +199,16 @@ export function ItemForm({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {/* Manufacturer Selection */}
+      {/* Brand / Manufacturer Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Manufacturer *
+          Brand / Manufacturer <span className="text-gray-400 font-normal">(optional)</span>
         </label>
         <select
           {...register('manufacturerId')}
           className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Select Manufacturer</option>
+          <option value="">System (default)</option>
           {manufacturers.map((manufacturer) => (
             <option key={manufacturer.id} value={manufacturer.id}>
               {manufacturer.name}
@@ -469,7 +469,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('retailPrice', { valueAsNumber: true })}
+                  {...register('retailPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -487,7 +487,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('wholesalePrice', { valueAsNumber: true })}
+                  {...register('wholesalePrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -505,7 +505,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('promoPrice', { valueAsNumber: true })}
+                  {...register('promoPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"

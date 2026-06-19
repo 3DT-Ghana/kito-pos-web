@@ -20,7 +20,7 @@ export default function NewManufacturerPage() {
     e.preventDefault()
 
     if (!name.trim()) {
-      setError('Manufacturer name is required')
+      setError('Brand / Manufacturer name is required')
       return
     }
 
@@ -53,9 +53,9 @@ export default function NewManufacturerPage() {
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">New Manufacturer</h1>
+          <h1 className="text-2xl font-bold text-gray-900">New Brand / Manufacturer</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Add a new product manufacturer
+            Add a new product brand or manufacturer
           </p>
         </div>
 
@@ -72,7 +72,7 @@ export default function NewManufacturerPage() {
             {/* Manufacturer Name */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Manufacturer Name *
+                Brand / Manufacturer Name *
               </label>
               <input
                 type="text"
@@ -99,7 +99,7 @@ export default function NewManufacturerPage() {
                 disabled={isSubmitting}
                 className="px-6 py-2 bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50"
               >
-                {isSubmitting ? 'Creating...' : 'Create Manufacturer'}
+                {isSubmitting ? 'Creating...' : 'Create Brand / Manufacturer'}
               </button>
             </div>
           </form>

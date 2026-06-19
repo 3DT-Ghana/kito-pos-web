@@ -115,7 +115,7 @@ export function Sidebar() {
         { name: 'Items',          href: '/items',         icon: <Package className={sz} />,       tooltip: 'Add, edit, and manage all products and services',                                  show: true },
         { name: 'Transfers',      href: '/transfers',     icon: <ArrowLeftRight className={sz} />, tooltip: 'Move stock between branches',                                                      show: features.enableBranches && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER') },
         { name: 'Categories',     href: '/categories',    icon: <Tag className={sz} />,            tooltip: 'Group items into categories for faster POS browsing',                              show: true },
-        { name: 'Manufacturers',  href: '/manufacturers', icon: <Factory className={sz} />,        tooltip: 'Manage brands and manufacturers linked to your items',                             show: true },
+        { name: 'Brands / Mfr.',  href: '/manufacturers', icon: <Factory className={sz} />,        tooltip: 'Manage brands and manufacturers linked to your items',                             show: true },
         { name: 'Barcode Labels', href: '/barcodes',      icon: <Printer className={sz} />,        tooltip: 'Print barcode labels to attach to products',                                       show: features.enableBarcodeGenerator && has('OWNER','STORE_MANAGER','BRANCH_MANAGER','INVENTORY_MANAGER') },
       ],
     },
