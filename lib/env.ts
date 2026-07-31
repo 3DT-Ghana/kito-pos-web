@@ -17,9 +17,11 @@ const serverSchema = z.object({
   // ── Database (Neon) ────────────────────────────────────────────────────────
   // DATABASE_URL points at the Neon *pooled* endpoint (host contains `-pooler`).
   // DIRECT_URL points at the unpooled endpoint and is used only by Prisma
-  // Migrate / Introspect, which cannot run DDL through PgBouncer.
+  // Migrate / Introspect, which cannot run DDL through PgBouncer. It is not
+  // optional: prisma/schema.prisma reads it via env(), and Prisma fails schema
+  // validation outright when it is absent — including during `prisma generate`.
   DATABASE_URL: z.string().url(),
-  DIRECT_URL: z.string().url().optional(),
+  DIRECT_URL: z.string().url(),
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   NEXTAUTH_SECRET: z.string().min(32, 'NEXTAUTH_SECRET must be at least 32 characters'),
