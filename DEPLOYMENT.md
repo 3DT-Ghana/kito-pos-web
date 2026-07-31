@@ -1,4 +1,4 @@
-# Deployment — Vercel + Neon + Cloudflare
+# Market Inventory — deployment on Vercel, Neon and Cloudflare
 
 The production topology:
 
@@ -88,7 +88,7 @@ npm run seed
 KYC documents — agent Ghana Cards and business application documents — used to
 live in Supabase Storage. They now live in a **private** R2 bucket.
 
-1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `kito-pos-documents`).
+1. Cloudflare dashboard → **R2** → **Create bucket** (e.g. `market-inventory-documents`).
    Leave public access **disabled**; do not attach a custom domain.
 2. **R2 → Manage API Tokens → Create API Token**, permission **Object Read &
    Write**, scoped to that bucket. Copy the Access Key ID and Secret Access Key

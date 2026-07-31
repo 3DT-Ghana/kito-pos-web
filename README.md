@@ -1,4 +1,4 @@
-# Kito POS
+# Market Inventory
 
 Multi-tenant point-of-sale and business management application: sales, inventory,
 purchasing, quotations, returns, payroll, accounting and reporting, with a
