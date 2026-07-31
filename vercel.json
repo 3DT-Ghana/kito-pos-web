@@ -8,12 +8,6 @@
 
   "functions": {
     "app/api/**/route.ts": {
-      "maxDuration": 30
-    },
-    "app/api/reports/**/route.ts": {
-      "maxDuration": 60
-    },
-    "app/api/import/**/route.ts": {
       "maxDuration": 60
     }
   },

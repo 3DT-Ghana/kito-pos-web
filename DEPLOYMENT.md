@@ -151,7 +151,7 @@ URL, or sign-in callbacks redirect to the wrong host.
 | `regions` | `fra1` | Must match the Neon region |
 | `buildCommand` | `npm run vercel-build` | env check → generate → migrate → build |
 | `installCommand` | `npm ci` | Lockfile-exact installs |
-| `functions` maxDuration | 30 s, 60 s for reports/imports | Report and spreadsheet imports outrun the default |
+| `functions` maxDuration | 60 s for all `/api` routes | Reports and spreadsheet imports outrun the default; `maxDuration` is a ceiling, not a reservation, so a single rule costs nothing extra and avoids overlapping globs |
 
 ### Verify a deploy
 
