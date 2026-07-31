@@ -139,7 +139,7 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
 
         <h2 className="text-base font-bold text-gray-900">Still there?</h2>
         <p className="mt-1.5 text-sm text-gray-500">
-          You've been inactive. You'll be signed out automatically in{' '}
+          You&rsquo;ve been inactive. You&rsquo;ll be signed out automatically in{' '}
           <span className={`font-bold ${urgent ? 'text-red-600' : 'text-amber-600'}`}>{secs}s</span>.
         </p>
 

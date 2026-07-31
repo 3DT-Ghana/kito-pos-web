@@ -282,7 +282,8 @@ export default function AdminApplicationDetailPage() {
                 <div key={doc.id} className="flex items-center gap-3">
                   {isImage ? (
                     <div className="relative w-24 h-16 overflow-hidden border border-gray-200 shrink-0">
-                      <Image src={doc.fileUrl} alt={doc.label ?? doc.documentType} fill className="object-cover" />
+                      {/* unoptimized: served from the authenticated /api/files route */}
+                      <Image src={doc.fileUrl} alt={doc.label ?? doc.documentType} fill unoptimized className="object-cover" />
                     </div>
                   ) : (
                     <div className="w-24 h-16 border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0">

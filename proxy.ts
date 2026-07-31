@@ -42,6 +42,7 @@ export default withAuth(
     const isAuthApi = pathname.startsWith('/api/auth/')
     const isPublicApi =
       isAuthApi ||
+      pathname === '/api/health' ||
       pathname.startsWith('/api/tenants') ||
       pathname.startsWith('/api/agent/register')
     const isSuperAdmin = token?.platformRole === 'SUPER_ADMIN'
@@ -49,6 +50,10 @@ export default withAuth(
     const isAdminApi = pathname.startsWith('/api/admin/')
     const isAgentPage = pathname.startsWith('/agent')
     const isAgentApi = pathname.startsWith('/api/agent/')
+    // Private file downloads are shared between agents and super admins, so they
+    // sit outside the agent/admin/tenant split. The route handler itself checks
+    // that the caller owns (or administers) the object before streaming it.
+    const isFileApi = pathname.startsWith('/api/files/')
     const isPublicAgentPage =
       pathname === '/agent/login' || pathname === '/agent/register'
     const isBlockedAgent =
@@ -77,6 +82,10 @@ export default withAuth(
             { status: 401 }
           )
         )
+      }
+
+      if (isFileApi) {
+        return applySecurityHeaders(NextResponse.next())
       }
 
       if (isAdminApi) {

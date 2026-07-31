@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server'
 import { requireAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
-import { uploadGhanaCard, getSignedUrl } from '@/lib/storage/supabase'
+import { uploadDocument } from '@/lib/storage'
 import { getGlobalKYCSettings } from '@/lib/kyc/settings'
+import { MAX_UPLOAD_BYTES } from '@/lib/storage/limits'
+
+export const runtime = 'nodejs'
 
 /**
  * POST /api/agent/upload-ghana-card
@@ -41,21 +44,23 @@ export async function POST(req: Request) {
       )
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File must be under 5 MB' }, { status: 400 })
+    // 4 MB, not 5: a Vercel function rejects request bodies over ~4.5 MB before
+    // the handler ever runs, so a 5 MB cap here would surface as an opaque
+    // platform error rather than this message.
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return NextResponse.json({ error: 'File must be under 4 MB' }, { status: 400 })
     }
 
     const ext = file.type.split('/')[1].replace('jpeg', 'jpg')
-    const path = `agents/${context!.agent.id}/ghana-card.${ext}`
+    const key = `agents/${context!.agent.id}/ghana-card.${ext}`
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    await uploadGhanaCard(path, buffer, file.type)
-    const signedUrl = await getSignedUrl(path)
+    const fileUrl = await uploadDocument(key, buffer, file.type)
 
     const updated = await prisma.agent.update({
       where: { id: context!.agent.id },
       data: {
-        ghanaCardImageUrl: signedUrl,
+        ghanaCardImageUrl: fileUrl,
         ...(trimmedCardNumber ? { ghanaCardNumber: trimmedCardNumber } : {}),
       },
       select: {

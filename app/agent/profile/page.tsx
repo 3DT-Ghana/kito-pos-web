@@ -218,10 +218,12 @@ export default function AgentProfilePage() {
 
         {profile.ghanaCardImageUrl && (
           <div className="relative w-full h-40 overflow-hidden border border-gray-200">
+            {/* unoptimized: served from the authenticated /api/files route */}
             <Image
               src={profile.ghanaCardImageUrl}
               alt="Ghana Card"
               fill
+              unoptimized
               className="object-contain"
             />
           </div>
