@@ -232,6 +232,7 @@ export async function POST(req: Request) {
           quantity,
           type: body.type as ReturnType,
           amount,
+          note: body.note?.trim() || null,
         },
       })
 

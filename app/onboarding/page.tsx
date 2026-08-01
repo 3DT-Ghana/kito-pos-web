@@ -105,7 +105,6 @@ export default function OnboardingPage() {
 
       if (!response.ok) {
         setError(data.error || "Registration failed. Please try again.");
-        setIsLoading(false);
         return;
       }
 
@@ -123,6 +122,7 @@ export default function OnboardingPage() {
       }
     } catch {
       setError("Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };

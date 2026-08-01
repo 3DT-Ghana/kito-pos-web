@@ -48,10 +48,10 @@ export async function GET(req: Request) {
     const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (search) {
-      where.name = {
-        contains: search,
-        mode: 'insensitive' as const,
-      }
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { barcode: { contains: search, mode: 'insensitive' as const } },
+      ]
     }
 
     if (manufacturerId) {

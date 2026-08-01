@@ -51,10 +51,15 @@ export default function TillPage() {
 
   useEffect(() => {
     fetchTill()
-    // Refresh running totals every 60 seconds while shift is open
-    const interval = setInterval(() => { if (openShift) fetchTill() }, 60000)
-    return () => clearInterval(interval)
   }, [currentBranchId])
+
+  // Refresh running totals every 60 seconds while a shift is open.
+  // Separate effect with openShift in deps so the interval always sees the current value.
+  useEffect(() => {
+    if (!openShift) return
+    const interval = setInterval(() => fetchTill(), 60000)
+    return () => clearInterval(interval)
+  }, [openShift?.id])
 
   const fetchTill = async () => {
     try {

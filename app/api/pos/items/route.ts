@@ -27,23 +27,29 @@ export async function GET(req: Request) {
     const categoryId = searchParams.get('categoryId')?.trim() ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 200)
 
+    const stockFilter = [
+      { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
+      { itemType: ItemType.NON_INVENTORY },
+      { itemType: ItemType.SERVICE },
+    ]
+
+    const searchFilter = q
+      ? [
+          { name: { contains: q, mode: 'insensitive' as const } },
+          { barcode: { contains: q, mode: 'insensitive' as const } },
+        ]
+      : null
+
+    // Combine stock-type filter and optional search filter with AND so both must apply
+    const andClauses = searchFilter
+      ? [{ OR: stockFilter }, { OR: searchFilter }]
+      : [{ OR: stockFilter }]
+
     const where = applyBranchScope({
       tenantId: context!.tenantId,
-      OR: [
-        { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
-        { itemType: ItemType.NON_INVENTORY },
-        { itemType: ItemType.SERVICE },
-      ],
+      AND: andClauses,
       ...(manufacturerId ? { manufacturerId } : {}),
       ...(categoryId ? { categoryId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: 'insensitive' as const } },
-              { barcode: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
     }, context!)
 
     const items = await prisma.item.findMany({

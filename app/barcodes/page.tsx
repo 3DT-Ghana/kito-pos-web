@@ -32,16 +32,20 @@ export default function BarcodesPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showGenerator, setShowGenerator] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => { fetchItems() }, [currentBranchId])
 
   const fetchItems = async () => {
     try {
       setIsLoading(true)
+      setFetchError(null)
       const res = await fetch('/api/items')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to load items')
       const data = await res.json()
       setItems(Array.isArray(data) ? data : data.data || [])
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load items')
     } finally {
       setIsLoading(false)
     }
@@ -202,6 +206,14 @@ export default function BarcodesPage() {
                 {selected.size} of {filtered.length} selected
               </p>
             )}
+          </div>
+        )}
+
+        {/* Fetch error */}
+        {fetchError && (
+          <div className="bg-red-50 border border-red-200 px-5 py-4 text-sm text-red-700 flex items-center gap-3">
+            <span>{fetchError}</span>
+            <button onClick={fetchItems} className="underline font-medium ml-auto shrink-0">Retry</button>
           </div>
         )}
 

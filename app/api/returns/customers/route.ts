@@ -288,6 +288,7 @@ export async function POST(req: Request) {
           subtotalAmount,
           taxAmount: resolvedTaxAmount,
           amount: resolvedAmount,
+          note: body.note?.trim() || null,
         },
       })
 

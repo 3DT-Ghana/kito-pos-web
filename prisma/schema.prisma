@@ -571,6 +571,7 @@ model CustomerReturn {
   subtotalAmount Float @default(0)
   taxAmount Float      @default(0)
   amount    Float
+  note      String?
   createdAt DateTime   @default(now())
   taxLines  TransactionTaxLine[] @relation("CustomerReturnTaxLines")
 }
@@ -585,6 +586,7 @@ model SupplierReturn {
   quantity   Float
   type       ReturnType
   amount     Float
+  note       String?
   createdAt  DateTime   @default(now())
 }
 

@@ -31,6 +31,8 @@ export async function GET(req: Request) {
     const paymentType = searchParams.get('paymentType')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
+    const search = searchParams.get('search')?.trim() ?? ''
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)
 
     // Build where clause
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,6 +52,13 @@ export async function GET(req: Request) {
       where.createdAt = {}
       if (startDate) where.createdAt.gte = new Date(startDate)
       if (endDate) where.createdAt.lte = new Date(endDate)
+    }
+
+    if (search) {
+      where.OR = [
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { id: { contains: search, mode: 'insensitive' } },
+      ]
     }
 
     const sales = await prisma.sale.findMany({
@@ -73,7 +82,22 @@ export async function GET(req: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: limit,
     })
+
+    // Fetch approval statuses for all returned sales in one query
+    const saleIds = sales.map(s => s.id)
+    const approvalMap = new Map<string, string>()
+    if (saleIds.length > 0) {
+      const approvals = await prisma.transactionApproval.findMany({
+        where: { tenantId: context!.tenantId, saleId: { in: saleIds } },
+        select: { saleId: true, status: true },
+        orderBy: { createdAt: 'desc' },
+      })
+      for (const a of approvals) {
+        if (a.saleId && !approvalMap.has(a.saleId)) approvalMap.set(a.saleId, a.status)
+      }
+    }
 
     // Calculate summary
     const summary = {
@@ -86,7 +110,12 @@ export async function GET(req: Request) {
       ),
     }
 
-    return NextResponse.json({ sales, summary })
+    const salesWithApproval = sales.map(s => ({
+      ...s,
+      approvalStatus: approvalMap.get(s.id) ?? s.approvalStatus ?? null,
+    }))
+
+    return NextResponse.json({ sales: salesWithApproval, summary })
   } catch (err) {
     console.error('Failed to fetch sales:', err)
     return NextResponse.json(

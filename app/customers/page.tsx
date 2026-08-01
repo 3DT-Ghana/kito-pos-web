@@ -36,6 +36,7 @@ export default function CustomersPage() {
   const [tab, setTab] = useState<Tab>('all')
   const [page, setPage] = useState(1)
   const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const PAGE_SIZE = 20
 
   useEffect(() => { fetchCustomers() }, [])
@@ -63,16 +64,20 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     try {
+      setFetchError(null)
       const res = await fetch('/api/customers')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to load customers')
       const data = await res.json()
       setCustomers(data.customers || data.data || data || [])
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load customers')
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => setPage(1), [search, tab])
+
 
   const filtered = customers.filter(c => {
     const q = search.toLowerCase()
@@ -169,13 +174,19 @@ export default function CustomersPage() {
           </div>
         </div>
 
+        {fetchError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            {fetchError}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3,4].map(i => (
               <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : fetchError ? null : filtered.length === 0 ? (
           <EmptyState
             icon={Users}
             title="No customers found"

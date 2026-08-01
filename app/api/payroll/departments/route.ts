@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { requireBranchAccess } from '@/lib/branch/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
 import { prisma } from '@/lib/db/prisma'
 
 export async function GET() {
   const { error, context } = await requireBranchAccess()
   if (error) return error
+
+  const featureError = requireTenantFeature(context!.features, 'enablePayroll')
+  if (featureError) return featureError
 
   const departments = await prisma.payrollDepartment.findMany({
     where: { tenantId: context!.tenantId },
@@ -18,6 +22,9 @@ export async function GET() {
 export async function POST(req: Request) {
   const { error, context } = await requireBranchAccess()
   if (error) return error
+
+  const featureError = requireTenantFeature(context!.features, 'enablePayroll')
+  if (featureError) return featureError
 
   try {
     const { name } = await req.json()

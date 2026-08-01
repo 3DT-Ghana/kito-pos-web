@@ -71,7 +71,7 @@ interface Customer {
   balance: number
 }
 
-type PaymentMethod = 'CASH' | 'MOMO'
+type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
 type MobileTab = 'items' | 'cart'
 type DiscountMode = 'pct' | 'fixed'
 
@@ -410,7 +410,7 @@ export default function PosPage() {
   useEffect(() => {
     if (!customerQuery.trim()) { setCustomerResults([]); return }
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/customers?search=${encodeURIComponent(customerQuery)}&limit=8`)
+      const res = await fetch(`/api/pos/customers?q=${encodeURIComponent(customerQuery)}&limit=8`)
       if (res.ok) {
         const data = await res.json()
         setCustomerResults(Array.isArray(data) ? data : (data.customers ?? []))
@@ -946,6 +946,9 @@ export default function PosPage() {
           <span className="font-bold text-gray-800">Held Orders ({holds.length})</span>
           <button onClick={() => setShowHolds(false)} className="text-gray-400 text-xl">×</button>
         </div>
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">
+          Held orders are saved on this device only. Clearing browser data or switching devices will lose them.
+        </div>
         {holds.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-sm">No held orders</div>
         ) : (
@@ -1282,13 +1285,14 @@ export default function PosPage() {
       </div>
 
       {/* ── Payment method tabs ── */}
-      <div className="grid grid-cols-2 border-t border-b border-gray-200">
-        {(['CASH', 'MOMO'] as PaymentMethod[]).map(m => (
+      <div className="grid grid-cols-3 border-t border-b border-gray-200">
+        {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
           <button key={m} onClick={() => { setMethod(m); setTendered(''); setMomoPhone('') }}
             className={`py-2.5 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
               method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
             }`}>
-            {m === 'CASH' ? '💵' : '📱'} {m === 'CASH' ? 'Cash' : 'MoMo'}
+            {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'}{' '}
+            {m === 'CASH' ? 'Cash' : m === 'MOMO' ? 'MoMo' : 'Bank'}
           </button>
         ))}
       </div>

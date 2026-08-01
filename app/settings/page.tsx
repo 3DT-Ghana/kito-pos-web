@@ -194,8 +194,8 @@ export default async function SettingsPage() {
           tenantId={tenant.id}
           initialSettings={{
             enableSmsNotifications: tenant.enableSmsNotifications,
-            hubtelClientId: tenant.hubtelClientId,
-            hubtelClientSecret: tenant.hubtelClientSecret,
+            hubtelClientIdSet: !!tenant.hubtelClientId,
+            hubtelClientSecretSet: !!tenant.hubtelClientSecret,
             hubtelSenderId: tenant.hubtelSenderId,
           }}
         />
@@ -205,7 +205,7 @@ export default async function SettingsPage() {
           tenantId={tenant.id}
           initialSettings={{
             enableWhatsApp: tenant.enableWhatsApp,
-            metaWabaToken: tenant.metaWabaToken,
+            metaWabaTokenSet: !!tenant.metaWabaToken,
             metaWabaPhoneNumberId: tenant.metaWabaPhoneNumberId,
           }}
         />

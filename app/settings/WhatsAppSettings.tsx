@@ -3,18 +3,20 @@
 import { useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 
+const MASKED = '••••••••'
+
 interface WhatsAppSettingsProps {
   tenantId: string
   initialSettings: {
     enableWhatsApp: boolean
-    metaWabaToken: string | null
+    metaWabaTokenSet: boolean
     metaWabaPhoneNumberId: string | null
   }
 }
 
 export function WhatsAppSettings({ tenantId, initialSettings }: WhatsAppSettingsProps) {
   const [enabled,         setEnabled]         = useState(initialSettings.enableWhatsApp)
-  const [token,           setToken]           = useState(initialSettings.metaWabaToken ?? '')
+  const [token,           setToken]           = useState(initialSettings.metaWabaTokenSet ? MASKED : '')
   const [phoneNumberId,   setPhoneNumberId]   = useState(initialSettings.metaWabaPhoneNumberId ?? '')
   const [testPhone,       setTestPhone]       = useState('')
   const [isSaving,        setIsSaving]        = useState(false)
@@ -31,7 +33,7 @@ export function WhatsAppSettings({ tenantId, initialSettings }: WhatsAppSettings
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enableWhatsApp: enabled,
-          metaWabaToken: token.trim() || null,
+          ...(token !== MASKED ? { metaWabaToken: token.trim() || null } : {}),
           metaWabaPhoneNumberId: phoneNumberId.trim() || null,
         }),
       })
@@ -155,7 +157,7 @@ export function WhatsAppSettings({ tenantId, initialSettings }: WhatsAppSettings
       </button>
 
       {/* Test message */}
-      {token && phoneNumberId && (
+      {(token === MASKED || token.trim()) && phoneNumberId && (
         <div className="border-t pt-5 space-y-3">
           <h3 className="text-base font-bold text-gray-800">Send Test Message</h3>
           <p className="text-sm text-gray-500">Verify your credentials by sending a test WhatsApp to a phone number (must have WhatsApp).</p>

@@ -702,7 +702,7 @@ async function endOfDayReport(
       totalOutstandingDebt,
       totalDebtorsCount: visibleDebtors.length,
       newDebtToday: newCreditIssued,
-      debtCollectedToday: totalCustomerPayments,
+      debtCollectedToday: cashPayments,
       topDebtors,
     },
   }

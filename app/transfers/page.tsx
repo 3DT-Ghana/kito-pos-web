@@ -74,14 +74,15 @@ async function fetchTransfersData(status: string) {
 }
 
 async function fetchSourceItemsData() {
-  const res = await fetch('/api/items')
+  // Use the POS items endpoint which filters out zero-stock INVENTORY items
+  const res = await fetch('/api/pos/items?limit=200')
   const data = await res.json().catch(() => null)
 
   if (!res.ok) {
     throw new Error(data?.error || 'Failed to load source items')
   }
 
-  return (Array.isArray(data) ? data : data?.data || []) as SourceItemOption[]
+  return (Array.isArray(data?.items) ? data.items : []) as SourceItemOption[]
 }
 
 export default function TransfersPage() {
