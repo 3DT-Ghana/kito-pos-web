@@ -44,7 +44,7 @@ export default function PayslipPage() {
       .then((data) => { setRun(data.run ?? null); setLoading(false) })
   }, [runId])
 
-  if (loading) return <AppLayout><div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div></AppLayout>
+  if (loading) return <AppLayout><div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div></AppLayout>
   if (!run) return <AppLayout><p className="text-sm text-red-500">Run not found.</p></AppLayout>
 
   const line = run.lines.find((l) => l.employee.id === employeeId)
@@ -69,7 +69,7 @@ export default function PayslipPage() {
         </div>
 
         {/* Payslip card */}
-        <div id="payslip" className="bg-white border border-gray-200 p-8 space-y-6 print:border-0 print:rounded-none print:p-0">
+        <div id="payslip" className="bg-white border border-gray-200 p-8 space-y-6 print:border-0 print:-none print:p-0">
           {/* Header */}
           <div className="border-b border-gray-200 pb-4">
             <h1 className="text-xl font-bold text-gray-900">PAYSLIP</h1>

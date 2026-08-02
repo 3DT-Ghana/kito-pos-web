@@ -129,7 +129,7 @@ export default function PayrollRunDetailPage() {
           <div className="flex-1">
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-gray-900">Payroll — {periodLabel}</h1>
-              <span className={`px-3 py-1 rounded-full text-sm font-bold border ${STATUS_STYLES[run.status]}`}>{run.status}</span>
+              <span className={`px-3 py-1 -full text-sm font-bold border ${STATUS_STYLES[run.status]}`}>{run.status}</span>
             </div>
             <p className="text-gray-500 text-sm mt-1">
               {run.lines.length} employee{run.lines.length !== 1 ? 's' : ''}

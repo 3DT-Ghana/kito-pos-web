@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireTenant } from '@/lib/tenant/requireTenant'
 import { requirePermission } from '@/lib/permissions/rbac'
-import { getAuditLogs } from '@/lib/audit/auditLog'
+import { countAuditLogs, getAuditLogs } from '@/lib/audit/auditLog'
 
 /**
  * Audit Logs API
@@ -37,23 +37,28 @@ export async function GET(req: Request) {
     const userId = searchParams.get('userId') || undefined
     const entity = searchParams.get('entity') || undefined
     const action = searchParams.get('action') || undefined
-    const limit = parseInt(searchParams.get('limit') || '100')
-    const offset = parseInt(searchParams.get('offset') || '0')
+    const limit = Math.min(200, Math.max(1, parseInt(searchParams.get('limit') || '100', 10) || 100))
+    const offset = Math.max(0, parseInt(searchParams.get('offset') || '0', 10) || 0)
 
-    const logs = await getAuditLogs(tenantId, {
+    const options = {
       userId,
       entity,
       action,
       limit,
       offset,
-    })
+    }
+
+    const [logs, total] = await Promise.all([
+      getAuditLogs(tenantId, options),
+      countAuditLogs(tenantId, options),
+    ])
 
     return NextResponse.json({
       logs,
       pagination: {
         limit,
         offset,
-        total: logs.length,
+        total,
       },
     })
   } catch (err) {

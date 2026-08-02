@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireApprovedAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
-import { uploadDocument } from '@/lib/storage'
+import { uploadDocument, deleteStoredFile } from '@/lib/storage'
 import { DocumentType } from '@prisma/client'
 import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/lib/storage/limits'
 
@@ -79,14 +79,43 @@ export async function POST(req: Request, { params }: RouteParams) {
     const buffer = Buffer.from(await file.arrayBuffer())
     const fileUrl = await uploadDocument(key, buffer, file.type)
 
-    const document = await prisma.businessDocument.create({
-      data: {
+    const existingDocuments = await prisma.businessDocument.findMany({
+      where: {
         applicationId: id,
         documentType: documentType as DocumentType,
-        label,
-        fileUrl,
+      },
+      select: {
+        id: true,
+        fileUrl: true,
       },
     })
+
+    const document = await prisma.$transaction(async (tx) => {
+      if (existingDocuments.length > 0) {
+        await tx.businessDocument.deleteMany({
+          where: {
+            id: { in: existingDocuments.map((existing) => existing.id) },
+          },
+        })
+      }
+
+      return tx.businessDocument.create({
+        data: {
+          applicationId: id,
+          documentType: documentType as DocumentType,
+          label,
+          fileUrl,
+        },
+      })
+    })
+
+    for (const existingDocument of existingDocuments) {
+      try {
+        await deleteStoredFile(existingDocument.fileUrl)
+      } catch (storageError) {
+        console.error('Failed to delete replaced application document from storage:', storageError)
+      }
+    }
 
     return NextResponse.json(document, { status: 201 })
   } catch (err) {

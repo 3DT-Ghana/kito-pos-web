@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useSession, signOut } from 'next-auth/react'
 import { AdminLayout } from '@/components/layout/AdminLayout'
@@ -70,7 +70,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 -full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )
@@ -90,23 +90,31 @@ export default function AdminDashboardPage() {
   const [tab, setTab]         = useState<Tab>('overview')
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
+  const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true)
     setError(null)
+
     try {
       const [tenantsRes, agentsRes, appsRes] = await Promise.all([
-        fetch('/api/admin/tenants'),
-        fetch('/api/admin/agents'),
-        fetch('/api/admin/applications'),
+        fetch('/api/admin/tenants', { signal }),
+        fetch('/api/admin/agents', { signal }),
+        fetch('/api/admin/applications', { signal }),
       ])
+
+      if (signal?.aborted) {
+        return
+      }
+
       if (tenantsRes.status === 403) throw new Error('Access denied — super-admin only')
       if (!tenantsRes.ok || !agentsRes.ok || !appsRes.ok) throw new Error('Failed to load dashboard data')
 
       const [tenantsData, agentsData, appsData] = await Promise.all([
         tenantsRes.json(), agentsRes.json(), appsRes.json(),
       ])
+
+      if (signal?.aborted) {
+        return
+      }
 
       const agents: RecentAgent[] = Array.isArray(agentsData) ? agentsData : []
       const apps: RecentApplication[] = Array.isArray(appsData) ? appsData : []
@@ -133,11 +141,24 @@ export default function AdminDashboardPage() {
           .slice(0, 8),
       })
     } catch (e) {
+      if (signal?.aborted || (e instanceof DOMException && e.name === 'AbortError')) {
+        return
+      }
+
       setError(e instanceof Error ? e.message : 'Failed')
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    void load(controller.signal)
+
+    return () => controller.abort()
+  }, [load])
 
   const name = session?.user?.name ?? 'Admin'
   const initials = name.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
@@ -163,9 +184,9 @@ export default function AdminDashboardPage() {
         {/* ── Dark hero ─────────────────────────────────────────────────── */}
         <div className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 px-5 sm:px-10 pt-10 pb-28">
           {/* Decorative blobs */}
-          <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-indigo-500/10" />
-          <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 rounded-full bg-violet-500/10" />
-          <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 rounded-full bg-blue-500/8" />
+          <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 -full bg-indigo-500/10" />
+          <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 -full bg-violet-500/10" />
+          <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 -full bg-blue-500/8" />
 
           <div className="relative max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
             <div>
@@ -173,7 +194,7 @@ export default function AdminDashboardPage() {
               <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white tracking-tight">
                 {greeting}, {name.split(' ')[0]}
               </h1>
-              <p className="mt-1 text-indigo-300 text-sm font-medium">Platform Admin</p>
+              <p className="mt-1 text-indigo-300 text-sm font-medium">Administrator</p>
             </div>
 
             {/* Hero actions */}
@@ -185,7 +206,7 @@ export default function AdminDashboardPage() {
                 <FileText className="w-4 h-4" strokeWidth={1.75} />
                 <span className="hidden sm:inline">Applications</span>
                 {pendingAlerts > 0 && (
-                  <span className="ml-0.5 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                  <span className="ml-0.5 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                     {pendingAlerts}
                   </span>
                 )}
@@ -198,7 +219,7 @@ export default function AdminDashboardPage() {
                 <span className="hidden sm:inline">Companies</span>
               </Link>
               <button
-                onClick={load}
+                onClick={() => void load()}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-medium backdrop-blur-sm transition-all"
                 title="Refresh"
               >
@@ -260,12 +281,12 @@ export default function AdminDashboardPage() {
                   >
                     {t.label}
                     {t.id === 'applications' && data.applicationSummary.pending > 0 && (
-                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                         {data.applicationSummary.pending}
                       </span>
                     )}
                     {t.id === 'agents' && data.agentSummary.pending > 0 && (
-                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold rounded-full px-1.5 py-0.5 leading-none">
+                      <span className="ml-2 bg-amber-400 text-slate-900 text-xs font-bold -full px-1.5 py-0.5 leading-none">
                         {data.agentSummary.pending}
                       </span>
                     )}
@@ -489,6 +510,7 @@ function AdminBottomNav({
       label: 'Platform',
       links: [
         { name: 'Reports',   href: '/admin/reports',    Icon: BarChart2 },
+        { name: 'Admins', href: '/admin/platform-admins', Icon: ShieldAlert },
         { name: 'Audit Log', href: '/admin/audit-log',  Icon: ClipboardList },
       ],
     },
@@ -510,7 +532,7 @@ function AdminBottomNav({
                 <div className="relative">
                   <Icon className="w-5 h-5" strokeWidth={1.75} />
                   {isApps && pendingAlerts > 0 && (
-                    <span className="absolute -top-1 -right-1.5 bg-amber-400 text-slate-900 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">
+                    <span className="absolute -top-1 -right-1.5 bg-amber-400 text-slate-900 text-[9px] font-bold -full w-4 h-4 flex items-center justify-center leading-none">
                       {pendingAlerts > 9 ? '9+' : pendingAlerts}
                     </span>
                   )}
@@ -537,7 +559,7 @@ function AdminBottomNav({
             className="fixed inset-0 z-50 bg-black/50 md:hidden"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl md:hidden max-h-[80vh] flex flex-col">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white  shadow-2xl md:hidden max-h-[80vh] flex flex-col">
 
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
@@ -547,7 +569,7 @@ function AdminBottomNav({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{name}</p>
-                  <p className="text-xs text-indigo-600 font-medium">Platform Admin</p>
+                  <p className="text-xs text-indigo-600 font-medium">Administrator</p>
                 </div>
               </div>
               <button

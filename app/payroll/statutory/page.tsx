@@ -16,14 +16,33 @@ export default function StatutoryDeductionsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch('/api/payroll/statutory')
-    if (r.ok) setDeductions(await r.json())
-    setLoading(false)
+  const fetchDeductions = useCallback(async () => {
+    const response = await fetch('/api/payroll/statutory')
+    if (!response.ok) return []
+    return response.json() as Promise<StatutoryDeduction[]>
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => {
+    setLoading(true)
+    setDeductions(await fetchDeductions())
+    setLoading(false)
+  }, [fetchDeductions])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const nextDeductions = await fetchDeductions()
+      if (cancelled) return
+
+      setDeductions(nextDeductions)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchDeductions])
 
   function openEdit(d: StatutoryDeduction) {
     setEditing(d)
@@ -61,7 +80,7 @@ export default function StatutoryDeductionsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div>
         ) : (
           <div className="bg-white border border-gray-200 overflow-hidden">
             <table className="w-full text-sm">
@@ -83,12 +102,12 @@ export default function StatutoryDeductionsPage() {
                           {error && <p className="text-xs text-red-600 mb-1">{error}</p>}
                           <div className="flex items-center gap-2">
                             <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                              className="flex-1 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              className="flex-1 text-sm border border-gray-300  px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                             <input value={form.rate} onChange={(e) => setForm((f) => ({ ...f, rate: e.target.value }))}
                               type="number" step="0.1" min="0" max="100"
-                              className="w-20 text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                              className="w-20 text-sm border border-gray-300  px-2 py-1 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                             <select value={form.appliesTo} onChange={(e) => setForm((f) => ({ ...f, appliesTo: e.target.value }))}
-                              className="text-sm border border-gray-300 rounded px-2 py-1">
+                              className="text-sm border border-gray-300  px-2 py-1">
                               <option value="BASIC">Basic</option>
                               <option value="GROSS">Gross</option>
                             </select>
@@ -97,10 +116,10 @@ export default function StatutoryDeductionsPage() {
                         <td className="px-3 py-2 text-center" />
                         <td className="px-5 py-2 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={save} disabled={saving} className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded">
+                            <button onClick={save} disabled={saving} className="p-1.5 text-emerald-600 hover:bg-emerald-50 ">
                               <Check className="w-4 h-4" />
                             </button>
-                            <button onClick={() => setEditing(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 rounded">
+                            <button onClick={() => setEditing(null)} className="p-1.5 text-gray-400 hover:bg-gray-100 ">
                               <X className="w-4 h-4" />
                             </button>
                           </div>
@@ -113,7 +132,7 @@ export default function StatutoryDeductionsPage() {
                         <td className="px-3 py-3 text-right font-semibold text-gray-900">{d.rate}%</td>
                         <td className="px-3 py-3 text-center text-gray-500">{d.appliesTo}</td>
                         <td className="px-5 py-3 text-right">
-                          <button onClick={() => openEdit(d)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded">
+                          <button onClick={() => openEdit(d)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 ">
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
                         </td>

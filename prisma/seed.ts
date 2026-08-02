@@ -21,6 +21,8 @@ async function main() {
   // Clear existing data (in development only!)
   if (process.env.NODE_ENV === 'development') {
     console.log('🗑️  Clearing existing data...')
+    await prisma.platformAuditLog.deleteMany()
+    await prisma.platformAdmin.deleteMany()
     await prisma.auditLog.deleteMany()
     await prisma.stockAdjustment.deleteMany()
     await prisma.supplierReturn.deleteMany()
@@ -44,6 +46,16 @@ async function main() {
 
   // Hash password (same for all test users: "password123")
   const hashedPassword = await hash('password123', 10)
+
+  console.log('🛡️  Creating default platform admin...')
+  const platformAdmin = await prisma.platformAdmin.create({
+    data: {
+      name: 'Platform Admin',
+      email: 'platform.admin@example.com',
+      passwordHash: hashedPassword,
+    },
+  })
+  console.log(`   Created platform admin: ${platformAdmin.email}`)
 
   // ========================================
   // TENANT A: "Market Store A"

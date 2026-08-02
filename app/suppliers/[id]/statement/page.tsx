@@ -213,7 +213,7 @@ export default function SupplierStatementPage() {
       </div>
 
       {/* Printable statement */}
-      <div className="max-w-4xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:rounded-none print:shadow-none">
+      <div className="max-w-4xl mx-auto bg-white border border-gray-200 overflow-hidden print:border-0 print:-none print:shadow-none">
 
         {/* Statement header */}
         <div className="px-8 pt-8 pb-6 border-b border-gray-200 print:border-b print:border-gray-300">

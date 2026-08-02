@@ -378,7 +378,7 @@ export default function EndOfDayReportPage() {
                 <h3 className="text-sm font-medium text-red-700 mb-2">Out of Stock Items</h3>
                 <div className="flex flex-wrap gap-2">
                   {data.inventoryAlerts.outOfStockItems.map((item) => (
-                    <span key={item.id} className="px-3 py-1 bg-red-50 text-red-700 text-sm rounded-full border border-red-200">
+                    <span key={item.id} className="px-3 py-1 bg-red-50 text-red-700 text-sm -full border border-red-200">
                       {item.name}
                     </span>
                   ))}

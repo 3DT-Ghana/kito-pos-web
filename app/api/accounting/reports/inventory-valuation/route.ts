@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { ItemType } from '@prisma/client'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
 import { round2 } from '@/lib/accounting/accounts'
+import { isLowStock } from '@/lib/items/stock'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
@@ -29,6 +31,7 @@ export async function GET(req: Request) {
     const items = await prisma.item.findMany({
       where: {
         tenantId: context!.tenantId,
+        itemType: ItemType.INVENTORY,
         ...(context!.branchesEnabled && context!.currentBranchId
           ? { branchId: context!.currentBranchId }
           : {}),
@@ -38,6 +41,7 @@ export async function GET(req: Request) {
         id: true,
         name: true,
         quantity: true,
+        reorderLevel: true,
         costPrice: true,
         sellingPrice: true,
         categoryId: true,
@@ -79,7 +83,7 @@ export async function GET(req: Request) {
         status = 'EXPIRED'
       } else if (qty <= 0) {
         status = 'OUT_OF_STOCK'
-      } else if (qty <= 5) {
+      } else if (isLowStock(qty, item.reorderLevel)) {
         status = 'LOW'
       }
 

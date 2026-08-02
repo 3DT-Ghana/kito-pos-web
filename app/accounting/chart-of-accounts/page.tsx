@@ -208,7 +208,7 @@ export default function ChartOfAccountsPage() {
                 onClick={() => setExpandedTypes(p => ({ ...p, [type]: !p[type] }))}
               >
                 <div className="flex items-center gap-3">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${TYPE_COLORS[type]}`}>{type}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5  ${TYPE_COLORS[type]}`}>{type}</span>
                   <span className="font-semibold text-gray-800">{accts.length} accounts</span>
                 </div>
                 <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -236,7 +236,7 @@ export default function ChartOfAccountsPage() {
                       <span className="col-span-1 text-right text-gray-600">{acct._count.lines}</span>
                       <span className="col-span-1 text-right">
                         {acct.isSystemAccount && (
-                          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">sys</span>
+                          <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 ">sys</span>
                         )}
                       </span>
                     </div>

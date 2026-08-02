@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
@@ -8,40 +8,12 @@ import {
 } from 'recharts'
 import { formatCurrency } from '@/lib/utils/format'
 import { useBranch } from '@/lib/branch/BranchContext'
+import type { DashboardData } from '@/lib/dashboard/getDashboardData'
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
   Users, AlertTriangle, ArrowUpRight, ArrowDownRight,
   ChevronRight, Wallet, Activity,
 } from 'lucide-react'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface DashboardData {
-  salesLast7Days: { date: string; revenue: number; label: string }[]
-  paymentMethodSplit: { method: string; value: number; color: string }[]
-  topItems: { name: string; revenue: number; qty: number }[]
-  kpis: {
-    todayRevenue: number
-    todaySalesCount: number
-    monthRevenue: number
-    monthSalesCount: number
-    monthTrend: number | null
-    monthExpenses: number
-    totalCustomers: number
-    stockValue: number
-    outstandingDebt: number
-    outstandingDebtCount: number
-  }
-  recentSales: {
-    id: string
-    customer: string
-    total: number
-    paid: number
-    items: number
-    createdAt: string
-  }[]
-  lowStockItems: { id: string; name: string; quantity: number }[]
-}
 
 const EMPTY_DASHBOARD_DATA: DashboardData = {
   salesLast7Days: [],
@@ -263,13 +235,34 @@ function SectionHeader({ title, sub, href, linkLabel }: {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export function DashboardCharts() {
-  const { currentBranchId } = useBranch()
-  const [data, setData] = useState<DashboardData>(EMPTY_DASHBOARD_DATA)
-  const [loading, setLoading] = useState(true)
+interface DashboardChartsProps {
+  initialData?: DashboardData | null
+  initialBranchId?: string | null
+}
+
+export function DashboardCharts({
+  initialData = null,
+  initialBranchId = null,
+}: DashboardChartsProps) {
+  const { currentBranchId, isLoading: isBranchLoading } = useBranch()
+  const [data, setData] = useState<DashboardData>(initialData ?? EMPTY_DASHBOARD_DATA)
+  const [loading, setLoading] = useState(!initialData)
   const [error, setError] = useState<string | null>(null)
+  const hasHandledInitialRender = useRef(false)
 
   useEffect(() => {
+    if (isBranchLoading) return
+
+    const currentBranchKey = currentBranchId ?? '__all__'
+    const initialBranchKey = initialBranchId ?? '__all__'
+
+    if (!hasHandledInitialRender.current) {
+      hasHandledInitialRender.current = true
+      if (initialData && currentBranchKey === initialBranchKey) {
+        return
+      }
+    }
+
     let cancelled = false
 
     fetch('/api/dashboard')
@@ -301,6 +294,7 @@ export function DashboardCharts() {
 
         if (!cancelled) {
           setData(normalized)
+          setLoading(false)
           setError(null)
         }
       })
@@ -308,22 +302,18 @@ export function DashboardCharts() {
         if (cancelled) return
 
         setData(EMPTY_DASHBOARD_DATA)
+        setLoading(false)
         setError(
           err instanceof Error && err.message
             ? err.message
             : 'Failed to load dashboard data.'
         )
       })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false)
-        }
-      })
 
     return () => {
       cancelled = true
     }
-  }, [currentBranchId])
+  }, [currentBranchId, initialBranchId, initialData, isBranchLoading])
 
   if (loading) return <Skeleton />
   if (error) {
@@ -447,11 +437,11 @@ export function DashboardCharts() {
           {totalPayments > 0 ? (
             <div className="flex-1 flex flex-col gap-5">
               {/* Segmented bar */}
-              <div className="flex rounded-full overflow-hidden h-2.5 gap-0.5">
+              <div className="flex -full overflow-hidden h-2.5 gap-0.5">
                 {paymentMethodSplit.filter(p => p.value > 0).map((p, i) => (
                   <div
                     key={i}
-                    className="rounded-full"
+                    className="-full"
                     style={{ width: `${(p.value / totalPayments) * 100}%`, backgroundColor: p.color }}
                   />
                 ))}
@@ -461,15 +451,15 @@ export function DashboardCharts() {
               <div className="space-y-4 flex-1">
                 {paymentMethodSplit.filter(p => p.value > 0).map((p, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                    <div className="w-2.5 h-2.5 -full shrink-0" style={{ backgroundColor: p.color }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <p className="text-sm font-medium text-gray-700">{p.method}</p>
                         <p className="text-sm font-semibold text-gray-900">{formatCurrency(p.value)}</p>
                       </div>
-                      <div className="mt-1.5 h-1 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="mt-1.5 h-1 -full bg-gray-100 overflow-hidden">
                         <div
-                          className="h-1 rounded-full"
+                          className="h-1 -full"
                           style={{ width: `${(p.value / totalPayments) * 100}%`, backgroundColor: p.color }}
                         />
                       </div>
@@ -578,7 +568,7 @@ export function DashboardCharts() {
                     </div>
                     <div className="text-right shrink-0 ml-4">
                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(sale.total)}</p>
-                      <span className={`inline-block mt-0.5 text-xs font-medium px-2 py-0.5 rounded-full ${
+                      <span className={`inline-block mt-0.5 text-xs font-medium px-2 py-0.5 -full ${
                         unpaid > 0.01
                           ? 'bg-amber-100 text-amber-700'
                           : 'bg-emerald-100 text-emerald-700'
@@ -667,7 +657,7 @@ export function DashboardCharts() {
                     className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-50 transition-colors"
                   >
                     <p className="text-sm text-gray-700 truncate">{item.name}</p>
-                    <span className={`ml-3 shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    <span className={`ml-3 shrink-0 text-xs font-semibold px-2 py-0.5 -full ${
                       item.quantity === 0
                         ? 'bg-red-100 text-red-700'
                         : 'bg-amber-100 text-amber-700'

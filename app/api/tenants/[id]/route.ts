@@ -16,9 +16,36 @@ interface RouteParams {
   params: Promise<{ id: string }>
 }
 
+const TENANT_PUBLIC_SUMMARY_SELECT = {
+  id: true,
+  name: true,
+  useUnitSystem: true,
+  enableRetailPrice: true,
+  enableWholesalePrice: true,
+  enablePromoPrice: true,
+  enableDiscounts: true,
+  enableSmsNotifications: true,
+  enableWhatsApp: true,
+  metaWabaToken: true,
+  metaWabaPhoneNumberId: true,
+  enablePosTerminal: true,
+  enableQuotations: true,
+  enablePurchaseOrders: true,
+  enableExpiryTracking: true,
+  enableBranches: true,
+  enableCreditSales: true,
+  enableExpenses: true,
+  enableTill: true,
+  allowSaleOnZeroStock: true,
+  enableBarcodeGenerator: true,
+  enableAccounting: true,
+  enablePayroll: true,
+  requireApproval: true,
+} as const
+
 /**
  * GET /api/tenants/[id]
- * Get tenant details
+ * Get the safe tenant summary used by tenant-facing clients.
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
@@ -37,22 +64,7 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     const tenant = await prisma.tenant.findUnique({
       where: { id },
-      include: {
-        users: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            createdAt: true,
-          },
-        },
-        _count: {
-          select: {
-            users: true,
-          },
-        },
-      },
+      select: TENANT_PUBLIC_SUMMARY_SELECT,
     })
 
     if (!tenant) {
@@ -136,6 +148,10 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.hubtelClientId !== undefined && { hubtelClientId: body.hubtelClientId ? String(body.hubtelClientId).trim() : null }),
         ...(body.hubtelClientSecret !== undefined && { hubtelClientSecret: body.hubtelClientSecret ? String(body.hubtelClientSecret).trim() : null }),
         ...(body.hubtelSenderId !== undefined && { hubtelSenderId: body.hubtelSenderId ? String(body.hubtelSenderId).trim().slice(0, 11) : null }),
+        // WhatsApp settings
+        ...(body.enableWhatsApp !== undefined && { enableWhatsApp: Boolean(body.enableWhatsApp) }),
+        ...(body.metaWabaToken !== undefined && { metaWabaToken: body.metaWabaToken ? String(body.metaWabaToken).trim() : null }),
+        ...(body.metaWabaPhoneNumberId !== undefined && { metaWabaPhoneNumberId: body.metaWabaPhoneNumberId ? String(body.metaWabaPhoneNumberId).trim() : null }),
         // Feature flags
         ...(body.enablePosTerminal !== undefined && { enablePosTerminal: Boolean(body.enablePosTerminal) }),
         ...(body.enableQuotations !== undefined && { enableQuotations: Boolean(body.enableQuotations) }),
@@ -150,6 +166,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.allowSaleOnZeroStock !== undefined && { allowSaleOnZeroStock: Boolean(body.allowSaleOnZeroStock) }),
         ...(body.enableAccounting !== undefined && { enableAccounting: Boolean(body.enableAccounting) }),
         ...(body.enablePayroll !== undefined && { enablePayroll: Boolean(body.enablePayroll) }),
+        ...(body.requireApproval !== undefined && { requireApproval: Boolean(body.requireApproval) }),
       },
     })
 

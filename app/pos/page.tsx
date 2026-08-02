@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState, useCallback, RefObject } from 'react'
 import { useRouter } from 'next/navigation'
+import { signOut } from 'next-auth/react'
 import { useUser } from '@/hooks/useUser'
 import { useBranch } from '@/lib/branch/BranchContext'
 import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
+import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
+import { isLowStock } from '@/lib/items/stock'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,6 +31,7 @@ interface PosItem {
   wholesalePrice: number | null
   promoPrice: number | null
   quantity: number
+  reorderLevel: number
   unitName: string | null
   piecesPerUnit: number | null
   manufacturer: { id: string; name: string } | null
@@ -74,7 +78,6 @@ type DiscountMode = 'pct' | 'fixed'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const HOLD_KEY = 'pos_held_orders'
-const LOW_STOCK_THRESHOLD = 5
 const UNTRACKED_MAX_STOCK = 999999
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -175,16 +178,7 @@ export default function PosPage() {
   } = useBranch()
   const { features } = useTenantFeatures()
   const { hasTenantPermission } = useRolePermissions()
-  const { tenantId } = useTenant()
-
-  // Company name for title bar
-  const [companyName, setCompanyName] = useState('')
-  useEffect(() => {
-    if (!tenantId) return
-    fetch(`/api/tenants/${tenantId}`)
-      .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.name) setCompanyName(d.name) })
-  }, [tenantId])
+  const { tenantName } = useTenant()
 
   // Catalog
   const [allItems, setAllItems] = useState<PosItem[]>([])
@@ -215,6 +209,7 @@ export default function PosPage() {
 
   // Payment
   const [method, setMethod] = useState<PaymentMethod>('CASH')
+  const [momoPhone, setMomoPhone] = useState('')
   const [tendered, setTendered] = useState('')
   const [numpadBuffer, setNumpadBuffer] = useState('')
   const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'qty' | 'lineDiscount' | 'price'>('tendered')
@@ -227,7 +222,9 @@ export default function PosPage() {
   const [editingPriceIdx, setEditingPriceIdx] = useState<number | null>(null)
   const [priceBuffer, setPriceBuffer] = useState('')
 
-  // Mobile numpad drawer state
+  // Numpad drawer — shared across desktop and mobile
+  const [showNumpadDrawer, setShowNumpadDrawer] = useState(false)
+  // kept for mobile legacy usage
   type NumpadDrawerState = 'hidden' | 'drawer' | 'docked'
   const [numpadDrawer, setNumpadDrawer] = useState<NumpadDrawerState>('docked')
 
@@ -236,6 +233,9 @@ export default function PosPage() {
   const [pinDigits, setPinDigits] = useState('')
   const [pinError, setPinError] = useState('')
   const [isPinVerifying, setIsPinVerifying] = useState(false)
+  // Pending approval state — sale submitted, waiting for PIN or manager to approve
+  const [pendingApprovalSaleId, setPendingApprovalSaleId] = useState<string | null>(null)
+  const [isPollingApproval, setIsPollingApproval] = useState(false)
 
   // Holds
   const [holds, setHolds] = useState<HeldOrder[]>([])
@@ -275,6 +275,8 @@ export default function PosPage() {
   const [errorMsg, setErrorMsg] = useState('')
   const [noticeMsg, setNoticeMsg] = useState('')
   const [mobileTab, setMobileTab] = useState<MobileTab>('items')
+  const [showSessionMenu, setShowSessionMenu] = useState(false)
+  const sessionMenuRef = useRef<HTMLDivElement>(null)
   const isAutoSelectingAssignedBranch =
     !isBranchLoading && branchesEnabled && !currentBranchId && Boolean(assignedBranchId)
   const requiresOperationalBranch =
@@ -303,13 +305,112 @@ export default function PosPage() {
   useEffect(() => { loadItems() }, [loadItems, currentBranchId])
   useEffect(() => { searchRef.current?.focus() }, [])
   useEffect(() => { setHolds(loadHolds()) }, [])
+  useEffect(() => {
+    if (!showSessionMenu) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (sessionMenuRef.current && !sessionMenuRef.current.contains(event.target as Node)) {
+        setShowSessionMenu(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [showSessionMenu])
+
+  // ── Barcode scanner state ────────────────────────────────────────────────────
+  const [lastScannedItemId, setLastScannedItemId] = useState<string | null>(null)
+  const [scanError, setScanError]                 = useState<string>('')
+  const cartEndRef = useRef<HTMLDivElement>(null)
+
+  // Stable refs so the scanner effect reads fresh data without re-registering.
+  const allItemsRef = useRef(allItems)
+  useEffect(() => { allItemsRef.current = allItems }, [allItems])
+
+  // ── Global barcode scanner capture ──────────────────────────────────────────
+  // Industry POS scanner flow:
+  //   1. Cashier scans → item added/incremented instantly, NO search interaction
+  //   2. Repeated scans of same barcode increment qty
+  //   3. Scanned line highlighted; numpad auto-targets its qty
+  //   4. Manual search still works for keyboard lookup
+  //
+  // Detection: scanners emit all chars + Enter in < 50ms per char total.
+  // We buffer ALL keydown events. On Enter, if chars arrived fast → scanner.
+  // If chars arrived slowly (human typing in the search box) → ignore buffer,
+  // let the search input's own onChange + handleSearchKey handle it.
+  useEffect(() => {
+    let scanBuffer   = ''
+    let lastKeyTime  = 0
+    let scanTimer: ReturnType<typeof setTimeout> | null = null
+
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      const now    = Date.now()
+      const target = e.target as HTMLElement
+      const tag    = target.tagName
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+
+      if (e.key === 'Enter') {
+        // A scanner fires Enter right after the last char — gap < 50ms.
+        // Human pressing Enter in search box has gap >> 50ms.
+        const isScan = scanBuffer.length >= 3 && (now - lastKeyTime) < 80
+        if (isScan) {
+          e.preventDefault()
+          const code = scanBuffer.trim()
+          scanBuffer = ''
+          if (scanTimer) { clearTimeout(scanTimer); scanTimer = null }
+
+          const item = allItemsRef.current.find(i => i.barcode === code)
+          if (item) {
+            setScanError('')
+            addToCartRef.current(item)             // increments qty if already in cart
+            setLastScannedItemId(item.id)
+            // Flash highlight for 1.5 s then clear
+            setTimeout(() => setLastScannedItemId(null), 1500)
+            // Scroll cart to bottom so newly added line is visible
+            setTimeout(() => cartEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 30)
+          } else {
+            setScanError(`Barcode not found: ${code}`)
+            setTimeout(() => setScanError(''), 3000)
+          }
+          // Keep search box clean — scanner result never contaminates search
+          setSearch('')
+        }
+        scanBuffer = ''
+        return
+      }
+
+      // Ignore modifier / function keys
+      if (e.key.length > 1) return
+
+      lastKeyTime  = now
+      scanBuffer  += e.key
+
+      // If not in a text field, redirect keystrokes to search so manual typing works
+      if (!inInput) {
+        setSearch(prev => prev + e.key)
+        setActiveGroup('ALL')
+        searchRef.current?.focus()
+        e.preventDefault()
+      }
+
+      // Reset buffer if no Enter within 300 ms
+      if (scanTimer) clearTimeout(scanTimer)
+      scanTimer = setTimeout(() => { scanBuffer = '' }, 300)
+    }
+
+    document.addEventListener('keydown', handleGlobalKey)
+    return () => {
+      document.removeEventListener('keydown', handleGlobalKey)
+      if (scanTimer) clearTimeout(scanTimer)
+    }
+  }, []) // stable — registers once
 
   // ── Customer search ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!customerQuery.trim()) { setCustomerResults([]); return }
     const timer = setTimeout(async () => {
-      const res = await fetch(`/api/customers?search=${encodeURIComponent(customerQuery)}&limit=8`)
+      const res = await fetch(`/api/pos/customers?q=${encodeURIComponent(customerQuery)}&limit=8`)
       if (res.ok) {
         const data = await res.json()
         setCustomerResults(Array.isArray(data) ? data : (data.customers ?? []))
@@ -383,6 +484,10 @@ export default function PosPage() {
     searchRef.current?.focus()
   }
 
+  // Stable ref so the scanner effect always calls the latest addToCart without re-registering.
+  const addToCartRef = useRef(addToCart)
+  useEffect(() => { addToCartRef.current = addToCart }, [addToCart])
+
   const removeFromCart = (idx: number) => {
     setCart(prev => prev.filter((_, i) => i !== idx))
     if (selectedCartIdx === idx) setSelectedCartIdx(null)
@@ -453,6 +558,7 @@ export default function PosPage() {
       else if (key === '✓') {
         updateQty(selectedCartIdx, parseInt(buf, 10) || 1)
         setNumpadBuffer(''); setSelectedCartIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else buf = buf + key
       setNumpadBuffer(buf)
@@ -463,6 +569,7 @@ export default function PosPage() {
       else if (key === '✓') {
         setLineDiscount(editingDiscountIdx, parseFloat(buf) || 0)
         setDiscountBuffer(''); setEditingDiscountIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
@@ -474,6 +581,7 @@ export default function PosPage() {
       else if (key === '✓') {
         setLinePrice(editingPriceIdx, parseFloat(buf) || 0)
         setPriceBuffer(''); setEditingPriceIdx(null); setNumpadTarget('tendered')
+        setShowNumpadDrawer(false)
         return
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
@@ -482,7 +590,11 @@ export default function PosPage() {
       let buf = tendered
       if (key === '←') buf = buf.slice(0, -1)
       else if (key === 'C') buf = ''
-      else if (key === '✓') { /* checkout button handles this */ }
+      else if (key === '✓') {
+        setShowNumpadDrawer(false)
+        handleCheckout()
+        return
+      }
       else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setTendered(buf)
@@ -535,115 +647,197 @@ export default function PosPage() {
     return hasDiscount || hasPriceOverride || isCredit
   }
 
-  const handleCheckout = async (approvalGrant?: string) => {
+  // Called once a sale is confirmed approved (via PIN grant or manager page polling)
+  const onSaleApproved = (total: number, saleId: string) => {
+    const now = new Date()
+    setLastSaleData(prev => prev ?? {
+      id: saleId,
+      receiptNumber: saleId.slice(0, 8).toUpperCase(),
+      date: now.toLocaleDateString('en-GH'),
+      time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
+      items: cart.map(c => ({
+        name: c.name,
+        qty: c.qty,
+        unitPrice: c.basePrice,
+        lineTotal: lineTotal(c),
+        lineTaxAmount: 0,
+      })),
+      subtotal: cartSubtotal,
+      taxAmount: 0,
+      taxLines: [],
+      orderDiscount: orderDiscountNum,
+      total,
+      paidAmount: total,
+      change: 0,
+      method,
+      customerName: selectedCustomer?.name ?? '',
+      note,
+    })
+    setFlashSuccess(true)
+    setPendingApprovalSaleId(null)
+    setIsPollingApproval(false)
+    setTimeout(() => {
+      setFlashSuccess(false)
+      setShowReceipt(true)
+      clearCart()
+      setTendered('')
+      setNumpadBuffer('')
+      setSelectedCustomer(null)
+      setCustomerQuery('')
+      setOrderDiscountValue('')
+      setNote('')
+      setMobileTab('items')
+      loadItems()
+      searchRef.current?.focus()
+    }, 1500)
+  }
+
+  const buildSaleBody = () => {
+    const paidAmount = method === 'CASH'
+      ? (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)
+      : grandTotal
+    return {
+      customerId: selectedCustomer?.id ?? null,
+      items: cart.map(c => ({
+        itemId: c.itemId,
+        quantity: c.qty,
+        price: c.basePrice,
+        discountAmount: resolvedLineDiscount(c) + (orderDiscountNum > 0 && cartSubtotal > 0
+          ? orderDiscountNum * (lineTotal(c) / cartSubtotal)
+          : 0),
+      })),
+      paidAmount,
+      paymentMethod: method,
+      momoPhone: method === 'MOMO' ? momoPhone.trim() || undefined : undefined,
+      note,
+    }
+  }
+
+  const finaliseSaleResult = (result: Record<string, unknown>, paidAmount: number) => {
+    const saleTaxBreakdown = summariseTaxBreakdown((result.taxLines ?? []) as Parameters<typeof summariseTaxBreakdown>[0])
+    const now = new Date()
+    setLastSaleData({
+      id: (result.id ?? result.data as { id?: string } | null ?? '') as string,
+      receiptNumber: ((result.id as string | undefined)?.slice(0, 8).toUpperCase()) ?? '—',
+      date: now.toLocaleDateString('en-GH'),
+      time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
+      items: ((result.items ?? []) as { quantity: number; price: number; lineTotalAmount?: number; lineTaxAmount?: number; item?: { name: string } }[]).map(line => ({
+        name: line.item?.name ?? 'Item',
+        qty: line.quantity,
+        unitPrice: line.price,
+        lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
+        lineTaxAmount: line.lineTaxAmount ?? 0,
+      })),
+      subtotal: (result.subtotalAmount as number | undefined) ?? cartSubtotal,
+      taxAmount: (result.taxAmount as number | undefined) ?? 0,
+      taxLines: saleTaxBreakdown,
+      orderDiscount: orderDiscountNum,
+      total: (result.totalAmount as number | undefined) ?? grandTotal,
+      paidAmount: (result.paidAmount as number | undefined) ?? paidAmount,
+      change:
+        ((result.paymentMethod ?? method) as string) === 'CASH' &&
+        tenderedNum > ((result.totalAmount as number | undefined) ?? grandTotal)
+          ? tenderedNum - ((result.totalAmount as number | undefined) ?? grandTotal)
+          : 0,
+      method: (result.paymentMethod as PaymentMethod | undefined) ?? method,
+      customerName: (result as { customer?: { name?: string } }).customer?.name ?? selectedCustomer?.name ?? '',
+      note,
+    })
+    setFlashSuccess(true)
+    setTimeout(() => {
+      setFlashSuccess(false)
+      setShowReceipt(true)
+      clearCart()
+      setTendered('')
+      setNumpadBuffer('')
+      setSelectedCustomer(null)
+      setCustomerQuery('')
+      setOrderDiscountValue('')
+      setNote('')
+      setMobileTab('items')
+      loadItems()
+      searchRef.current?.focus()
+    }, 1500)
+  }
+
+  const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return
+    if (method === 'MOMO' && !momoPhone.trim()) {
+      setErrorMsg('Please enter the MoMo phone number before charging.')
+      return
+    }
     setErrorMsg('')
     setNoticeMsg('')
     setIsSubmitting(true)
     try {
-      const paidAmount = method === 'CASH'
-        ? (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)
-        : grandTotal
-
+      const body = buildSaleBody()
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerId: selectedCustomer?.id ?? null,
-          items: cart.map(c => ({
-            itemId: c.itemId,
-            quantity: c.qty,
-            price: c.basePrice,
-            discountAmount: resolvedLineDiscount(c) + (orderDiscountNum > 0 && cartSubtotal > 0
-              ? orderDiscountNum * (lineTotal(c) / cartSubtotal)  // prorate order discount
-              : 0),
-          })),
-          paidAmount,
-          paymentMethod: method,
-          note,
-          ...(approvalGrant ? { approvalGrant } : {}),
-        }),
+        body: JSON.stringify(body),
       })
 
       const result = await res.json()
 
       if (res.status === 202 && result.requiresApproval) {
-        setNoticeMsg(result.message ?? 'This sale was submitted for approval and is waiting for a manager.')
-        clearCart()
-        setTendered('')
-        setNumpadBuffer('')
-        setSelectedCustomer(null)
-        setCustomerQuery('')
-        setOrderDiscountValue('')
-        setNote('')
-        setMobileTab('items')
-        loadItems()
-        searchRef.current?.focus()
+        // Sale submitted as pending — show PIN modal and start polling for manager approval
+        setPendingApprovalSaleId(result.saleId)
+        setPinDigits('')
+        setPinError('')
+        setShowPinModal(true)
+        setIsPollingApproval(true)
         return
       }
 
       if (!res.ok) {
-        const err = result
-        throw new Error(err.error || 'Failed to record sale')
+        throw new Error(result.error || 'Failed to record sale')
       }
 
-      const saleTaxBreakdown = summariseTaxBreakdown(result.taxLines ?? [])
-
-      const now = new Date()
-      setLastSaleData({
-        id: result.id ?? result.data?.id ?? '',
-        receiptNumber: result.id?.slice(0, 8).toUpperCase() ?? '—',
-        date: now.toLocaleDateString('en-GH'),
-        time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
-        items: (result.items ?? []).map((line: {
-          quantity: number
-          price: number
-          lineTotalAmount?: number
-          lineTaxAmount?: number
-          item?: { name: string }
-        }) => ({
-          name: line.item?.name ?? 'Item',
-          qty: line.quantity,
-          unitPrice: line.price,
-          lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
-          lineTaxAmount: line.lineTaxAmount ?? 0,
-        })),
-        subtotal: result.subtotalAmount ?? cartSubtotal,
-        taxAmount: result.taxAmount ?? 0,
-        taxLines: saleTaxBreakdown,
-        orderDiscount: orderDiscountNum,
-        total: result.totalAmount ?? grandTotal,
-        paidAmount: result.paidAmount ?? paidAmount,
-        change:
-          (result.paymentMethod ?? method) === 'CASH' &&
-          tenderedNum > (result.totalAmount ?? grandTotal)
-            ? tenderedNum - (result.totalAmount ?? grandTotal)
-            : 0,
-        method: result.paymentMethod ?? method,
-        customerName: result.customer?.name ?? selectedCustomer?.name ?? '',
-        note,
-      })
-      setFlashSuccess(true)
-      setTimeout(() => {
-        setFlashSuccess(false)
-        setShowReceipt(true)
-        clearCart()
-        setTendered('')
-        setNumpadBuffer('')
-        setSelectedCustomer(null)
-        setCustomerQuery('')
-        setOrderDiscountValue('')
-        setNote('')
-        setMobileTab('items')
-        loadItems()
-        searchRef.current?.focus()
-      }, 1500)
+      finaliseSaleResult(result, body.paidAmount)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Checkout failed')
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  // Poll for manager-side approval while PIN modal is open
+  useEffect(() => {
+    if (!isPollingApproval || !pendingApprovalSaleId || !showPinModal) return
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/sales/${pendingApprovalSaleId}`)
+        if (!res.ok) return
+        const sale = await res.json()
+        if (sale.approvalStatus === 'APPROVED') {
+          setShowPinModal(false)
+          setPinDigits('')
+          onSaleApproved(sale.totalAmount, sale.id)
+        } else if (sale.approvalStatus === 'REJECTED') {
+          setShowPinModal(false)
+          setPinDigits('')
+          setPendingApprovalSaleId(null)
+          setIsPollingApproval(false)
+          setErrorMsg('Sale was rejected by the manager.')
+        }
+      } catch { /* ignore network hiccups */ }
+    }, 3000)
+    return () => clearInterval(interval)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPollingApproval, pendingApprovalSaleId, showPinModal])
+
+  // ── Customer display (second screen) ────────────────────────────────────────
+  useCustomerDisplaySender({
+    cart,
+    grandTotal,
+    orderDiscountNum,
+    selectedCustomer,
+    method,
+    flashSuccess,
+    lastSaleData: lastSaleData
+      ? { total: lastSaleData.total, change: lastSaleData.change, method: lastSaleData.method, customerName: lastSaleData.customerName }
+      : null,
+  })
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -661,6 +855,16 @@ export default function PosPage() {
   }
 
   // ── Receipt modal ───────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    setShowSessionMenu(false)
+    await signOut({ callbackUrl: '/auth/login' })
+  }
+
+  const handleExitPos = () => {
+    setShowSessionMenu(false)
+    router.push('/sales')
+  }
+
   if (showReceipt && lastSaleData) {
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -737,10 +941,13 @@ export default function PosPage() {
   // ── Holds modal ─────────────────────────────────────────────────────────────
   const HoldsModal = () => (
     <div className="fixed inset-0 bg-black/50 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:shadow-2xl w-full sm:max-w-md overflow-hidden">
+      <div className="bg-white  sm:shadow-2xl w-full sm:max-w-md overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b">
           <span className="font-bold text-gray-800">Held Orders ({holds.length})</span>
           <button onClick={() => setShowHolds(false)} className="text-gray-400 text-xl">×</button>
+        </div>
+        <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 text-xs text-amber-700">
+          Held orders are saved on this device only. Clearing browser data or switching devices will lose them.
         </div>
         {holds.length === 0 ? (
           <div className="p-8 text-center text-gray-400 text-sm">No held orders</div>
@@ -815,90 +1022,63 @@ export default function PosPage() {
   )
 
   // ── Numpad ──────────────────────────────────────────────────────────────────
-  // mobile prop: when true renders the drawer control bar (show/hide/dock)
-  const Numpad = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className="bg-white">
-      {/* Mobile drawer control bar */}
-      {mobile && (
-        <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-gray-100">
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-            {numpadTarget === 'qty'
-              ? `Qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
-              : numpadTarget === 'price'
-              ? `Price${priceBuffer ? ` → ${priceBuffer}` : ''}`
-              : numpadTarget === 'lineDiscount'
-              ? `Discount${discountBuffer ? ` → ${discountBuffer}` : ''}`
-              : 'Numpad'}
-          </span>
-          <div className="flex items-center gap-1">
-            {/* Dock toggle */}
-            <button
-              onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
-              title={numpadDrawer === 'docked' ? 'Make drawer' : 'Dock numpad'}
-              className={`flex items-center gap-1 px-2.5 py-1 text-xs font-bold transition-colors ${
-                numpadDrawer === 'docked'
-                  ? 'bg-indigo-100 text-indigo-700'
-                  : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {numpadDrawer === 'docked' ? (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-                  </svg>
-                  Drawer
-                </>
-              ) : (
-                <>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                  Dock
-                </>
-              )}
-            </button>
-            {/* Hide button */}
-            <button
-              onClick={() => setNumpadDrawer('hidden')}
-              title="Hide numpad"
-              className="p-1.5 bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+  const Numpad = ({ mobile = false }: { mobile?: boolean }) => {
+    const isQty      = numpadTarget === 'qty'
+    const isPrice    = numpadTarget === 'price'
+    const isDiscount = numpadTarget === 'lineDiscount'
+    const displayVal = isQty ? numpadBuffer : isPrice ? priceBuffer : isDiscount ? discountBuffer : tendered
+    const label      = isQty ? 'QTY' : isPrice ? 'PRICE' : isDiscount ? 'DISC' : 'CASH'
 
-      <div className="px-3 py-2">
-        {/* Context label — desktop only (mobile shows it in the bar above) */}
-        {!mobile && numpadTarget !== 'tendered' && (
-          <div className="mb-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1">
-            {numpadTarget === 'qty'
-              ? `Setting qty${numpadBuffer ? ` → ${numpadBuffer}` : ''}`
-              : numpadTarget === 'price'
-              ? `Override price${priceBuffer ? ` → ${priceBuffer}` : ''}`
-              : `Setting discount${discountBuffer ? ` → ${discountBuffer}` : ''}`}
+    return (
+      <div className="bg-white select-none">
+        {/* Mobile drawer pill */}
+        {mobile && (
+          <div className="flex items-center justify-between px-3 pt-2 pb-1 border-b border-gray-100">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{label}</span>
+            <div className="flex gap-1">
+              <button onClick={() => setNumpadDrawer(numpadDrawer === 'docked' ? 'drawer' : 'docked')}
+                className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600">
+                {numpadDrawer === 'docked' ? '↑ Drawer' : '↓ Dock'}
+              </button>
+              <button onClick={() => setNumpadDrawer('hidden')}
+                className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-500">✕</button>
+            </div>
           </div>
         )}
-        <div className="grid grid-cols-3 gap-1.5">
-          {['7','8','9','4','5','6','1','2','3','.','0','←'].map(k => (
-            <button
-              key={k}
-              onClick={() => numpadPress(k)}
-              className="py-3 bg-gray-100 hover:bg-gray-200 text-base font-bold text-gray-800 active:scale-95 touch-manipulation transition-colors"
-            >
+
+        {/* Display screen */}
+        <div className="flex items-center justify-between px-3 py-2 bg-gray-900">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</span>
+          <span className="text-xl font-mono font-bold text-white tracking-wider">
+            {displayVal || '0'}
+          </span>
+        </div>
+
+        {/* Keys — 4×3 grid */}
+        <div className="grid grid-cols-3 gap-px bg-gray-200">
+          {['7','8','9','4','5','6','1','2','3','.',  '0','00'].map(k => (
+            <button key={k} onClick={() => numpadPress(k)}
+              className="py-3.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-lg font-semibold text-gray-800 touch-manipulation transition-colors">
               {k}
             </button>
           ))}
-          <button onClick={() => numpadPress('C')} className="py-3 bg-red-100 text-sm font-bold text-red-700 active:scale-95 touch-manipulation">C</button>
-          <button onClick={() => numpadPress('00')} className="py-3 bg-gray-100 text-base font-bold text-gray-800 active:scale-95 touch-manipulation">00</button>
-          <button onClick={() => numpadPress('✓')} className="py-3 bg-green-100 text-base font-bold text-green-700 active:scale-95 touch-manipulation">✓</button>
+          {/* Bottom row: Clear | Backspace | Confirm */}
+          <button onClick={() => numpadPress('C')}
+            className="py-3.5 bg-red-50 hover:bg-red-100 active:bg-red-200 text-sm font-bold text-red-600 touch-manipulation transition-colors">
+            CLR
+          </button>
+          <button onClick={() => numpadPress('←')}
+            className="py-3.5 bg-white hover:bg-gray-50 active:bg-gray-100 text-lg font-bold text-gray-600 touch-manipulation transition-colors">
+            ⌫
+          </button>
+          <button onClick={() => numpadPress('✓')}
+            className="py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 text-lg font-bold text-white touch-manipulation transition-colors">
+            ✓
+          </button>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   // ── Cart line row (shared between mobile and desktop) ───────────────────────
   const canEditPrice =
@@ -906,7 +1086,7 @@ export default function PosPage() {
     user?.role === 'STORE_MANAGER' ||
     user?.role === 'BRANCH_MANAGER'
 
-  const CartLineRow = ({ line, idx, mobile = false }: { line: CartLine; idx: number; mobile?: boolean }) => {
+  const CartLineRow = ({ line, idx, mobile = false, flash = false }: { line: CartLine; idx: number; mobile?: boolean; flash?: boolean }) => {
     const isSelected = selectedCartIdx === idx
     const tierOptions: { key: PriceTier; label: string }[] = [
       { key: 'sellingPrice', label: 'Default' },
@@ -918,7 +1098,7 @@ export default function PosPage() {
 
     return (
       <div
-        className={`px-3 py-2.5 border-b border-gray-100 transition-colors ${isSelected ? 'bg-indigo-50' : ''}`}
+        className={`px-3 py-2.5 border-b border-gray-100 transition-colors ${flash ? 'bg-green-50 border-l-4 border-l-green-500' : isSelected ? 'bg-indigo-50' : ''}`}
       >
         {/* Main row */}
         <div className="flex items-center gap-2">
@@ -944,6 +1124,7 @@ export default function PosPage() {
                     setPriceBuffer(String(line.basePrice))
                     setNumpadTarget('price')
                     setSelectedCartIdx(idx)
+                    setShowNumpadDrawer(true)
                   }}
                   className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline text-left"
                   title="Edit price"
@@ -969,9 +1150,9 @@ export default function PosPage() {
               className="w-7 h-7 bg-gray-100 font-bold text-gray-700 flex items-center justify-center active:scale-95 touch-manipulation hover:bg-red-100 hover:text-red-600 transition-colors"
             >−</button>
             <button
-              onClick={() => { setSelectedCartIdx(isSelected ? null : idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)) }}
+              onClick={() => { setSelectedCartIdx(idx); setNumpadTarget('qty'); setNumpadBuffer(String(line.qty)); setShowNumpadDrawer(true) }}
               className="w-8 h-7 bg-gray-50 border border-gray-200 font-bold text-gray-800 text-sm flex items-center justify-center hover:bg-indigo-50 hover:border-indigo-300 transition-colors"
-              title="Tap to set qty via numpad"
+              title="Tap to set qty"
             >
               {line.qty}
             </button>
@@ -1037,6 +1218,7 @@ export default function PosPage() {
                       setDiscountBuffer(line.lineDiscount ? String(line.lineDiscount) : '')
                       setNumpadTarget('lineDiscount')
                       setSelectedCartIdx(idx)
+                      setShowNumpadDrawer(true)
                     }}
                     className="px-2.5 py-1 text-xs font-bold border border-gray-200 hover:border-indigo-300 bg-white"
                   >
@@ -1057,129 +1239,116 @@ export default function PosPage() {
 
   // ── Payment panel (shared) ──────────────────────────────────────────────────
   const PaymentPanel = ({ mobile = false }: { mobile?: boolean }) => (
-    <div className={mobile ? 'px-3 pb-2' : 'px-3 pb-3'}>
-      {/* Order-level discount */}
+    <div className="flex flex-col">
+      {/* ── Order discount ── */}
       {features.enableDiscounts && (
-        <div className="mb-2">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">Order Discount</p>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setOrderDiscountMode('pct')}
-              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
-            >%</button>
-            <button
-              onClick={() => setOrderDiscountMode('fixed')}
-              className={`px-3 py-1.5 text-xs font-bold border-2 transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200'}`}
-            >GHS</button>
-            <input
-              type="number"
-              inputMode="decimal"
-              value={orderDiscountValue}
-              onChange={e => setOrderDiscountValue(e.target.value)}
-              placeholder={orderDiscountMode === 'pct' ? '0%' : '0.00'}
-              className="flex-1 px-2.5 py-1.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
-            />
+        <div className="flex items-center gap-1.5 px-3 pt-2 pb-1 border-t border-gray-100">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">Disc</span>
+          <div className="flex border border-gray-200 overflow-hidden">
+            <button onClick={() => setOrderDiscountMode('pct')}
+              className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'pct' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>%</button>
+            <button onClick={() => setOrderDiscountMode('fixed')}
+              className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${orderDiscountMode === 'fixed' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-500'}`}>GHS</button>
           </div>
-          {orderDiscountNum > 0 && (
-            <p className="text-xs text-green-700 font-semibold mt-1">Saving {formatCurrency(orderDiscountNum)}</p>
-          )}
+          <input type="number" inputMode="decimal" value={orderDiscountValue}
+            onChange={e => setOrderDiscountValue(e.target.value)}
+            placeholder="0"
+            className="w-20 px-2 py-0.5 border border-gray-200 text-xs font-bold focus:border-indigo-400 focus:outline-none" />
+          {orderDiscountNum > 0 && <span className="text-xs text-green-700 font-semibold">−{formatCurrency(orderDiscountNum)}</span>}
         </div>
       )}
 
-      {/* Totals summary */}
-      <div className="bg-gray-50 px-3 py-2.5 mb-2 space-y-1">
+      {/* ── Totals ── */}
+      <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
         {cartSubtotal !== grandTotal && (
-          <div className="flex justify-between text-xs text-gray-500">
+          <div className="flex justify-between text-xs text-gray-500 mb-0.5">
             <span>Subtotal</span><span>{formatCurrency(cartSubtotal)}</span>
           </div>
         )}
-        {orderDiscountNum > 0 && (
-          <div className="flex justify-between text-xs text-green-700 font-semibold">
-            <span>Discount</span><span>− {formatCurrency(orderDiscountNum)}</span>
+        <div className="flex justify-between items-baseline">
+          <span className="text-sm font-bold text-gray-600">TOTAL</span>
+          <span className="text-2xl font-black text-gray-900 tracking-tight">{formatCurrency(grandTotal)}</span>
+        </div>
+        {method === 'CASH' && tenderedNum > 0 && change >= 0 && (
+          <div className="flex justify-between text-sm font-bold text-green-700 mt-0.5">
+            <span>Change</span><span>{formatCurrency(change)}</span>
           </div>
         )}
-        <div className="flex justify-between font-bold text-base text-gray-900">
-          <span>TOTAL</span><span>{formatCurrency(grandTotal)}</span>
-        </div>
+        {method === 'CASH' && tenderedNum > 0 && change < 0 && (
+          <div className="flex justify-between text-sm font-bold text-red-600 mt-0.5">
+            <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
+          </div>
+        )}
+        {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
+          <p className="text-[10px] text-amber-700 mt-0.5">{formatCurrency(Math.abs(change))} added to {selectedCustomer.name}&apos;s balance</p>
+        )}
       </div>
 
-      {/* Payment method */}
-      <div className="grid grid-cols-3 gap-1.5 mb-2">
+      {/* ── Payment method tabs ── */}
+      <div className="grid grid-cols-3 border-t border-b border-gray-200">
         {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
-          <button
-            key={m}
-            onClick={() => setMethod(m)}
-            className={`py-2.5 text-xs font-bold border-2 transition-colors touch-manipulation ${
-              method === m ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
-            }`}
-          >
-            {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'} {m}
+          <button key={m} onClick={() => { setMethod(m); setTendered(''); setMomoPhone('') }}
+            className={`py-2.5 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
+              method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
+            }`}>
+            {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'}{' '}
+            {m === 'CASH' ? 'Cash' : m === 'MOMO' ? 'MoMo' : 'Bank'}
           </button>
         ))}
       </div>
 
-      {/* Tendered */}
-      {method === 'CASH' && (
-        <div className="mb-2">
+      {/* ── MoMo phone input ── */}
+      {method === 'MOMO' && (
+        <div className="px-3 pt-2">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">MoMo Phone Number *</label>
           <input
-            type="number"
-            inputMode="decimal"
-            value={tendered}
-            onChange={e => setTendered(e.target.value)}
-            onFocus={() => setNumpadTarget('tendered')}
-            placeholder={`Tendered (e.g. ${grandTotal > 0 ? grandTotal.toFixed(2) : '0.00'})`}
-            className="w-full px-3 py-2.5 border-2 border-gray-200 text-sm font-bold focus:border-indigo-400 focus:outline-none"
+            type="tel"
+            value={momoPhone}
+            onChange={e => setMomoPhone(e.target.value)}
+            placeholder="e.g. 0244123456"
+            className="w-full px-3 py-2 border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-sm"
           />
-          {tendered && change >= 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5">
-              <span>Change</span><span>{formatCurrency(change)}</span>
-            </div>
-          )}
-          {tendered && change < 0 && (
-            <div className="mt-1 flex justify-between text-sm font-bold text-red-600 bg-red-50 px-3 py-1.5">
-              <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Credit sale indicator */}
-      {features.enableCreditSales && selectedCustomer && method === 'CASH' && tenderedNum > 0 && change < 0 && (
-        <div className="mb-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2">
-          {formatCurrency(Math.abs(change))} will be added to {selectedCustomer.name}&apos;s balance
-        </div>
+      {/* ── Cash tendered display — tap to open numpad drawer ── */}
+      {method === 'CASH' && (
+        <button
+          onClick={() => { setNumpadTarget('tendered'); setShowNumpadDrawer(true) }}
+          className="mx-3 mt-2 px-3 py-2.5 border-2 border-dashed border-gray-300 hover:border-indigo-400 active:border-indigo-500 text-left touch-manipulation transition-colors"
+        >
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide block">Cash Tendered</span>
+          <span className={`text-lg font-black tracking-tight ${tenderedNum > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+            {tenderedNum > 0 ? formatCurrency(tenderedNum) : 'Tap to enter amount'}
+          </span>
+        </button>
       )}
 
-      {/* Note */}
-      <input
-        type="text"
-        value={note}
-        onChange={e => setNote(e.target.value)}
-        placeholder="Sale note (optional)"
-        className="w-full px-3 py-2 border-2 border-gray-200 text-xs focus:border-indigo-400 focus:outline-none mb-2"
-      />
+      {/* ── Note + errors ── */}
+      <div className="px-3 pt-2 pb-1 space-y-1.5">
+        <input type="text" value={note} onChange={e => setNote(e.target.value)}
+          placeholder="Sale note (optional)"
+          className="w-full px-2.5 py-1.5 border border-gray-200 text-xs focus:border-indigo-400 focus:outline-none" />
+        {errorMsg  && <p className="text-xs text-red-600 bg-red-50 px-2 py-1">{errorMsg}</p>}
+        {noticeMsg && <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1">{noticeMsg}</p>}
+      </div>
 
-      {errorMsg && (
-        <p className="text-xs text-red-600 bg-red-50 px-2 py-1.5 mb-2">{errorMsg}</p>
-      )}
-      {noticeMsg && (
-        <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1.5 mb-2">{noticeMsg}</p>
-      )}
-
+      {/* ── Charge button ── */}
       <button
         onClick={() => {
-          if (cartNeedsApproval()) {
-            setPinDigits('')
-            setPinError('')
-            setShowPinModal(true)
-          } else {
-            handleCheckout()
+          if (cart.length === 0 || isSubmitting) return
+          if (method === 'CASH' && !tenderedNum) {
+            // Open numpad drawer to enter cash amount first
+            setNumpadTarget('tendered')
+            setShowNumpadDrawer(true)
+            return
           }
+          handleCheckout()
         }}
         disabled={cart.length === 0 || isSubmitting}
-        className="w-full py-4 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold text-base transition-colors active:scale-95 shadow-md touch-manipulation"
+        className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
       >
-        {isSubmitting ? 'Processing…' : `✓ Charge ${formatCurrency(grandTotal)}`}
+        {isSubmitting ? 'Processing…' : `CHARGE  ${formatCurrency(grandTotal)}`}
       </button>
     </div>
   )
@@ -1188,7 +1357,7 @@ export default function PosPage() {
   const ItemTile = ({ item }: { item: PosItem }) => {
     const inCart = cart.find(c => c.itemId === item.id)
     const stockTracked = isStockTracked(item)
-    const isLow = stockTracked && item.quantity > 0 && item.quantity <= LOW_STOCK_THRESHOLD
+    const isLow = stockTracked && isLowStock(item.quantity, item.reorderLevel)
     const displayPrice = resolvePrice(item, globalTier)
     return (
       <button
@@ -1202,7 +1371,7 @@ export default function PosPage() {
         }`}
       >
         {inCart && (
-          <span className="absolute top-1 right-1 w-5 h-5 bg-indigo-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+          <span className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold text-white">
             {inCart.qty}
           </span>
         )}
@@ -1383,13 +1552,29 @@ export default function PosPage() {
         body: JSON.stringify({ pin }),
       })
       const data = await res.json()
-      if (data.valid) {
-        setShowPinModal(false)
-        setPinDigits('')
-        handleCheckout(data.grant)
-      } else {
+      if (!data.valid) {
         setPinError(data.error ?? 'Invalid PIN')
         setPinDigits('')
+        return
+      }
+
+      if (pendingApprovalSaleId) {
+        // Sale already submitted as pending — approve it directly with the grant
+        const approveRes = await fetch(`/api/sales/${pendingApprovalSaleId}/approve-with-grant`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ grant: data.grant }),
+        })
+        if (approveRes.ok) {
+          setIsPollingApproval(false)
+          setShowPinModal(false)
+          setPinDigits('')
+          onSaleApproved(grandTotal, pendingApprovalSaleId)
+        } else {
+          const err = await approveRes.json()
+          setPinError(err.error ?? 'Approval failed')
+          setPinDigits('')
+        }
       }
     } catch {
       setPinError('Verification failed. Please try again.')
@@ -1408,8 +1593,14 @@ export default function PosPage() {
             <div className="w-10 h-10 bg-amber-100 flex items-center justify-center text-2xl shrink-0">🔐</div>
             <div>
               <p className="font-bold text-gray-900">Manager Approval Required</p>
-              <p className="text-xs text-gray-500">Enter a manager&apos;s approval PIN to proceed.</p>
+              <p className="text-xs text-gray-500">Enter a manager&apos;s PIN below, or wait for a manager to approve on the <strong>Approvals</strong> page.</p>
             </div>
+          </div>
+
+          {/* Waiting indicator */}
+          <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100">
+            <span className="inline-block w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+            <span className="text-xs text-amber-700 font-semibold">Waiting for manager approval…</span>
           </div>
 
           {/* PIN dots */}
@@ -1418,7 +1609,7 @@ export default function PosPage() {
               {Array.from({ length: PIN_LENGTH }).map((_, i) => (
                 <div
                   key={i}
-                  className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                  className={`h-4 w-4 rounded-full border-2 transition-colors ${
                     i < pinDigits.length ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
                   }`}
                 />
@@ -1472,7 +1663,21 @@ export default function PosPage() {
               {isPinVerifying ? 'Verifying…' : 'Approve'}
             </button>
             <button
-              onClick={() => { setShowPinModal(false); setPinDigits(''); setPinError('') }}
+              onClick={async () => {
+                setShowPinModal(false)
+                setPinDigits('')
+                setPinError('')
+                setIsPollingApproval(false)
+                // Reject the pending sale so it doesn't linger in the approvals queue
+                if (pendingApprovalSaleId) {
+                  await fetch(`/api/sales/${pendingApprovalSaleId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note: 'Cancelled by cashier' }),
+                  }).catch(() => {})
+                  setPendingApprovalSaleId(null)
+                }
+              }}
               className="px-4 py-3 bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200"
             >
               Cancel
@@ -1511,7 +1716,7 @@ export default function PosPage() {
 
         {/* ── Top bar ──────────────────────────────────────────────────────── */}
         <div className="flex items-center gap-2 px-3 py-2 bg-indigo-700 text-white shrink-0">
-          <span className="font-bold text-sm tracking-wide">{companyName || 'POS Terminal'}</span>
+          <span className="font-bold text-sm tracking-wide">{tenantName || 'POS Terminal'}</span>
           {currentBranch && <span className="text-indigo-200 text-xs truncate">· {currentBranch.name}</span>}
           <div className="flex-1" />
 
@@ -1535,39 +1740,82 @@ export default function PosPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M3 6h18M3 18h18" />
             </svg>
             {holds.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 text-indigo-900 text-[9px] font-bold rounded-full flex items-center justify-center">
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[9px] font-bold text-indigo-900">
                 {holds.length}
               </span>
             )}
           </button>
 
+          {/* Customer display second screen */}
+          <button
+            onClick={() => window.open('/pos/display', 'customer_display', 'noopener')}
+            title="Open customer display on second screen"
+            className="p-1.5 hover:bg-indigo-600 transition-colors text-base"
+          >
+            🖥
+          </button>
+
           {user?.name && <span className="text-indigo-200 text-xs hidden sm:inline">Cashier: {user.name}</span>}
 
-          <button
-            onClick={() => router.push('/sales')}
-            title="Exit POS"
-            className="p-1.5 hover:bg-indigo-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div ref={sessionMenuRef} className="relative">
+            <button
+              onClick={() => setShowSessionMenu(v => !v)}
+              title="Logout options"
+              className="flex items-center gap-2 px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 transition-colors text-xs font-semibold"
+            >
+              <span>Logout</span>
+              <svg className={`w-3.5 h-3.5 transition-transform ${showSessionMenu ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showSessionMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 overflow-hidden bg-white text-gray-900 shadow-xl ring-1 ring-black/10 z-40">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-sm font-semibold text-gray-900">{user?.name || 'Current user'}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {currentBranch ? `Serving ${currentBranch.name}` : 'POS terminal'}
+                  </p>
+                </div>
+                <div className="py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1" />
+                    </svg>
+                    Log out
+                  </button>
+                  <button
+                    onClick={handleExitPos}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    Exit POS
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── DESKTOP layout (md+) ──────────────────────────────────────────── */}
         <div className="hidden md:flex flex-1 overflow-hidden">
 
-          {/* LEFT — search + category picker or item grid */}
-          <div className="flex flex-col flex-1 overflow-hidden">
+          {/* LEFT — search + category picker or item grid  70% */}
+          <div className="flex flex-col overflow-hidden" style={{ flex: '0 0 70%' }}>
             <SearchBar searchRef={searchRef} search={search} setSearch={setSearch} setActiveGroup={setActiveGroup} handleSearchKey={handleSearchKey} features={features} globalTier={globalTier} setGlobalTier={setGlobalTier} />
             {showCategoryPicker
-              ? <CategoryPicker cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
-              : <ItemGrid cols="grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" />
+              ? <CategoryPicker cols="grid-cols-3 lg:grid-cols-4" />
+              : <ItemGrid cols="grid-cols-3 lg:grid-cols-4" />
             }
           </div>
 
-          {/* RIGHT — cart + controls */}
-          <div className="flex flex-col w-80 xl:w-96 bg-white border-l border-gray-200 shrink-0 overflow-hidden">
+          {/* RIGHT — cart + controls  30% */}
+          <div className="relative flex flex-col bg-white border-l border-gray-200 overflow-hidden" style={{ flex: '0 0 30%' }}>
 
             {/* Customer */}
             <div className="px-3 pt-3 pb-1 border-b border-gray-100 shrink-0">
@@ -1577,34 +1825,73 @@ export default function PosPage() {
             {/* Cart header */}
             <div className="px-4 py-2 flex items-center justify-between shrink-0">
               <span className="font-bold text-gray-800 text-sm">
-                Cart {cart.length > 0 && <span className="ml-1 bg-indigo-600 text-white text-xs px-2 py-0.5 rounded-full">{cart.length}</span>}
+                Cart {cart.length > 0 && <span className="ml-1 rounded-full bg-indigo-600 px-2 py-0.5 text-xs text-white">{cart.length}</span>}
               </span>
               {cart.length > 0 && (
                 <button onClick={clearCart} className="text-xs text-red-500 hover:text-red-700 font-semibold">Clear</button>
               )}
             </div>
 
+            {/* Scan error banner */}
+            {scanError && (
+              <div className="shrink-0 bg-red-50 border-b border-red-200 px-3 py-2 text-xs font-semibold text-red-700">
+                ⚠ {scanError}
+              </div>
+            )}
+
             {/* Cart lines */}
             <div className="flex-1 overflow-y-auto min-h-0">
               {cart.length === 0 ? (
                 <div className="flex flex-col items-center py-10 text-gray-300">
                   <span className="text-4xl mb-2">🛒</span>
-                  <p className="text-sm">Cart is empty</p>
+                  <p className="text-sm">Scan or search to add items</p>
                 </div>
               ) : (
-                cart.map((line, idx) => <CartLineRow key={line.itemId} line={line} idx={idx} />)
+                <>
+                  <div ref={cartEndRef} />
+                  {[...cart].reverse().map((line, reversedIdx) => {
+                    const idx = cart.length - 1 - reversedIdx
+                    return (
+                      <CartLineRow
+                        key={line.itemId}
+                        line={line}
+                        idx={idx}
+                        flash={line.itemId === lastScannedItemId}
+                      />
+                    )
+                  })}
+                </>
               )}
             </div>
 
-            {/* Numpad */}
-            <div className="shrink-0 border-t border-gray-100">
-              <Numpad />
-            </div>
-
-            {/* Payment */}
-            <div className="shrink-0 border-t border-gray-100 overflow-y-auto max-h-72">
+            {/* Payment panel (includes numpad + charge button) */}
+            <div className="shrink-0 overflow-y-auto">
               <PaymentPanel />
             </div>
+
+            {/* ── Numpad slide-up drawer (desktop) ── */}
+            {showNumpadDrawer && (
+              <>
+                {/* Backdrop */}
+                <div
+                  className="absolute inset-0 z-20"
+                  onClick={() => setShowNumpadDrawer(false)}
+                />
+                {/* Drawer panel — slides up from bottom of the cart column */}
+                <div className="absolute bottom-0 left-0 right-0 z-30 bg-white shadow-2xl border-t-2 border-indigo-200"
+                  style={{ animation: 'slideUp 180ms ease-out' }}>
+                  {/* Drag handle + context label */}
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                      {numpadTarget === 'qty' ? 'Set Quantity' : numpadTarget === 'price' ? 'Override Price' : numpadTarget === 'lineDiscount' ? 'Set Discount' : 'Cash Tendered'}
+                    </span>
+                    <button onClick={() => setShowNumpadDrawer(false)}
+                      className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+                  </div>
+                  <Numpad />
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -1625,7 +1912,7 @@ export default function PosPage() {
             >
               Cart
               {cart.length > 0 && (
-                <span className="absolute top-2 right-8 w-4 h-4 bg-indigo-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute top-2 right-8 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
                   {cart.length}
                 </span>
               )}
@@ -1635,6 +1922,11 @@ export default function PosPage() {
           {/* Items tab */}
           {mobileTab === 'items' && (
             <div className="flex flex-col flex-1 overflow-hidden">
+              {scanError && (
+                <div className="shrink-0 bg-red-50 border-b border-red-200 px-3 py-2 text-xs font-semibold text-red-700">
+                  ⚠ {scanError}
+                </div>
+              )}
               <SearchBar compact searchRef={searchRef} search={search} setSearch={setSearch} setActiveGroup={setActiveGroup} handleSearchKey={handleSearchKey} features={features} globalTier={globalTier} setGlobalTier={setGlobalTier} />
               {showCategoryPicker
                 ? <CategoryPicker cols="grid-cols-3 sm:grid-cols-4" />
@@ -1685,9 +1977,18 @@ export default function PosPage() {
                       <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cart ({cart.length})</span>
                       <button onClick={clearCart} className="text-xs text-red-500 font-semibold">Clear all</button>
                     </div>
-                    {cart.map((line, idx) => (
-                      <CartLineRow key={line.itemId} line={line} idx={idx} mobile />
-                    ))}
+                    {[...cart].reverse().map((line, reversedIdx) => {
+                      const idx = cart.length - 1 - reversedIdx
+                      return (
+                        <CartLineRow
+                          key={line.itemId}
+                          line={line}
+                          idx={idx}
+                          mobile
+                          flash={line.itemId === lastScannedItemId}
+                        />
+                      )
+                    })}
                   </>
                 )}
               </div>
@@ -1709,7 +2010,7 @@ export default function PosPage() {
               {cart.length > 0 && numpadDrawer === 'hidden' && (
                 <button
                   onClick={() => setNumpadDrawer('drawer')}
-                  className="absolute bottom-24 right-4 z-30 w-12 h-12 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center text-lg font-bold active:scale-95 touch-manipulation"
+                  className="absolute bottom-24 right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-600 text-lg font-bold text-white shadow-lg active:scale-95 touch-manipulation"
                   title="Open numpad"
                 >
                   123
@@ -1728,10 +2029,10 @@ export default function PosPage() {
               onClick={() => setNumpadDrawer('hidden')}
             />
             {/* Bottom sheet */}
-            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden rounded-t-2xl shadow-2xl overflow-hidden">
+            <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden  shadow-2xl overflow-hidden">
               {/* Drag handle */}
               <div className="flex justify-center bg-white pt-2 pb-0">
-                <div className="w-10 h-1 bg-gray-300 rounded-full" />
+                <div className="h-1 w-10 rounded-full bg-gray-300" />
               </div>
               <Numpad mobile />
             </div>

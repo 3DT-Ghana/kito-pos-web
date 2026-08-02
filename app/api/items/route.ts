@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { applyBranchScope, requireBranchAccess, requireOperationalBranch } from '@/lib/branch/server'
 import { normalizeItemType } from '@/lib/items/type'
+import { isLowStock, normalizeReorderLevel } from '@/lib/items/stock'
 import { syncProductTaxSetting, hasProductTaxSettingPayload } from '@/lib/tax/products'
 import { itemTaxSettingInclude } from '@/lib/tax/server'
 
@@ -47,10 +48,10 @@ export async function GET(req: Request) {
     const where: any = applyBranchScope({ tenantId: context!.tenantId }, context!)
 
     if (search) {
-      where.name = {
-        contains: search,
-        mode: 'insensitive' as const,
-      }
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { barcode: { contains: search, mode: 'insensitive' as const } },
+      ]
     }
 
     if (manufacturerId) {
@@ -63,9 +64,6 @@ export async function GET(req: Request) {
 
     if (lowStock) {
       where.itemType = ItemType.INVENTORY
-      where.quantity = {
-        lte: 10, // Low stock threshold
-      }
     }
 
     const items = await prisma.item.findMany({
@@ -78,7 +76,11 @@ export async function GET(req: Request) {
       orderBy: { name: 'asc' },
     })
 
-    return NextResponse.json(items)
+    return NextResponse.json(
+      lowStock
+        ? items.filter(item => isLowStock(item.quantity, item.reorderLevel))
+        : items
+    )
   } catch (err) {
     console.error('Failed to fetch items:', err)
     return NextResponse.json(
@@ -116,17 +118,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: validationError }, { status: 400 })
     }
 
+    // Resolve manufacturer: use provided ID or fall back to "System" manufacturer
+    let resolvedManufacturerId: string = body.manufacturerId
+    if (!resolvedManufacturerId) {
+      let systemMfr = await prisma.manufacturer.findFirst({
+        where: { tenantId: context!.tenantId, name: { equals: 'System', mode: 'insensitive' } },
+      })
+      if (!systemMfr) {
+        systemMfr = await prisma.manufacturer.create({
+          data: { tenantId: context!.tenantId, name: 'System' },
+        })
+      }
+      resolvedManufacturerId = systemMfr.id
+    }
+
     // Verify manufacturer belongs to tenant
     const manufacturer = await prisma.manufacturer.findFirst({
       where: {
-        id: body.manufacturerId,
+        id: resolvedManufacturerId,
         tenantId: context!.tenantId,
       },
     })
 
     if (!manufacturer) {
       return NextResponse.json(
-        { error: 'Manufacturer not found or does not belong to your tenant' },
+        { error: 'Brand / Manufacturer not found or does not belong to your tenant' },
         { status: 404 }
       )
     }
@@ -135,7 +151,7 @@ export async function POST(req: Request) {
     const existing = await prisma.item.findFirst({
       where: {
         tenantId: context!.tenantId,
-        manufacturerId: body.manufacturerId,
+        manufacturerId: resolvedManufacturerId,
         ...(context!.branchesEnabled ? { branchId } : {}),
         name: {
           equals: body.name.trim(),
@@ -146,7 +162,7 @@ export async function POST(req: Request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'An item with this name already exists for this manufacturer' },
+        { error: 'An item with this name already exists for this brand / manufacturer' },
         { status: 409 }
       )
     }
@@ -157,9 +173,12 @@ export async function POST(req: Request) {
         data: {
           tenantId: context!.tenantId,
           ...(context!.branchesEnabled ? { branchId } : {}),
-          manufacturerId: body.manufacturerId,
+          manufacturerId: resolvedManufacturerId,
           name: body.name.trim(),
           quantity: parseFloat(body.quantity) || 0,
+          ...(body.reorderLevel !== undefined && body.reorderLevel !== null
+            ? { reorderLevel: normalizeReorderLevel(Number(body.reorderLevel)) }
+            : {}),
           costPrice: parseFloat(body.costPrice),
           sellingPrice: parseFloat(body.sellingPrice),
           ...(body.categoryId ? { categoryId: body.categoryId } : {}),
@@ -222,12 +241,16 @@ function validateItemData(data: any): string | null {
     return 'Item name is required'
   }
 
-  if (!data.manufacturerId || typeof data.manufacturerId !== 'string') {
-    return 'Manufacturer ID is required'
-  }
-
   if (data.quantity !== undefined && (isNaN(data.quantity) || data.quantity < 0)) {
     return 'Quantity must be a non-negative number'
+  }
+
+  if (
+    data.reorderLevel !== undefined &&
+    data.reorderLevel !== null &&
+    (!Number.isInteger(Number(data.reorderLevel)) || Number(data.reorderLevel) < 0)
+  ) {
+    return 'Reorder level must be a non-negative whole number'
   }
 
   if (data.costPrice === undefined || data.costPrice === null || isNaN(parseFloat(data.costPrice)) || parseFloat(data.costPrice) < 0) {

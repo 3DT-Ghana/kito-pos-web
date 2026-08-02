@@ -24,19 +24,47 @@ export default function LoansPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
+  const fetchPageData = useCallback(async () => {
     const url = filterEmployee ? `/api/payroll/loans?employeeId=${filterEmployee}` : '/api/payroll/loans'
-    const [loansRes, empsRes] = await Promise.all([fetch(url), fetch('/api/payroll/employees?activeOnly=false')])
-    if (loansRes.ok) setLoans(await loansRes.json())
-    if (empsRes.ok) {
-      const d = await empsRes.json()
-      setEmployees(d.employees ?? [])
+    const [loansRes, employeesRes] = await Promise.all([
+      fetch(url),
+      fetch('/api/payroll/employees?activeOnly=false'),
+    ])
+
+    const nextLoans = loansRes.ok ? await loansRes.json() : []
+    let nextEmployees: Employee[] = []
+    if (employeesRes.ok) {
+      const data = await employeesRes.json()
+      nextEmployees = data.employees ?? []
     }
-    setLoading(false)
+
+    return { loans: nextLoans as Loan[], employees: nextEmployees }
   }, [filterEmployee])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => {
+    setLoading(true)
+    const data = await fetchPageData()
+    setLoans(data.loans)
+    setEmployees(data.employees)
+    setLoading(false)
+  }, [fetchPageData])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const data = await fetchPageData()
+      if (cancelled) return
+
+      setLoans(data.loans)
+      setEmployees(data.employees)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchPageData])
 
   async function save() {
     if (!form.employeeId) { setError('Select an employee'); return }
@@ -93,7 +121,10 @@ export default function LoansPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <select value={filterEmployee} onChange={(e) => setFilterEmployee(e.target.value)}
+          <select value={filterEmployee} onChange={(e) => {
+            setLoading(true)
+            setFilterEmployee(e.target.value)
+          }}
             className="text-sm border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500">
             <option value="">All Employees</option>
             {employees.map((e) => (
@@ -103,7 +134,7 @@ export default function LoansPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div>
         ) : loans.length === 0 ? (
           <div className="bg-white border border-gray-200 px-5 py-10 text-center">
             <p className="text-sm text-gray-400">No loans found.</p>
@@ -134,7 +165,7 @@ export default function LoansPage() {
                     <td className="px-3 py-3 text-right font-semibold text-gray-900">GHS {loan.balanceAmount.toFixed(2)}</td>
                     <td className="px-3 py-3 text-right text-gray-500">GHS {loan.monthlyDeduction.toFixed(2)}</td>
                     <td className="px-3 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${loan.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                      <span className={`text-xs px-2 py-0.5 -full ${loan.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                         {loan.isActive ? 'Active' : 'Closed'}
                       </span>
                     </td>

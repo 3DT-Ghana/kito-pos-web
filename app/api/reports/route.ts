@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { ItemType, TaxTransactionType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { hasPermission } from '@/lib/permissions/rbac'
+import { hasPermission, requirePermission } from '@/lib/permissions/rbac'
 import {
   applyBranchScope,
   isBranchFilterActive,
@@ -17,6 +17,7 @@ import {
   roundTaxAmount,
   summariseTaxBreakdown,
 } from '@/lib/tax/summary'
+import { isLowStock, isOutOfStock } from '@/lib/items/stock'
 
 /**
  * Comprehensive Reports API
@@ -48,6 +49,10 @@ export async function GET(req: Request) {
       productId: searchParams.get('productId') || searchParams.get('product') || undefined,
       customerId: searchParams.get('customerId') || searchParams.get('customer') || undefined,
     }
+    const requiredPermission = type === 'profit' ? 'view_profit_margins' : 'view_basic_reports'
+    const { authorized, error: permError } = requirePermission(context!, requiredPermission)
+    if (!authorized) return permError!
+    const canViewProfitMargins = hasPermission(context!, 'view_profit_margins')
 
     // Build date filter
     const dateFilter: { gte?: Date; lte?: Date } = {}
@@ -60,7 +65,7 @@ export async function GET(req: Request) {
       case 'purchases':
         return await purchasesReport(context!, dateFilter)
       case 'inventory':
-        return await inventoryReport(context!)
+        return await inventoryReport(context!, canViewProfitMargins)
       case 'debtors':
         return await debtorsReport(context!)
       case 'creditors':
@@ -68,9 +73,9 @@ export async function GET(req: Request) {
       case 'profit':
         return await profitReport(context!, dateFilter)
       case 'dashboard':
-        return await dashboardReport(context!)
+        return await dashboardReport(context!, canViewProfitMargins)
       case 'end-of-day':
-        return await endOfDayReport(context!, dateFilter)
+        return await endOfDayReport(context!, dateFilter, canViewProfitMargins)
       case 'tax-summary':
         return await taxSummaryReport(context!, dateFilter, reportFilters)
       case 'tax-collected':
@@ -94,6 +99,19 @@ export async function GET(req: Request) {
       { status: 500 }
     )
   }
+}
+
+interface InventoryReportItem {
+  id: string
+  name: string
+  quantity: number
+  reorderLevel: number
+  sellingPrice: number
+  manufacturer: {
+    id: string
+    name: string
+  } | null
+  costPrice?: number
 }
 
 async function withVisibleCustomerBalances<T extends { id: string; balance: number }>(
@@ -228,33 +246,79 @@ async function purchasesReport(context: BranchAccessContext, dateFilter: { gte?:
 /**
  * Inventory Report
  */
-async function inventoryReport(context: BranchAccessContext) {
+async function inventoryReport(
+  context: BranchAccessContext,
+  canViewProfitMargins: boolean
+) {
   const items = await prisma.item.findMany({
     where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY }, context),
-    include: {
-      manufacturer: { select: { name: true } },
+    select: {
+      id: true,
+      name: true,
+      quantity: true,
+      reorderLevel: true,
+      costPrice: true,
+      sellingPrice: true,
+      manufacturer: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
     orderBy: { name: 'asc' },
   })
 
   const totalValue = items.reduce((sum, item) => sum + (item.quantity * item.costPrice), 0)
   const potentialRevenue = items.reduce((sum, item) => sum + (item.quantity * item.sellingPrice), 0)
-  const lowStockItems = items.filter(item => item.quantity <= 10)
-  const outOfStockItems = items.filter(item => item.quantity === 0)
+  const visibleItems: InventoryReportItem[] = canViewProfitMargins
+    ? items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        reorderLevel: item.reorderLevel,
+        costPrice: item.costPrice,
+        sellingPrice: item.sellingPrice,
+        manufacturer: item.manufacturer
+          ? { id: item.manufacturer.id, name: item.manufacturer.name }
+          : null,
+      }))
+    : items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        reorderLevel: item.reorderLevel,
+        sellingPrice: item.sellingPrice,
+        manufacturer: item.manufacturer
+          ? { id: item.manufacturer.id, name: item.manufacturer.name }
+          : null,
+      }))
+  const lowStockItems = visibleItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
+  const outOfStockItems = visibleItems.filter(item => isOutOfStock(item.quantity))
 
   return NextResponse.json({
     type: 'inventory',
-    summary: {
-      totalItems: items.length,
-      totalStockValue: totalValue,
-      potentialRevenue,
-      potentialProfit: potentialRevenue - totalValue,
-      lowStockCount: lowStockItems.length,
-      outOfStockCount: outOfStockItems.length,
-    },
-    items,
+    summary: canViewProfitMargins
+      ? {
+          totalItems: visibleItems.length,
+          totalStockValue: totalValue,
+          potentialRevenue,
+          potentialProfit: potentialRevenue - totalValue,
+          lowStockCount: lowStockItems.length,
+          outOfStockCount: outOfStockItems.length,
+        }
+      : {
+          totalItems: visibleItems.length,
+          potentialRevenue,
+          lowStockCount: lowStockItems.length,
+          outOfStockCount: outOfStockItems.length,
+        },
+    items: visibleItems,
     lowStockItems,
     outOfStockItems,
+    meta: {
+      canViewProfitMargins,
+    },
   })
 }
 
@@ -373,7 +437,10 @@ async function profitReport(context: BranchAccessContext, dateFilter: { gte?: Da
 /**
  * Dashboard Report (Combined Summary)
  */
-async function dashboardReport(context: BranchAccessContext) {
+async function dashboardReport(
+  context: BranchAccessContext,
+  canViewProfitMargins: boolean
+) {
   // Get counts and totals in parallel
   const [
     totalItems,
@@ -390,7 +457,10 @@ async function dashboardReport(context: BranchAccessContext) {
     prisma.supplier.count({ where: { tenantId: context.tenantId } }),
     prisma.sale.findMany({ where: approvedSaleWhere(applyBranchScope({ tenantId: context.tenantId }, context)) }),
     prisma.purchase.findMany({ where: applyBranchScope({ tenantId: context.tenantId }, context) }),
-    prisma.item.findMany({ where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { lte: 10 } }, context) }),
+    prisma.item.findMany({
+      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY }, context),
+      select: { id: true, name: true, quantity: true, reorderLevel: true },
+    }),
     prisma.customer.findMany({
       where: {
         tenantId: context.tenantId,
@@ -419,13 +489,14 @@ async function dashboardReport(context: BranchAccessContext) {
   const totalCost = totalPurchases.reduce((sum, p) => sum + p.totalAmount, 0)
   const totalDebt = customersWithDebt.reduce((sum, c) => sum + c.balance, 0)
   const totalCredit = suppliersWithCredit.reduce((sum, s) => sum + s.balance, 0)
+  const filteredLowStockItems = lowStockItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
 
   return NextResponse.json({
     type: 'dashboard',
     summary: {
       inventory: {
         totalItems,
-        lowStockCount: lowStockItems.length,
+        lowStockCount: filteredLowStockItems.length,
       },
       contacts: {
         totalCustomers,
@@ -437,13 +508,13 @@ async function dashboardReport(context: BranchAccessContext) {
         totalSales: totalSales.length,
         totalRevenue,
         totalPurchases: totalPurchases.length,
-        totalCost,
+        ...(canViewProfitMargins ? { totalCost } : {}),
         totalDebt,
         totalCredit,
         netPosition: totalDebt - totalCredit,
       },
       alerts: {
-        lowStockItems: lowStockItems.map(item => ({
+        lowStockItems: filteredLowStockItems.map(item => ({
           id: item.id,
           name: item.name,
           quantity: item.quantity,
@@ -456,7 +527,11 @@ async function dashboardReport(context: BranchAccessContext) {
 /**
  * End of Day Report (Comprehensive Daily Summary)
  */
-async function endOfDayReport(context: BranchAccessContext, dateFilter: { gte?: Date; lte?: Date }) {
+async function endOfDayReport(
+  context: BranchAccessContext,
+  dateFilter: { gte?: Date; lte?: Date },
+  canViewProfitMargins: boolean
+) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const dayWhere: any = applyBranchScope({ tenantId: context.tenantId }, context)
   if (Object.keys(dateFilter).length > 0) {
@@ -469,8 +544,7 @@ async function endOfDayReport(context: BranchAccessContext, dateFilter: { gte?: 
     customerPayments,
     supplierPayments,
     stockAdjustmentCount,
-    lowStockItems,
-    outOfStockItems,
+    inventoryItems,
     customers,
   ] = await Promise.all([
     prisma.sale.findMany({
@@ -501,13 +575,9 @@ async function endOfDayReport(context: BranchAccessContext, dateFilter: { gte?: 
     prisma.supplierPayment.findMany({ where: dayWhere }),
     prisma.stockAdjustment.count({ where: dayWhere }),
     prisma.item.findMany({
-      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { gt: 0, lte: 10 } }, context),
-      select: { id: true, name: true, quantity: true },
+      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY }, context),
+      select: { id: true, name: true, quantity: true, reorderLevel: true },
       orderBy: { quantity: 'asc' },
-    }),
-    prisma.item.findMany({
-      where: applyBranchScope({ tenantId: context.tenantId, itemType: ItemType.INVENTORY, quantity: { equals: 0 } }, context),
-      select: { id: true, name: true, quantity: true },
     }),
     prisma.customer.findMany({
       where: {
@@ -517,6 +587,8 @@ async function endOfDayReport(context: BranchAccessContext, dateFilter: { gte?: 
       select: { id: true, name: true, phone: true, balance: true },
     }),
   ])
+  const lowStockItems = inventoryItems.filter(item => isLowStock(item.quantity, item.reorderLevel))
+  const outOfStockItems = inventoryItems.filter(item => isOutOfStock(item.quantity))
   const visibleDebtors = await withVisibleCustomerBalances(context, customers)
   const topDebtors = [...visibleDebtors]
     .sort((a, b) => b.balance - a.balance)
@@ -630,13 +702,13 @@ async function endOfDayReport(context: BranchAccessContext, dateFilter: { gte?: 
       totalOutstandingDebt,
       totalDebtorsCount: visibleDebtors.length,
       newDebtToday: newCreditIssued,
-      debtCollectedToday: totalCustomerPayments,
+      debtCollectedToday: cashPayments,
       topDebtors,
     },
   }
 
   // Only include profit if user has permission
-  if (hasPermission(context, 'view_profit_margins')) {
+  if (canViewProfitMargins) {
     response.profitSummary = {
       totalRevenue,
       totalCOGS,

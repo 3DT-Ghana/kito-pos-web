@@ -2,6 +2,7 @@
 
 import { DataTable, Column } from './DataTable'
 import { ItemWithManufacturer } from '@/types'
+import { isLowStock } from '@/lib/items/stock'
 import { formatCurrency } from '@/lib/utils/format'
 
 /**
@@ -19,13 +20,13 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
   const columns: Column<ItemWithManufacturer>[] = [
     {
       key: 'name',
-      label: 'Item Name & Manufacturer',
+      label: 'Item Name & Brand',
       sortable: true,
       render: (item) => (
         <div>
           <div className="font-bold text-gray-900 text-base">{item.name}</div>
           <div className="text-sm font-semibold text-blue-600 mt-1">
-            📦 {item.manufacturer?.name || 'Unknown Manufacturer'}
+            📦 {item.manufacturer?.name || 'System'}
           </div>
         </div>
       ),
@@ -35,15 +36,15 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
       label: 'Stock',
       sortable: true,
       render: (item) => {
-        const isLowStock = item.quantity <= 10
+        const itemIsLowStock = isLowStock(item.quantity, item.reorderLevel)
         return (
           <span
             className={`font-semibold ${
-              isLowStock ? 'text-red-600' : 'text-gray-900'
+              itemIsLowStock ? 'text-red-600' : 'text-gray-900'
             }`}
           >
             {item.quantity}
-            {isLowStock && (
+            {itemIsLowStock && (
               <span className="ml-1 text-xs">⚠️</span>
             )}
           </span>
@@ -99,7 +100,7 @@ export function ItemsTable({ items, onItemClick }: ItemsTableProps) {
     <DataTable
       data={items}
       columns={columns}
-      searchPlaceholder="Search items by name, manufacturer..."
+      searchPlaceholder="Search items by name, brand / manufacturer..."
       emptyMessage="No items found"
       onRowClick={onItemClick}
     />

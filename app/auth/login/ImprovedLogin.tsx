@@ -3,9 +3,17 @@
 import { FormEvent, useState } from 'react'
 import { signIn, getSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, AlertCircle, Info, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Info } from 'lucide-react'
 
-export function ImprovedLogin({ error: initialError, notice }: { error?: string; notice?: string }) {
+export function ImprovedLogin({
+  error: initialError,
+  notice,
+  portal = 'business',
+}: {
+  error?: string
+  notice?: string
+  portal?: string
+}) {
   const router   = useRouter()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
@@ -18,9 +26,30 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
     setError('')
     setLoading(true)
     try {
-      const result = await signIn('credentials', { redirect: false, email, password })
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+        portal,
+      })
       if (result?.error) {
-        setError('Invalid email or password.')
+        try {
+          const check = await fetch('/api/auth/login-check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email }),
+          })
+          const data = await check.json() as { reason: string }
+          if (data.reason === 'suspended') {
+            setError('Your account has been suspended for malicious actions or the company has been deactivated. Please contact support.')
+          } else if (data.reason === 'disabled') {
+            setError('Your account has been disabled. Please contact your administrator.')
+          } else {
+            setError('Invalid email or password.')
+          }
+        } catch {
+          setError('Invalid email or password.')
+        }
         setLoading(false)
       } else {
         const session = await getSession()
@@ -68,14 +97,7 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
           </div>
         </div>
 
-        <div className="relative flex items-center justify-end px-10 pb-8">
-          <a
-            href="/agent/login"
-            className="text-xs text-slate-500 hover:text-slate-300 transition flex items-center gap-1"
-          >
-            Sales Agent portal <ArrowRight className="w-3 h-3" />
-          </a>
-        </div>
+        <div className="relative flex items-center justify-end px-10 pb-8" />
       </div>
 
       {/* ── Right panel — form ─────────────────────────────────────────────── */}
@@ -86,8 +108,12 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
           <div className="w-full max-w-sm mx-auto lg:mx-0">
 
             <div className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Welcome back</h2>
-              <p className="mt-1.5 text-sm text-gray-500">Sign in to your workspace</p>
+              <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
+                Welcome back
+              </h2>
+              <p className="mt-1.5 text-sm text-gray-500">
+                Sign in to your business workspace
+              </p>
             </div>
 
             {/* Animated card */}
@@ -169,19 +195,6 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
                 </button>
               </form>
 
-              <div className="mt-6 pt-5 border-t border-gray-100">
-                <p className="text-xs text-gray-400 mb-3">Not a business staff member?</p>
-                <a
-                  href="/agent/login"
-                  className="flex items-center justify-between w-full px-4 py-3 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition group"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Sales Agent Portal</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Sign in to your agent account</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" />
-                </a>
-              </div>
             </div>
 
             <p className="mt-5 text-xs text-gray-400 text-center">
@@ -203,5 +216,5 @@ export function ImprovedLogin({ error: initialError, notice }: { error?: string;
 }
 
 function Spinner() {
-  return <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  return <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
 }

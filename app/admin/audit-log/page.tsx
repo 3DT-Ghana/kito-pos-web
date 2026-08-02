@@ -30,7 +30,7 @@ function actionBadge(action: string) {
   const key = Object.keys(ACTION_COLORS).find(k => action.toUpperCase().includes(k))
   const cls = key ? ACTION_COLORS[key] : 'bg-gray-100 text-gray-600'
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${cls}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 -full ${cls}`}>
       {action}
     </span>
   )
@@ -145,9 +145,9 @@ export default function AdminAuditLogPage() {
             <div className="space-y-0 divide-y divide-gray-100">
               {[...Array(8)].map((_, i) => (
                 <div key={i} className="px-5 py-4 flex gap-4 animate-pulse">
-                  <div className="w-32 h-4 bg-gray-200 rounded" />
-                  <div className="w-48 h-4 bg-gray-200 rounded" />
-                  <div className="w-24 h-4 bg-gray-200 rounded" />
+                  <div className="w-32 h-4 bg-gray-200 " />
+                  <div className="w-48 h-4 bg-gray-200 " />
+                  <div className="w-24 h-4 bg-gray-200 " />
                 </div>
               ))}
             </div>

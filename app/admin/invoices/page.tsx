@@ -43,21 +43,50 @@ function InvoicesPageContent() {
   const [loading, setLoading] = useState(true)
   const limit = 20
 
-  async function load(pg = page, st = status) {
-    setLoading(true)
+  async function fetchInvoices(pg = page, st = status) {
     const params = new URLSearchParams({ page: String(pg), limit: String(limit) })
     if (tenantIdFilter) params.set('tenantId', tenantIdFilter)
     if (st) params.set('status', st)
-    const r = await fetch(`/api/admin/invoices?${params}`)
-    const data = await r.json()
-    setInvoices(data.invoices ?? [])
-    setTotal(data.total ?? 0)
+
+    const response = await fetch(`/api/admin/invoices?${params}`)
+    const data = await response.json()
+
+    return {
+      invoices: data.invoices ?? [],
+      total: data.total ?? 0,
+    }
+  }
+
+  async function load(pg = page, st = status) {
+    setLoading(true)
+    const data = await fetchInvoices(pg, st)
+    setInvoices(data.invoices)
+    setTotal(data.total)
     setLoading(false)
   }
 
-  useEffect(() => { load(1, status) }, [status, tenantIdFilter])
+  useEffect(() => {
+    let cancelled = false
 
-  function changePage(p: number) { setPage(p); load(p, status) }
+    void (async () => {
+      const data = await fetchInvoices(1, status)
+      if (cancelled) return
+
+      setInvoices(data.invoices)
+      setTotal(data.total)
+      setPage(1)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [status, tenantIdFilter])
+
+  function changePage(p: number) {
+    setPage(p)
+    void load(p, status)
+  }
 
   const pages = Math.ceil(total / limit)
 
@@ -72,7 +101,11 @@ function InvoicesPageContent() {
           <div className="flex items-center gap-2">
             <select
               value={status}
-              onChange={(e) => { setStatus(e.target.value); setPage(1) }}
+              onChange={(e) => {
+                setLoading(true)
+                setStatus(e.target.value)
+                setPage(1)
+              }}
               className="px-3 py-2 border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               {STATUSES.map((s) => <option key={s} value={s}>{s || 'All statuses'}</option>)}
@@ -82,7 +115,7 @@ function InvoicesPageContent() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : invoices.length === 0 ? (
           <div className="bg-white border border-gray-200 p-12 text-center">
@@ -100,7 +133,7 @@ function InvoicesPageContent() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-mono font-semibold text-gray-900">{inv.invoiceNumber}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
+                    <span className={`text-xs px-2 py-0.5 -full font-medium ${STATUS_STYLE[inv.status] ?? 'bg-gray-100'}`}>
                       {inv.status}
                     </span>
                   </div>
@@ -144,7 +177,7 @@ export default function InvoicesPage() {
         <AdminLayout>
           <div className="max-w-5xl mx-auto">
             <div className="flex items-center justify-center py-16">
-              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
             </div>
           </div>
         </AdminLayout>

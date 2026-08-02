@@ -45,7 +45,7 @@ export function BranchSelector() {
         </svg>
       </div>
       {isBranchLocked && (
-        <span className="hidden lg:inline-flex text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-full">
+        <span className="hidden lg:inline-flex text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-1 -full">
           Assigned
         </span>
       )}

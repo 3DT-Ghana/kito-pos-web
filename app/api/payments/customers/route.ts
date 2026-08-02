@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { PaymentMethod } from '@prisma/client'
 import { sendSms, buildPaymentReceivedSms } from '@/lib/sms/hubtel'
+import { sendWhatsApp, buildWhatsAppPaymentReceipt } from '@/lib/whatsapp/meta'
 import {
   applyBranchScope,
   isBranchFilterActive,
@@ -109,11 +110,15 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!body.method || !Object.values(PaymentMethod).includes(body.method)) {
+    const allowedMethods = [PaymentMethod.CASH, PaymentMethod.MOMO, PaymentMethod.BANK]
+    if (!body.method || !allowedMethods.includes(body.method)) {
       return NextResponse.json(
         { error: 'Valid payment method is required (CASH, MOMO, BANK)' },
         { status: 400 }
       )
+    }
+    if (body.method === PaymentMethod.MOMO && !body.momoPhone?.trim()) {
+      return NextResponse.json({ error: 'MoMo phone number is required' }, { status: 400 })
     }
 
     // Verify customer belongs to tenant
@@ -166,6 +171,10 @@ export async function POST(req: Request) {
           customerId: body.customerId,
           amount,
           method: body.method as PaymentMethod,
+          momoPhone:       body.method === PaymentMethod.MOMO ? String(body.momoPhone ?? '').trim() || null : null,
+          bankName:        body.method === PaymentMethod.BANK ? String(body.bankName ?? '').trim() || null : null,
+          bankAccountName: body.method === PaymentMethod.BANK ? String(body.bankAccountName ?? '').trim() || null : null,
+          bankReference:   body.method === PaymentMethod.BANK ? String(body.bankReference ?? '').trim() || null : null,
         },
       })
 
@@ -199,7 +208,7 @@ export async function POST(req: Request) {
     })
     const scopedNewBalance = Math.max(0, visibleBalance - amount)
 
-    // Send SMS notification (fire-and-forget — don't block or fail the payment)
+    // Send SMS / WhatsApp notifications (fire-and-forget — don't block or fail the payment)
     if (customer.phone) {
       const tenant = await prisma.tenant.findUnique({
         where: { id: context!.tenantId },
@@ -209,8 +218,16 @@ export async function POST(req: Request) {
           hubtelClientId: true,
           hubtelClientSecret: true,
           hubtelSenderId: true,
+          enableWhatsApp: true,
+          metaWabaToken: true,
+          metaWabaPhoneNumberId: true,
         },
       })
+
+      const newBalance = isBranchFilterActive(context!)
+        ? scopedNewBalance
+        : (updatedCustomer?.balance ?? 0)
+
       if (
         tenant?.enableSmsNotifications &&
         tenant.hubtelClientId &&
@@ -221,15 +238,28 @@ export async function POST(req: Request) {
           businessName: tenant.name,
           customerName: customer.name,
           amount,
-          balance: isBranchFilterActive(context!)
-            ? scopedNewBalance
-            : (updatedCustomer?.balance ?? 0),
+          balance: newBalance,
         })
         sendSms(
           { clientId: tenant.hubtelClientId, clientSecret: tenant.hubtelClientSecret, senderId: tenant.hubtelSenderId },
           customer.phone,
           message,
-        ).catch(() => {}) // silent fail
+        ).catch(() => {})
+      }
+
+      if (tenant?.enableWhatsApp && tenant.metaWabaToken && tenant.metaWabaPhoneNumberId) {
+        const message = buildWhatsAppPaymentReceipt({
+          businessName: tenant.name,
+          customerName: customer.name,
+          amount,
+          balance: newBalance,
+          paymentMethod: body.paymentMethod,
+        })
+        sendWhatsApp(
+          { token: tenant.metaWabaToken, phoneNumberId: tenant.metaWabaPhoneNumberId },
+          customer.phone,
+          message,
+        ).catch(() => {})
       }
     }
 

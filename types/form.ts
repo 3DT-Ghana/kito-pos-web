@@ -6,9 +6,10 @@ import { z } from 'zod'
 
 // Item form schema
 export const itemSchema = z.object({
-  manufacturerId: z.string().min(1, 'Manufacturer is required'),
+  manufacturerId: z.string().optional(),
   name: z.string().min(1, 'Item name is required'),
   quantity: z.number().min(0, 'Quantity must be 0 or greater').optional(),
+  reorderLevel: z.number().int().min(0, 'Reorder level must be 0 or greater').optional(),
   costPrice: z.number().min(0, 'Cost price must be positive'),
   sellingPrice: z.number().min(0, 'Selling price must be positive'),
   unitName: z.string().optional(),
@@ -93,9 +94,16 @@ export const paymentSchema = z.object({
   method: z.enum(['CASH', 'MOMO', 'BANK'], {
     message: 'Payment method is required',
   }),
+  momoPhone: z.string().optional(),
+  bankName: z.string().optional(),
+  bankAccountName: z.string().optional(),
+  bankReference: z.string().optional(),
 }).refine(data => data.customerId || data.supplierId, {
   message: 'Either customer or supplier is required',
   path: ['customerId'],
+}).refine(data => data.method !== 'MOMO' || (data.momoPhone && data.momoPhone.trim().length > 0), {
+  message: 'MoMo phone number is required',
+  path: ['momoPhone'],
 })
 
 export type PaymentFormData = z.infer<typeof paymentSchema>

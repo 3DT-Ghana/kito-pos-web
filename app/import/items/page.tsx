@@ -123,7 +123,7 @@ export default function ImportItemsPage() {
         {/* CSV format info */}
         <div className="bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
           <p className="font-semibold mb-1">Required CSV columns:</p>
-          <p className="font-mono text-xs bg-blue-100 rounded px-2 py-1 inline-block">
+          <p className="font-mono text-xs bg-blue-100  px-2 py-1 inline-block">
             name, manufacturer, costPrice, sellingPrice, quantity
           </p>
           <p className="mt-1 text-xs text-blue-600">

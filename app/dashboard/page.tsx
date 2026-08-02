@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { ImprovedDashboard } from './ImprovedDashboard'
 import { prisma } from '@/lib/db/prisma'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { requireBranchAccess } from '@/lib/branch/server'
+import { getDashboardData } from '@/lib/dashboard/getDashboardData'
 
 /**
  * Dashboard Page
@@ -32,13 +34,23 @@ export default async function DashboardPage() {
 
   // Get tenant name
   let tenantName = 'My Business'
+  let initialDashboardData = null
+  let initialBranchId: string | null = null
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: user.tenantId },
-      select: { name: true },
-    })
+    const [tenant, branchAccess] = await Promise.all([
+      prisma.tenant.findUnique({
+        where: { id: user.tenantId },
+        select: { name: true },
+      }),
+      requireBranchAccess(),
+    ])
     if (tenant) {
       tenantName = tenant.name
+    }
+
+    if (!branchAccess.error && branchAccess.context) {
+      initialBranchId = branchAccess.context.currentBranchId
+      initialDashboardData = await getDashboardData(branchAccess.context)
     }
   } catch (error) {
     console.error('Failed to fetch tenant:', error)
@@ -61,6 +73,8 @@ export default async function DashboardPage() {
         tenantName={tenantName}
         greeting={greeting}
         dateStr={dateStr}
+        initialDashboardData={initialDashboardData}
+        initialBranchId={initialBranchId}
       />
     </AppLayout>
   )

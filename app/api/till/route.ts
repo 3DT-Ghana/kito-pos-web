@@ -73,7 +73,7 @@ export async function GET() {
         _sum: { amount: true },
       }),
 
-      // Cash expenses since shift opened
+      // All expenses since shift opened (no method field on Expense — include all)
       prisma.expense.aggregate({
         where: {
           tenantId: context!.tenantId,
@@ -85,7 +85,7 @@ export async function GET() {
     ])
 
     const cashIn = (cashSales._sum.paidAmount || 0) + (cashPaymentsReceived._sum.amount || 0)
-    const cashOut = cashExpenses._sum.amount || 0
+    const cashOut = cashExpenses._sum?.amount || 0
     const expectedCash = openShift.openingFloat + cashIn - cashOut
 
     const runningTotals = {
@@ -208,7 +208,7 @@ export async function PUT(req: Request) {
       openShift.openingFloat +
       (cashSales._sum.paidAmount || 0) +
       (cashPayments._sum.amount || 0) -
-      (cashExpenses._sum.amount || 0)
+      (cashExpenses._sum?.amount || 0)
 
     const variance = closingCount - expectedCash
 

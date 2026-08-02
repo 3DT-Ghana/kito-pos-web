@@ -69,12 +69,12 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer -full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
         checked ? 'border-blue-600 bg-blue-600' : 'border-gray-200 bg-gray-200'
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-full w-7 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+        className={`pointer-events-none inline-block h-full w-7 transform -full bg-white shadow transition duration-200 ease-in-out ${
           checked ? 'translate-x-8' : 'translate-x-0'
         }`}
       >
@@ -91,8 +91,8 @@ function LoadingSkeleton() {
         <div className="mb-6 flex items-center gap-3">
           <div className="h-14 w-14 bg-gray-200" />
           <div className="space-y-2">
-            <div className="h-6 w-40 rounded bg-gray-200" />
-            <div className="h-4 w-64 rounded bg-gray-100" />
+            <div className="h-6 w-40  bg-gray-200" />
+            <div className="h-4 w-64  bg-gray-100" />
           </div>
         </div>
         <div className="space-y-4">
@@ -102,7 +102,7 @@ function LoadingSkeleton() {
         </div>
       </div>
       <div className="border-2 border-gray-200 bg-white p-6">
-        <div className="mb-4 h-6 w-32 rounded bg-gray-200" />
+        <div className="mb-4 h-6 w-32  bg-gray-200" />
         <div className="space-y-3">
           <div className="h-24 bg-gray-100" />
           <div className="h-24 bg-gray-100" />
@@ -456,12 +456,12 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                 {defaultTaxes.map((rate) => (
                   <span
                     key={rate.id}
-                    className="rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-800"
+                    className="-full border border-blue-200 bg-white px-3 py-1 text-xs font-semibold text-blue-800"
                   >
                     {rate.name} — {rate.ratePercentage}%
                   </span>
                 ))}
-                <span className="rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900">
+                <span className="-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900">
                   Total: {defaultTaxes.reduce((sum, r) => sum + r.ratePercentage, 0).toFixed(2)}%
                 </span>
               </div>
@@ -562,21 +562,21 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                           <h4 className="text-lg font-bold text-gray-900">
                             {rate.name}
                           </h4>
-                          <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-sm font-bold text-gray-700">
+                          <span className="-full bg-gray-100 px-2.5 py-0.5 text-sm font-bold text-gray-700">
                             {rate.ratePercentage}%
                           </span>
                           {rate.isDefault && (
-                            <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
+                            <span className="-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
                               Default
                             </span>
                           )}
                           {!rate.isActive && (
-                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+                            <span className="-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
                               Inactive
                             </span>
                           )}
                           {isEditing && (
-                            <span className="rounded-full bg-blue-200 px-2.5 py-1 text-xs font-bold text-blue-800">
+                            <span className="-full bg-blue-200 px-2.5 py-1 text-xs font-bold text-blue-800">
                               Editing
                             </span>
                           )}
@@ -679,7 +679,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                 <button
                   type="button"
                   onClick={resetRateForm}
-                  className="rounded-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
+                  className="-full p-1 text-gray-400 hover:bg-gray-200 hover:text-gray-600"
                   aria-label="Cancel editing"
                 >
                   <X className="h-4 w-4" />
@@ -817,7 +817,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                     type="checkbox"
                     checked={taxRateForm.isDefault}
                     onChange={(event) => updateRateForm('isDefault', event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4  border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   Apply by default on all taxable items
                 </label>
@@ -826,7 +826,7 @@ export function TaxSettings({ tenantId, enableAccounting }: TaxSettingsProps) {
                     type="checkbox"
                     checked={taxRateForm.isActive}
                     onChange={(event) => updateRateForm('isActive', event.target.checked)}
-                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="h-4 w-4  border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   Active and available for new transactions
                 </label>

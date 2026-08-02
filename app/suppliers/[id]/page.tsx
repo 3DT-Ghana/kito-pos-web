@@ -259,7 +259,7 @@ export default function SupplierDetailsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-semibold text-gray-900 text-sm">{formatDate(purchase.createdAt)}</span>
-                              <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                              <span className={`text-xs px-2 py-0.5 -full font-semibold ${
                                 credit > 0 ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'
                               }`}>
                                 {credit > 0 ? 'Credit' : 'Paid'}

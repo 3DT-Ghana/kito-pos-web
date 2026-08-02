@@ -165,7 +165,7 @@ export default function JournalPage() {
                     <span className="col-span-1 font-mono font-bold text-indigo-700">{entry.entryNumber}</span>
                     <span className="col-span-2 text-gray-600">{new Date(entry.date).toLocaleDateString()}</span>
                     <span className="col-span-2">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${SOURCE_COLORS[entry.source] ?? 'bg-gray-100 text-gray-700'}`}>
+                      <span className={`text-xs font-semibold px-2 py-0.5  ${SOURCE_COLORS[entry.source] ?? 'bg-gray-100 text-gray-700'}`}>
                         {entry.source.replace(/_/g, ' ')}
                       </span>
                     </span>
@@ -175,7 +175,7 @@ export default function JournalPage() {
                     </span>
                     <span className="col-span-1 text-right">
                       {entry.status === 'REVERSED' && (
-                        <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">Rev</span>
+                        <span className="text-xs bg-red-100 text-red-700 px-1.5 py-0.5 ">Rev</span>
                       )}
                     </span>
                   </Link>

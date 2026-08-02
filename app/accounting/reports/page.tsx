@@ -170,7 +170,7 @@ function ReportSection({
         {rows.map((r) => (
           <div key={r.code} className={`flex justify-between px-5 py-3 text-sm ${indent ? 'pl-10' : ''}`}>
             <span className="text-slate-600 flex items-center gap-2">
-              <span className="font-mono text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{r.code}</span>
+              <span className="font-mono text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 ">{r.code}</span>
               {r.name}
             </span>
             <span className="font-semibold text-slate-800 tabular-nums">{fmt(r.balance)}</span>
@@ -543,10 +543,10 @@ function GeneralLedgerReport({ startDate, endDate, onData }: { startDate: string
           <div className="flex items-center gap-3 text-sm">
             <span className="font-mono text-gray-500">{data.account.code}</span>
             <span className="font-semibold text-gray-900">{data.account.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+            <span className="text-xs px-2 py-0.5 -full bg-gray-100 text-gray-600">
               {data.account.type}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+            <span className="text-xs px-2 py-0.5 -full bg-gray-100 text-gray-500">
               Normal: {data.account.normalBalance}
             </span>
           </div>
@@ -573,7 +573,7 @@ function GeneralLedgerReport({ startDate, endDate, onData }: { startDate: string
                     </span>
                     <span className="col-span-2">
                       <span
-                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        className={`text-xs px-1.5 py-0.5  font-medium ${
                           sourceColor[r.source] ?? 'bg-gray-100 text-gray-600'
                         }`}
                       >
@@ -1063,7 +1063,7 @@ function StatementOfAccountReport({ startDate, endDate, onData }: { startDate: s
                     </span>
                     <span className="col-span-2">
                       <span
-                        className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                        className={`text-xs px-1.5 py-0.5  font-medium ${
                           r.type === 'SALE'
                             ? 'bg-emerald-50 text-emerald-700'
                             : r.type === 'PAYMENT'
@@ -1705,7 +1705,7 @@ function InventoryValuationReport({ onData }: { onData: (rows: Record<string, un
       EXPIRED: 'bg-gray-100 text-gray-600 line-through',
     }
     return (
-      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${map[status]}`}>
+      <span className={`text-xs px-1.5 py-0.5  font-medium ${map[status]}`}>
         {status.replace('_', ' ')}
       </span>
     )
@@ -1947,7 +1947,7 @@ export default function AccountingReportsPage() {
                     : 'bg-white border-slate-200 hover:border-slate-300 hover:shadow'
                 }`}
               >
-                <div className={`w-2 h-2 rounded-full mb-2.5 ${meta.dot}`} />
+                <div className={`w-2 h-2 -full mb-2.5 ${meta.dot}`} />
                 <p className={`text-xs font-bold uppercase tracking-wider mb-0.5 ${isActive ? meta.color : 'text-slate-400'}`}>
                   {group}
                 </p>

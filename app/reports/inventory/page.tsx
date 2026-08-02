@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { ItemWithManufacturer } from '@/types'
 import { formatCurrency } from '@/lib/utils/format'
 import { ExportButton } from '@/components/ExportButton'
 import { useBranch } from '@/lib/branch/BranchContext'
+import { isLowStock, isOutOfStock } from '@/lib/items/stock'
 
 /**
  * Inventory Reports Page
@@ -14,9 +14,29 @@ import { useBranch } from '@/lib/branch/BranchContext'
  * Supports manufacturer filter and PDF export via print.
  */
 
+interface InventoryReportItem {
+  id: string
+  name: string
+  quantity: number
+  reorderLevel: number
+  sellingPrice: number
+  costPrice?: number
+  manufacturer: {
+    id: string
+    name: string
+  } | null
+}
+
+interface InventoryReportResponse {
+  items: InventoryReportItem[]
+  meta?: {
+    canViewProfitMargins?: boolean
+  }
+}
+
 export default function InventoryReportsPage() {
   const { currentBranchId } = useBranch()
-  const [items, setItems] = useState<ItemWithManufacturer[]>([])
+  const [report, setReport] = useState<InventoryReportResponse | null>(null)
   const [manufacturers, setManufacturers] = useState<{ id: string; name: string }[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [manufacturerFilter, setManufacturerFilter] = useState('')
@@ -41,7 +61,10 @@ export default function InventoryReportsPage() {
       const response = await fetch('/api/reports?type=inventory')
       if (!response.ok) throw new Error('Failed to fetch report')
       const data = await response.json()
-      setItems(data.items || data.data || [])
+      setReport({
+        items: data.items || data.data || [],
+        meta: data.meta || {},
+      })
     } catch (error) {
       console.error('Error fetching inventory report:', error)
     } finally {
@@ -49,16 +72,20 @@ export default function InventoryReportsPage() {
     }
   }
 
+  const items = report?.items || []
+  const canViewProfitMargins = Boolean(report?.meta?.canViewProfitMargins)
   const filtered = manufacturerFilter
     ? items.filter(item => item.manufacturer?.id === manufacturerFilter || (item as { manufacturerId?: string }).manufacturerId === manufacturerFilter)
     : items
 
   const totalItems = filtered.length
-  const lowStockItems = filtered.filter(item => item.quantity > 0 && item.quantity <= 10).length
-  const outOfStockItems = filtered.filter(item => item.quantity === 0).length
-  const totalStockValue = filtered.reduce((sum, item) => sum + (item.quantity * item.costPrice), 0)
+  const lowStockItems = filtered.filter(item => isLowStock(item.quantity, item.reorderLevel)).length
+  const outOfStockItems = filtered.filter(item => isOutOfStock(item.quantity)).length
+  const totalStockValue = canViewProfitMargins
+    ? filtered.reduce((sum, item) => sum + (item.quantity * (item.costPrice ?? 0)), 0)
+    : null
   const totalRetailValue = filtered.reduce((sum, item) => sum + (item.quantity * item.sellingPrice), 0)
-  const potentialProfit = totalRetailValue - totalStockValue
+  const potentialProfit = totalStockValue === null ? null : totalRetailValue - totalStockValue
 
   const printDate = new Date().toLocaleDateString('en-GH', { day: 'numeric', month: 'long', year: 'numeric' })
   const selectedMfr = manufacturers.find(m => m.id === manufacturerFilter)
@@ -80,9 +107,14 @@ export default function InventoryReportsPage() {
                 Item: i.name,
                 Manufacturer: i.manufacturer?.name || '',
                 Stock: i.quantity,
-                'Cost Price (GHS)': i.costPrice.toFixed(2),
+                'Reorder Level': i.reorderLevel,
                 'Selling Price (GHS)': i.sellingPrice.toFixed(2),
-                'Stock Value (GHS)': (i.costPrice * i.quantity).toFixed(2),
+                ...(canViewProfitMargins
+                  ? {
+                      'Cost Price (GHS)': (i.costPrice ?? 0).toFixed(2),
+                      'Stock Value (GHS)': ((i.costPrice ?? 0) * i.quantity).toFixed(2),
+                    }
+                  : {}),
               }))}
             />
             <button
@@ -140,15 +172,25 @@ export default function InventoryReportsPage() {
             <p className="text-xs font-semibold text-gray-500 uppercase">Out of Stock</p>
             <p className={`text-2xl font-bold mt-1 ${outOfStockItems > 0 ? 'text-red-600' : 'text-gray-900'}`}>{outOfStockItems}</p>
           </div>
-          <div className="bg-white border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Stock Value</p>
-            <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(totalStockValue)}</p>
-          </div>
-          <div className="bg-white border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Potential Profit</p>
-            <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(potentialProfit)}</p>
-          </div>
+          {canViewProfitMargins && totalStockValue !== null && (
+            <div className="bg-white border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Stock Value</p>
+              <p className="text-xl font-bold text-blue-600 mt-1">{formatCurrency(totalStockValue)}</p>
+            </div>
+          )}
+          {canViewProfitMargins && potentialProfit !== null && (
+            <div className="bg-white border border-gray-200 p-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Potential Profit</p>
+              <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(potentialProfit)}</p>
+            </div>
+          )}
         </div>
+
+        {report && !canViewProfitMargins && (
+          <div className="bg-slate-50 border border-slate-200 px-4 py-3 text-sm text-slate-600 print:hidden">
+            Cost-based valuation and profit figures are hidden for your role.
+          </div>
+        )}
 
         {/* Low Stock Alert */}
         {(lowStockItems > 0 || outOfStockItems > 0) && (
@@ -178,16 +220,20 @@ export default function InventoryReportsPage() {
                   <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Item</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Manufacturer</th>
                   <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase">Stock</th>
-                  <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase">Cost</th>
                   <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase">Sell Price</th>
-                  <th className="text-right px-5 py-3 text-xs font-bold text-gray-500 uppercase">Stock Value</th>
+                  {canViewProfitMargins && (
+                    <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase">Cost</th>
+                  )}
+                  {canViewProfitMargins && (
+                    <th className="text-right px-5 py-3 text-xs font-bold text-gray-500 uppercase">Stock Value</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.map(item => {
-                  const stockValue = item.quantity * item.costPrice
-                  const isOut = item.quantity === 0
-                  const isLow = !isOut && item.quantity <= 10
+                  const stockValue = item.quantity * (item.costPrice ?? 0)
+                  const isOut = isOutOfStock(item.quantity)
+                  const isLow = isLowStock(item.quantity, item.reorderLevel)
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 print:hover:bg-transparent">
                       <td className="px-5 py-3 font-semibold text-gray-900">{item.name}</td>
@@ -197,14 +243,18 @@ export default function InventoryReportsPage() {
                           {item.quantity}
                         </span>
                         {(isOut || isLow) && (
-                          <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full font-semibold ${isOut ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                          <span className={`ml-1 text-xs px-1.5 py-0.5 -full font-semibold ${isOut ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
                             {isOut ? 'Out' : 'Low'}
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(item.costPrice)}</td>
                       <td className="px-4 py-3 text-right text-blue-600">{formatCurrency(item.sellingPrice)}</td>
-                      <td className="px-5 py-3 text-right font-semibold text-gray-900">{formatCurrency(stockValue)}</td>
+                      {canViewProfitMargins && (
+                        <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(item.costPrice ?? 0)}</td>
+                      )}
+                      {canViewProfitMargins && (
+                        <td className="px-5 py-3 text-right font-semibold text-gray-900">{formatCurrency(stockValue)}</td>
+                      )}
                     </tr>
                   )
                 })}
@@ -215,8 +265,13 @@ export default function InventoryReportsPage() {
                   <td className="px-4 py-3 text-right font-bold text-gray-900">
                     {filtered.reduce((s, i) => s + i.quantity, 0)}
                   </td>
-                  <td colSpan={2} />
-                  <td className="px-5 py-3 text-right font-bold text-blue-700">{formatCurrency(totalStockValue)}</td>
+                  <td className="px-4 py-3" />
+                  {canViewProfitMargins ? (
+                    <>
+                      <td className="px-4 py-3" />
+                      <td className="px-5 py-3 text-right font-bold text-blue-700">{formatCurrency(totalStockValue ?? 0)}</td>
+                    </>
+                  ) : null}
                 </tr>
               </tfoot>
             </table>

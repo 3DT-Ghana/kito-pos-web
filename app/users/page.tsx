@@ -35,6 +35,12 @@ interface UsersPageMeta {
   allowedRoles: RoleKey[]
 }
 
+interface ResetPasswordTarget {
+  id: string
+  name: string
+  email: string
+}
+
 const ROLE_INFO: Record<RoleKey, {
   label: string
   shortDesc: string
@@ -235,6 +241,7 @@ export default function UsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [resettingId, setResettingId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 20
 
@@ -245,11 +252,17 @@ export default function UsersPage() {
     role: 'STAFF' as RoleKey,
     branchId: '',
   })
+  const [passwordResetTarget, setPasswordResetTarget] = useState<ResetPasswordTarget | null>(null)
+  const [passwordResetForm, setPasswordResetForm] = useState({
+    password: '',
+    confirmPassword: '',
+  })
 
   const availableRoles = managementMeta?.allowedRoles?.length
     ? managementMeta.allowedRoles
     : (isOwner ? ALL_ROLES : BRANCH_MANAGER_ALLOWED_ROLES)
   const isBranchScoped = managementMeta?.scope === 'branch'
+  const canResetUserPasswords = isOwner && !isBranchScoped
   const managedBranch = managementMeta?.managedBranchId
     ? branches.find((branch) => branch.id === managementMeta.managedBranchId) ?? null
     : null
@@ -356,6 +369,67 @@ export default function UsersPage() {
     }
   }
 
+  const openPasswordReset = (user: User) => {
+    setShowAddForm(false)
+    setError('')
+    setSuccess('')
+    setPasswordResetTarget({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+    })
+    setPasswordResetForm({
+      password: '',
+      confirmPassword: '',
+    })
+  }
+
+  const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+
+    if (!passwordResetTarget) {
+      return
+    }
+
+    setError('')
+    setSuccess('')
+
+    if (passwordResetForm.password.length < 8) {
+      setError('Password must be at least 8 characters')
+      return
+    }
+
+    if (passwordResetForm.password !== passwordResetForm.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    setResettingId(passwordResetTarget.id)
+
+    try {
+      const res = await fetch(`/api/users/${passwordResetTarget.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordResetForm.password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to reset password')
+      }
+
+      setSuccess(`Password reset for "${passwordResetTarget.name}" successfully.`)
+      setPasswordResetTarget(null)
+      setPasswordResetForm({
+        password: '',
+        confirmPassword: '',
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to reset password')
+    } finally {
+      setResettingId(null)
+    }
+  }
+
   const handleUpdateUser = async (
     userId: string,
     updates: { role?: RoleKey; branchId?: string | null },
@@ -380,7 +454,7 @@ export default function UsersPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -400,7 +474,12 @@ export default function UsersPage() {
             </p>
           </div>
           <button
-            onClick={() => { setShowAddForm(true); setError(''); setSuccess('') }}
+            onClick={() => {
+              setShowAddForm(true)
+              setPasswordResetTarget(null)
+              setError('')
+              setSuccess('')
+            }}
             className="flex items-center gap-2 px-5 py-3 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors shadow-md text-sm"
           >
             <span className="text-lg leading-none">+</span>
@@ -425,6 +504,67 @@ export default function UsersPage() {
           <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 text-sm font-medium flex items-center gap-2">
             <span>✓</span> {success}
             <button onClick={() => setSuccess('')} className="ml-auto text-green-400 hover:text-green-600">✕</button>
+          </div>
+        )}
+
+        {passwordResetTarget && (
+          <div className="bg-white border-2 border-amber-100 shadow-lg overflow-hidden">
+            <div className="bg-amber-500 px-6 py-4">
+              <h2 className="text-lg font-bold text-white">Reset User Password</h2>
+              <p className="text-amber-100 text-sm mt-0.5">
+                Set a new password for {passwordResetTarget.name} ({passwordResetTarget.email})
+              </p>
+            </div>
+            <form onSubmit={handleResetPassword} className="p-6 space-y-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">New Password *</label>
+                  <input
+                    type="password"
+                    value={passwordResetForm.password}
+                    onChange={e => setPasswordResetForm({ ...passwordResetForm, password: e.target.value })}
+                    placeholder="Min. 8 characters"
+                    required
+                    minLength={8}
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-amber-500 focus:outline-none text-base"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password *</label>
+                  <input
+                    type="password"
+                    value={passwordResetForm.confirmPassword}
+                    onChange={e => setPasswordResetForm({ ...passwordResetForm, confirmPassword: e.target.value })}
+                    placeholder="Repeat new password"
+                    required
+                    minLength={8}
+                    className="w-full px-4 py-3 border-2 border-gray-200 focus:border-amber-500 focus:outline-none text-base"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={resettingId === passwordResetTarget.id}
+                  className="flex-1 py-3 bg-amber-500 text-white font-bold hover:bg-amber-600 transition-colors disabled:opacity-50"
+                >
+                  {resettingId === passwordResetTarget.id ? 'Resetting...' : 'Reset Password'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPasswordResetTarget(null)
+                    setPasswordResetForm({
+                      password: '',
+                      confirmPassword: '',
+                    })
+                  }}
+                  className="flex-1 py-3 border-2 border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         )}
 
@@ -557,7 +697,7 @@ export default function UsersPage() {
             </div>
             {loadingUsers ? (
               <div className="flex items-center justify-center py-12">
-                <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent -full animate-spin" />
               </div>
             ) : users.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500">
@@ -578,9 +718,9 @@ export default function UsersPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-gray-900 text-base">{u.name}</p>
                             {isCurrentUser && (
-                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-medium">You</span>
+                              <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 -full font-medium">You</span>
                             )}
-                            <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${info.badgeColor}`}>
+                            <span className={`text-xs px-2.5 py-0.5 -full font-semibold ${info.badgeColor}`}>
                               {info.icon} {info.label}
                             </span>
                           </div>
@@ -603,6 +743,14 @@ export default function UsersPage() {
                       {/* Actions */}
                       {!isCurrentUser && (
                         <div className="flex items-center gap-2">
+                          {canResetUserPasswords && (
+                            <button
+                              onClick={() => openPasswordReset(u)}
+                              className="px-3 py-2 bg-amber-50 text-amber-700 border-2 border-amber-100 text-sm font-semibold hover:bg-amber-100 transition-colors"
+                            >
+                              Reset Password
+                            </button>
+                          )}
                           <select
                             value={u.role}
                             onChange={e => {
@@ -678,7 +826,7 @@ export default function UsersPage() {
                       <th key={r} className="px-3 py-3 text-center">
                         <div className="flex flex-col items-center gap-1">
                           <span className="text-base">{ROLE_INFO[r].icon}</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${ROLE_INFO[r].badgeColor}`}>
+                          <span className={`text-xs px-2 py-0.5 -full font-semibold whitespace-nowrap ${ROLE_INFO[r].badgeColor}`}>
                             {ROLE_INFO[r].label}
                           </span>
                         </div>
@@ -695,9 +843,9 @@ export default function UsersPage() {
                         return (
                           <td key={r} className="px-3 py-2.5 text-center">
                             {allowed ? (
-                              <span className="inline-flex items-center justify-center w-5 h-5 bg-green-100 rounded-full text-green-700 text-xs font-bold">✓</span>
+                              <span className="inline-flex items-center justify-center w-5 h-5 bg-green-100 -full text-green-700 text-xs font-bold">✓</span>
                             ) : (
-                              <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-100 rounded-full text-gray-300 text-xs">–</span>
+                              <span className="inline-flex items-center justify-center w-5 h-5 bg-gray-100 -full text-gray-300 text-xs">–</span>
                             )}
                           </td>
                         )
@@ -729,7 +877,7 @@ export default function UsersPage() {
                       <span className="text-2xl">{info.icon}</span>
                       <div>
                         <h3 className="font-bold text-gray-900">{title}</h3>
-                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${info.badgeColor}`}>
+                        <span className={`text-xs px-2.5 py-0.5 -full font-semibold ${info.badgeColor}`}>
                           {info.label}
                         </span>
                       </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { ADJUSTMENT_REASONS, type AdjustmentReason } from '@/lib/adjustments/reasons'
+import { getStockAlertState } from '@/lib/items/stock'
 import { isInventoryItemType } from '@/lib/items/type'
 
 interface Item {
@@ -11,6 +12,7 @@ interface Item {
   name: string
   itemType: 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE'
   quantity: number
+  reorderLevel: number
   costPrice: number
   sellingPrice: number
   manufacturer: { id: string; name: string } | null
@@ -191,7 +193,7 @@ export default function BulkAdjustItemsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
-            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : (
           <div className="bg-white border border-gray-200 overflow-hidden divide-y divide-gray-100">
@@ -237,7 +239,13 @@ export default function BulkAdjustItemsPage() {
 
                     {/* Current stock */}
                     <div className="text-right hidden md:block">
-                      <span className={`font-bold text-sm ${item.quantity === 0 ? 'text-red-600' : item.quantity <= 10 ? 'text-amber-600' : 'text-gray-900'}`}>
+                      <span className={`font-bold text-sm ${
+                        getStockAlertState(item.quantity, item.reorderLevel) === 'out'
+                          ? 'text-red-600'
+                          : getStockAlertState(item.quantity, item.reorderLevel) === 'low'
+                            ? 'text-amber-600'
+                            : 'text-gray-900'
+                      }`}>
                         {item.quantity}
                       </span>
                     </div>
@@ -277,7 +285,13 @@ export default function BulkAdjustItemsPage() {
                     {/* Preview */}
                     <div className="w-20 text-right hidden md:block">
                       {preview !== null ? (
-                        <span className={`font-bold text-sm ${preview === 0 ? 'text-red-600' : preview <= 10 ? 'text-amber-600' : 'text-green-700'}`}>
+                        <span className={`font-bold text-sm ${
+                          getStockAlertState(preview, item.reorderLevel) === 'out'
+                            ? 'text-red-600'
+                            : getStockAlertState(preview, item.reorderLevel) === 'low'
+                              ? 'text-amber-600'
+                              : 'text-green-700'
+                        }`}>
                           → {preview}
                         </span>
                       ) : (

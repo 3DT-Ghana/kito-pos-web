@@ -118,7 +118,7 @@ export default function AdminApplicationDetailPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
         </div>
       </AdminLayout>
     )
@@ -240,7 +240,7 @@ export default function AdminApplicationDetailPage() {
                     )}
                   </div>
                   {i === 0 && (
-                    <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full shrink-0 ml-3">
+                    <span className="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 -full shrink-0 ml-3">
                       Primary
                     </span>
                   )}
@@ -385,7 +385,7 @@ function StatusBadge({ status }: { status: string }) {
     SUSPENDED: 'bg-gray-100 text-gray-600',
   }
   return (
-    <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-medium px-2.5 py-0.5 -full ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )

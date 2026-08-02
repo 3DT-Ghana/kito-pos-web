@@ -193,6 +193,13 @@ enum ApprovalFlag {
   STOCK_ADJUSTMENT  // manual stock add/remove/set
 }
 
+enum WaybillStatus {
+  DRAFT       // created, not yet dispatched
+  DISPATCHED  // goods in transit to consignee
+  DELIVERED   // confirmed received by consignee
+  CANCELLED   // voided
+}
+
 enum TransferPartyType {
   CUSTOMER  // party is a Customer record
   SUPPLIER  // party is a Supplier record
@@ -234,6 +241,11 @@ model Tenant {
   hubtelClientId         String?
   hubtelClientSecret     String?
   hubtelSenderId         String? // e.g. "MYBIZ" (max 11 chars, no spaces)
+
+  // WhatsApp Notifications — Meta WhatsApp Business Cloud API
+  enableWhatsApp         Boolean @default(false)
+  metaWabaToken          String? // permanent system user token from Meta
+  metaWabaPhoneNumberId  String? // Phone Number ID from Meta WABA dashboard
 
   // Feature Flags — enable/disable optional modules from Settings
   enablePosTerminal    Boolean @default(false)
@@ -295,6 +307,7 @@ model User {
   name             String
   email            String            @unique
   password         String
+  isActive         Boolean           @default(true)
   approvalPin      String?
   role             Role
   branchId         String?
@@ -369,6 +382,7 @@ model Item {
   category       Category?    @relation(fields: [categoryId], references: [id])
   name           String
   quantity       Float        @default(0)
+  reorderLevel   Int          @default(10)
   costPrice      Float
   sellingPrice   Float
   retailPrice    Float?
@@ -446,8 +460,12 @@ model Sale {
   totalAmount   Float
   paidAmount    Float
   paymentType   PaymentType // CASH = fully paid, CREDIT = balance owed
-  paymentMethod PaymentMethod    @default(CASH) // how money was received: CASH, MOMO, BANK
-  createdAt     DateTime         @default(now())
+  paymentMethod     PaymentMethod @default(CASH) // how money was received: CASH, MOMO, BANK
+  momoPhone         String?       // captured when paymentMethod = MOMO
+  bankName          String?       // captured when paymentMethod = BANK (sales invoice only)
+  bankAccountName   String?       // account holder name
+  bankReference     String?       // transaction / reference number
+  createdAt         DateTime      @default(now())
   items         SaleItem[]
   returns       CustomerReturn[]
   taxLines      TransactionTaxLine[] @relation("SaleTaxLines")
@@ -510,23 +528,31 @@ model PurchaseItem {
 // =====================
 
 model CustomerPayment {
-  id         String        @id @default(uuid())
-  tenantId   String
-  branchId   String? // optional: which branch received this payment
-  customerId String
-  amount     Float
-  method     PaymentMethod
-  createdAt  DateTime      @default(now())
+  id              String        @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  customerId      String
+  amount          Float
+  method          PaymentMethod
+  momoPhone       String?       // captured when method = MOMO
+  bankName        String?       // captured when method = BANK
+  bankAccountName String?
+  bankReference   String?
+  createdAt       DateTime      @default(now())
 }
 
 model SupplierPayment {
-  id         String        @id @default(uuid())
-  tenantId   String
-  branchId   String? // optional: which branch made this payment
-  supplierId String
-  amount     Float
-  method     PaymentMethod
-  createdAt  DateTime      @default(now())
+  id              String        @id @default(uuid())
+  tenantId        String
+  branchId        String?
+  supplierId      String
+  amount          Float
+  method          PaymentMethod
+  momoPhone       String?       // captured when method = MOMO
+  bankName        String?       // captured when method = BANK
+  bankAccountName String?
+  bankReference   String?
+  createdAt       DateTime      @default(now())
 }
 
 // =====================
@@ -545,6 +571,7 @@ model CustomerReturn {
   subtotalAmount Float @default(0)
   taxAmount Float      @default(0)
   amount    Float
+  note      String?
   createdAt DateTime   @default(now())
   taxLines  TransactionTaxLine[] @relation("CustomerReturnTaxLines")
 }
@@ -559,6 +586,7 @@ model SupplierReturn {
   quantity   Float
   type       ReturnType
   amount     Float
+  note       String?
   createdAt  DateTime   @default(now())
 }
 
@@ -1191,6 +1219,16 @@ model PayrollLine {
 // PLATFORM — AGENTS & ONBOARDING
 // =====================
 
+model PlatformAdmin {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String
+  passwordHash   String
+  createdByEmail String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
 model Agent {
   id                  String      @id @default(uuid())
   agentCode           String      @unique // e.g. "AGT-0001"
@@ -1605,4 +1643,75 @@ model PayrollDepartment {
 
   @@unique([tenantId, name])
   @@index([tenantId])
+}
+
+// =====================
+// WAYBILLS / DELIVERY NOTES
+// =====================
+
+model Waybill {
+  id             String        @id @default(uuid())
+  tenantId       String
+  branchId       String?
+
+  // Auto-generated document number e.g. "WB-2026-0001"
+  waybillNumber  String
+
+  status         WaybillStatus @default(DRAFT)
+
+  // Link to the originating sale (optional — can be a standalone delivery)
+  saleId         String?
+
+  // Shipper (sender) details — pre-filled from tenant/branch, editable
+  shipperName    String
+  shipperAddress String?
+  shipperPhone   String?
+
+  // Consignee (recipient) details
+  consigneeName    String
+  consigneeAddress String
+  consigneePhone   String?
+
+  // Carrier / logistics details
+  driverName     String?
+  vehicleNumber  String?
+  carrierName    String?        // transport company name if any
+
+  // Dispatch & delivery timestamps + user stamps
+  dispatchedAt   DateTime?
+  dispatchedById String?
+  deliveredAt    DateTime?
+  deliveredById  String?
+
+  // Delivery note / special instructions
+  notes          String?
+
+  // Recipient signature note (captured on delivery confirmation)
+  receivedBy     String?        // name of person who physically received goods
+
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  items WaybillItem[]
+
+  @@unique([tenantId, waybillNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([saleId])
+}
+
+model WaybillItem {
+  id          String  @id @default(uuid())
+  waybillId   String
+  waybill     Waybill @relation(fields: [waybillId], references: [id], onDelete: Cascade)
+
+  // Snapshot fields — independent of Item record
+  description String
+  quantity    Float
+  unit        String  @default("pcs")
+  weight      Float?  // kg — optional
+  notes       String?
+
+  @@index([waybillId])
 }

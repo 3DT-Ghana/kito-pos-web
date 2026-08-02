@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { ItemType } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
  * GET /api/pos/items
@@ -17,29 +18,38 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const featureError = requireTenantFeature(context!.features, 'enablePosTerminal')
+    if (featureError) return featureError
+
     const { searchParams } = new URL(req.url)
     const q = searchParams.get('q')?.trim() ?? ''
     const manufacturerId = searchParams.get('manufacturerId')?.trim() ?? ''
     const categoryId = searchParams.get('categoryId')?.trim() ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 200)
 
+    const stockFilter = [
+      { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
+      { itemType: ItemType.NON_INVENTORY },
+      { itemType: ItemType.SERVICE },
+    ]
+
+    const searchFilter = q
+      ? [
+          { name: { contains: q, mode: 'insensitive' as const } },
+          { barcode: { contains: q, mode: 'insensitive' as const } },
+        ]
+      : null
+
+    // Combine stock-type filter and optional search filter with AND so both must apply
+    const andClauses = searchFilter
+      ? [{ OR: stockFilter }, { OR: searchFilter }]
+      : [{ OR: stockFilter }]
+
     const where = applyBranchScope({
       tenantId: context!.tenantId,
-      OR: [
-        { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },
-        { itemType: ItemType.NON_INVENTORY },
-        { itemType: ItemType.SERVICE },
-      ],
+      AND: andClauses,
       ...(manufacturerId ? { manufacturerId } : {}),
       ...(categoryId ? { categoryId } : {}),
-      ...(q
-        ? {
-            OR: [
-              { name: { contains: q, mode: 'insensitive' as const } },
-              { barcode: { contains: q, mode: 'insensitive' as const } },
-            ],
-          }
-        : {}),
     }, context!)
 
     const items = await prisma.item.findMany({
@@ -54,6 +64,7 @@ export async function GET(req: Request) {
         wholesalePrice: true,
         promoPrice: true,
         quantity: true,
+        reorderLevel: true,
         unitName: true,
         piecesPerUnit: true,
         branchId: true,

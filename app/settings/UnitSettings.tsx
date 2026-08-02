@@ -65,12 +65,12 @@ export function UnitSettings({ initialUseUnitSystem, tenantId }: UnitSettingsPro
                 id="useUnitSystem"
                 type="button"
                 onClick={() => setUseUnitSystem(!useUnitSystem)}
-                className={`relative inline-flex h-12 w-24 shrink-0 cursor-pointer rounded-full border-4 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                className={`relative inline-flex h-12 w-24 shrink-0 cursor-pointer -full border-4 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
                   useUnitSystem ? 'bg-amber-500 border-amber-500' : 'bg-gray-200 border-gray-200'
                 }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-full w-10 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  className={`pointer-events-none inline-block h-full w-10 transform -full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                     useUnitSystem ? 'translate-x-10' : 'translate-x-0'
                   }`}
                 >

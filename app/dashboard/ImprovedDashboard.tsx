@@ -5,12 +5,15 @@ import { useState } from 'react'
 import { ShoppingCart, Package, TrendingDown, Plus, ArrowRight, LogOut } from 'lucide-react'
 import { DashboardCharts } from '@/components/dashboard/DashboardCharts'
 import { SignOutConfirmModal } from '@/components/auth/SignOutModal'
+import type { DashboardData } from '@/lib/dashboard/getDashboardData'
 
 interface DashboardProps {
   userName: string
   tenantName: string
   greeting: string
   dateStr: string
+  initialDashboardData: DashboardData | null
+  initialBranchId: string | null
 }
 
 const quickActions = [
@@ -19,7 +22,14 @@ const quickActions = [
   { label: 'Add Item',     href: '/items/new',     icon: Package       },
 ]
 
-export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: DashboardProps) {
+export function ImprovedDashboard({
+  userName,
+  tenantName,
+  greeting,
+  dateStr,
+  initialDashboardData,
+  initialBranchId,
+}: DashboardProps) {
   const [signOutOpen, setSignOutOpen] = useState(false)
 
   return (
@@ -29,9 +39,9 @@ export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: D
       {/* ── Hero header ────────────────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 px-6 sm:px-10 pt-10 pb-28">
         {/* decorative circles */}
-        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full bg-blue-500/10" />
-        <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 rounded-full bg-indigo-500/10" />
-        <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 rounded-full bg-violet-500/8" />
+        <div className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 -full bg-blue-500/10" />
+        <div className="pointer-events-none absolute top-10 -left-16 w-48 h-48 -full bg-indigo-500/10" />
+        <div className="pointer-events-none absolute bottom-0 right-1/3 w-64 h-64 -full bg-violet-500/8" />
 
         <div className="relative max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
           <div>
@@ -78,7 +88,7 @@ export function ImprovedDashboard({ userName, tenantName, greeting, dateStr }: D
 
       {/* ── Body — pulled up over the hero ─────────────────────────────────── */}
       <div className="relative -mt-20 px-4 sm:px-6 lg:px-8 pb-10 max-w-7xl mx-auto">
-        <DashboardCharts />
+        <DashboardCharts initialData={initialDashboardData} initialBranchId={initialBranchId} />
 
         {/* Footer link */}
         <div className="mt-6 flex justify-center">

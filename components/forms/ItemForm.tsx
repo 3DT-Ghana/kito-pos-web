@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { itemSchema, ItemFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
+import { DEFAULT_REORDER_LEVEL } from '@/lib/items/stock'
 
 /**
  * Item Form Component
@@ -82,6 +83,7 @@ export function ItemForm({
       manufacturerId: '',
       name: '',
       quantity: 0,
+      reorderLevel: DEFAULT_REORDER_LEVEL,
       costPrice: 0,
       sellingPrice: 0,
       itemType: 'INVENTORY',
@@ -197,16 +199,16 @@ export function ItemForm({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {/* Manufacturer Selection */}
+      {/* Brand / Manufacturer Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Manufacturer *
+          Brand / Manufacturer <span className="text-gray-400 font-normal">(optional)</span>
         </label>
         <select
           {...register('manufacturerId')}
           className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
-          <option value="">Select Manufacturer</option>
+          <option value="">System (default)</option>
           {manufacturers.map((manufacturer) => (
             <option key={manufacturer.id} value={manufacturer.id}>
               {manufacturer.name}
@@ -294,6 +296,26 @@ export function ItemForm({
             <p className="mt-1 text-xs text-gray-500">
               Leave blank or set to 0 if adding via purchase
             </p>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reorder Level
+              </label>
+              <input
+                type="number"
+                {...register('reorderLevel', { valueAsNumber: true })}
+                placeholder={String(DEFAULT_REORDER_LEVEL)}
+                min="0"
+                step="1"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {errors.reorderLevel && (
+                <p className="mt-1 text-sm text-red-600">{errors.reorderLevel.message}</p>
+              )}
+              <p className="mt-1 text-xs text-gray-500">
+                Low-stock alerts appear when quantity is at or below this level.
+              </p>
+            </div>
           </>
         ) : (
           <>
@@ -447,7 +469,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('retailPrice', { valueAsNumber: true })}
+                  {...register('retailPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -465,7 +487,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('wholesalePrice', { valueAsNumber: true })}
+                  {...register('wholesalePrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -483,7 +505,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('promoPrice', { valueAsNumber: true })}
+                  {...register('promoPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -525,12 +547,12 @@ export function ItemForm({
               Control whether this item is taxable and whether it uses the tenant default tax bundle or specific named taxes.
             </p>
           </div>
-          <label className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm font-semibold text-emerald-900 shadow-sm">
+          <label className="inline-flex items-center gap-2 -full bg-white px-3 py-2 text-sm font-semibold text-emerald-900 shadow-sm">
             <input
               type="checkbox"
               checked={isTaxable}
               onChange={(event) => setValue('isTaxable', event.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              className="h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
             />
             Taxable
           </label>
@@ -568,7 +590,7 @@ export function ItemForm({
                 type="checkbox"
                 checked={useTenantDefaultTaxes}
                 onChange={(event) => setValue('useTenantDefaultTaxes', event.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                className="mt-0.5 h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
               />
               <div>
                 <span className="text-sm font-semibold text-gray-900">Use tenant default taxes</span>
@@ -599,14 +621,14 @@ export function ItemForm({
                             type="checkbox"
                             checked={selectedTaxRateIds.includes(taxRate.id)}
                             onChange={() => toggleTaxRateSelection(taxRate.id)}
-                            className="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                            className="mt-0.5 h-4 w-4  border-gray-300 text-emerald-600 focus:ring-emerald-500"
                           />
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-gray-900">
                                 {taxRate.name}
                               </span>
-                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
+                              <span className="-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
                                 {taxRate.ratePercentage}%
                               </span>
                             </div>

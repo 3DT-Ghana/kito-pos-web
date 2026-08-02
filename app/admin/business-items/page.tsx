@@ -101,7 +101,7 @@ export default function BusinessItemsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : items.length === 0 ? (
           <div className="bg-white border border-gray-200 p-12 text-center">
@@ -120,10 +120,10 @@ export default function BusinessItemsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-semibold text-gray-900">{item.name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${item.billingCycle === 'ONE_TIME' ? 'bg-blue-50 text-blue-700' : item.billingCycle === 'MONTHLY' ? 'bg-indigo-50 text-indigo-700' : 'bg-purple-50 text-purple-700'}`}>
+                      <span className={`text-xs px-2 py-0.5 -full font-medium ${item.billingCycle === 'ONE_TIME' ? 'bg-blue-50 text-blue-700' : item.billingCycle === 'MONTHLY' ? 'bg-indigo-50 text-indigo-700' : 'bg-purple-50 text-purple-700'}`}>
                         {CYCLE_LABELS[item.billingCycle]}
                       </span>
-                      {!item.isActive && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
+                      {!item.isActive && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 -full">Inactive</span>}
                     </div>
                     {item.description && <p className="text-xs text-gray-400 mt-0.5">{item.description}</p>}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">

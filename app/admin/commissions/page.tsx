@@ -147,7 +147,7 @@ export default function CommissionsPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : commissions.length === 0 ? (
           <div className="bg-white border border-gray-200 p-12 text-center">
@@ -161,7 +161,7 @@ export default function CommissionsPage() {
                 type="checkbox"
                 checked={selected.size === commissions.filter((c) => c.status === 'PENDING').length && commissions.some((c) => c.status === 'PENDING')}
                 onChange={toggleAll}
-                className="w-4 h-4 rounded border-gray-300 text-indigo-600"
+                className="w-4 h-4  border-gray-300 text-indigo-600"
               />
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Select pending</span>
             </div>
@@ -173,13 +173,13 @@ export default function CommissionsPage() {
                     checked={selected.has(c.id)}
                     onChange={() => toggleSelect(c.id)}
                     disabled={c.status !== 'PENDING'}
-                    className="mt-0.5 w-4 h-4 rounded border-gray-300 text-indigo-600 disabled:opacity-30"
+                    className="mt-0.5 w-4 h-4  border-gray-300 text-indigo-600 disabled:opacity-30"
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-gray-900">{c.agent.fullName}</p>
                       <span className="text-xs text-gray-400">{c.agent.agentCode}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLE[c.status] ?? 'bg-gray-100'}`}>{c.status}</span>
+                      <span className={`text-xs px-2 py-0.5 -full font-medium ${STATUS_STYLE[c.status] ?? 'bg-gray-100'}`}>{c.status}</span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{c.tenantName} · {c.description}</p>
                     <p className="text-xs text-gray-400 mt-0.5">

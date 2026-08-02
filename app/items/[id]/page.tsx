@@ -7,6 +7,7 @@ import { ItemForm } from '@/components/forms/ItemForm'
 import { ItemFormData } from '@/types/form'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { useUser } from '@/hooks/useUser'
+import { isLowStock } from '@/lib/items/stock'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
 import { formatTaxLabel } from '@/lib/tax/summary'
 
@@ -153,7 +154,7 @@ export default function ItemDetailPage() {
     ? { label: itemTypeLabel(itemType), cls: itemType === 'SERVICE' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700' }
     : item.quantity === 0
     ? { label: 'Out of Stock', cls: 'bg-red-100 text-red-700' }
-    : item.quantity <= 10
+    : isLowStock(item.quantity, item.reorderLevel)
     ? { label: 'Low Stock', cls: 'bg-orange-100 text-orange-700' }
     : { label: 'In Stock', cls: 'bg-green-100 text-green-700' }
 
@@ -178,7 +179,7 @@ export default function ItemDetailPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900">{item.name}</h1>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${stockStatus.cls}`}>
+                <span className={`text-xs px-2 py-0.5 -full font-semibold ${stockStatus.cls}`}>
                   {stockStatus.label}
                 </span>
               </div>
@@ -228,7 +229,7 @@ export default function ItemDetailPage() {
           <div className={`p-4 border-2 ${
             !isInventoryItem ? 'bg-slate-50 border-slate-200'
             : item.quantity === 0 ? 'bg-red-50 border-red-200'
-            : item.quantity <= 10 ? 'bg-orange-50 border-orange-200'
+            : isLowStock(item.quantity, item.reorderLevel) ? 'bg-orange-50 border-orange-200'
             : 'bg-green-50 border-green-200'
           }`}>
             <p className="text-xs font-semibold text-gray-500 uppercase">
@@ -237,11 +238,16 @@ export default function ItemDetailPage() {
             <p className={`text-2xl font-bold mt-1 ${
               !isInventoryItem ? 'text-slate-700'
               : item.quantity === 0 ? 'text-red-600'
-              : item.quantity <= 10 ? 'text-orange-600'
+              : isLowStock(item.quantity, item.reorderLevel) ? 'text-orange-600'
               : 'text-green-700'
             }`}>
               {isInventoryItem ? item.quantity : 'Off'}
             </p>
+            {isInventoryItem && (
+              <p className="mt-1 text-xs text-gray-500">
+                Reorder level: {item.reorderLevel}
+              </p>
+            )}
           </div>
           <div className="bg-white p-4 border border-gray-200">
             <p className="text-xs font-semibold text-gray-500 uppercase">Cost Price</p>
@@ -286,7 +292,7 @@ export default function ItemDetailPage() {
                   : 'This item is currently marked as non-taxable.'}
               </p>
             </div>
-            <div className="rounded-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm">
+            <div className="-full bg-white px-3 py-1 text-xs font-bold text-emerald-800 shadow-sm">
               {productTaxSetting?.taxCalculationType === 'INCLUSIVE'
                 ? 'Tax Inclusive'
                 : productTaxSetting?.taxCalculationType === 'ADD_TO_PRICE'
@@ -322,7 +328,7 @@ export default function ItemDetailPage() {
               productTaxRates.map((rate: any) => (
                 <span
                   key={rate.id}
-                  className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900"
+                  className="-full border border-emerald-200 bg-white px-3 py-1 text-xs font-semibold text-emerald-900"
                 >
                   {formatTaxLabel({
                     taxName: rate.name,
@@ -349,6 +355,7 @@ export default function ItemDetailPage() {
                 manufacturerId: item.manufacturerId,
                 name: item.name,
                 quantity: item.quantity,
+                reorderLevel: item.reorderLevel,
                 costPrice: item.costPrice,
                 sellingPrice: item.sellingPrice,
                 unitName: item.unitName,

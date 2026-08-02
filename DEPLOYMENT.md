@@ -120,6 +120,10 @@ rendering from their original host; `keyFromFileUrl()` returns `null` for them.
 If you are cutting over with existing data, copy the objects into R2 and rewrite
 `Agent.ghanaCardImageUrl` / `BusinessDocument.fileUrl` to the `/api/files/…` form.
 
+`deleteStoredFile()` — used when a KYC document is replaced — is deliberately a
+no-op for those legacy absolute URLs. They point at a bucket this app no longer
+holds credentials for, so attempting the delete would only raise noise.
+
 ### Upload size
 
 Capped at **4 MB** (`lib/storage/limits.ts`). Vercel rejects request bodies over
@@ -199,7 +203,10 @@ Everything" on the zone.
   exempt its path first.
 - **Rate limiting** (recommended): a rule on `/api/auth/*` — 10 requests per
   minute per IP — blunts credential stuffing. The app's own session logic does
-  not rate-limit sign-in.
+  not rate-limit sign-in. This matters more since the mobile Bearer flow landed:
+  `/api/auth/mobile-login` mints a JWT signed with `NEXTAUTH_SECRET`, and
+  `proxy.ts` accepts that token on tenant APIs in place of a session cookie, so
+  it is a second credential-stuffing surface.
 - Vercel **Deployment Protection**: leave Vercel Authentication on for Preview so
   previews of a POS are not publicly reachable.
 

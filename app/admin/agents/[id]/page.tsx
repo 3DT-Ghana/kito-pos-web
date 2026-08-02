@@ -59,7 +59,7 @@ const STATUS_BADGE: Record<string, string> = {
 
 function Sb({ status }: { status: string }) {
   return (
-    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
+    <span className={`text-xs font-semibold px-2.5 py-0.5 -full ${STATUS_BADGE[status] ?? 'bg-gray-100 text-gray-600'}`}>
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   )
@@ -74,24 +74,52 @@ export default function AdminAgentDetailPage() {
   const [rejectionReasonInput, setRejectionReasonInput] = useState('')
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  async function load() {
+  async function fetchPageData() {
     const [agentRes, reportRes] = await Promise.all([
       fetch(`/api/admin/agents/${id}`),
       fetch('/api/admin/reports'),
     ])
     const agentData = await agentRes.json()
-    setAgent(agentData.id ? agentData : null)
-    setRejectionReasonInput(agentData?.rejectionReason ?? '')
 
+    let nextReport: AgentReportRow | null = null
     if (reportRes.ok) {
       const reportData = await reportRes.json()
-      const row = (reportData.agentReport ?? []).find((r: AgentReportRow) => r.id === id) ?? null
-      setReport(row)
+      nextReport = (reportData.agentReport ?? []).find((r: AgentReportRow) => r.id === id) ?? null
     }
+
+    return {
+      agent: agentData.id ? agentData : null,
+      rejectionReason: agentData?.rejectionReason ?? '',
+      report: nextReport,
+    }
+  }
+
+  async function load() {
+    setLoading(true)
+    const data = await fetchPageData()
+    setAgent(data.agent)
+    setRejectionReasonInput(data.rejectionReason)
+    setReport(data.report)
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [id])
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const data = await fetchPageData()
+      if (cancelled) return
+
+      setAgent(data.agent)
+      setRejectionReasonInput(data.rejectionReason)
+      setReport(data.report)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
 
   async function updateStatus(status: string) {
     const trimmedRejectionReason = rejectionReasonInput.trim()
@@ -136,7 +164,7 @@ export default function AdminAgentDetailPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
         </div>
       </AdminLayout>
     )
@@ -289,10 +317,10 @@ export default function AdminAgentDetailPage() {
                 <span>Application breakdown</span>
                 <span>{agent.onboardedBusinesses.length} total</span>
               </div>
-              <div className="flex h-2 rounded-full overflow-hidden gap-px">
+              <div className="flex h-2 -full overflow-hidden gap-px">
                 {approvedApps.length > 0 && (
                   <div
-                    className="bg-emerald-500 rounded-l-full"
+                    className="bg-emerald-500 "
                     style={{ width: `${(approvedApps.length / agent.onboardedBusinesses.length) * 100}%` }}
                   />
                 )}
@@ -304,15 +332,15 @@ export default function AdminAgentDetailPage() {
                 )}
                 {rejectedApps.length > 0 && (
                   <div
-                    className="bg-red-400 rounded-r-full"
+                    className="bg-red-400 "
                     style={{ width: `${(rejectedApps.length / agent.onboardedBusinesses.length) * 100}%` }}
                   />
                 )}
               </div>
               <div className="flex gap-4 mt-2 text-xs">
-                <span className="flex items-center gap-1 text-emerald-700"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />{approvedApps.length} approved</span>
-                {pendingApps.length > 0 && <span className="flex items-center gap-1 text-amber-700"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />{pendingApps.length} pending</span>}
-                {rejectedApps.length > 0 && <span className="flex items-center gap-1 text-red-600"><span className="w-2 h-2 rounded-full bg-red-400 inline-block" />{rejectedApps.length} rejected</span>}
+                <span className="flex items-center gap-1 text-emerald-700"><span className="w-2 h-2 -full bg-emerald-500 inline-block" />{approvedApps.length} approved</span>
+                {pendingApps.length > 0 && <span className="flex items-center gap-1 text-amber-700"><span className="w-2 h-2 -full bg-amber-400 inline-block" />{pendingApps.length} pending</span>}
+                {rejectedApps.length > 0 && <span className="flex items-center gap-1 text-red-600"><span className="w-2 h-2 -full bg-red-400 inline-block" />{rejectedApps.length} rejected</span>}
               </div>
             </div>
           )}

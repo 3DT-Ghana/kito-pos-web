@@ -4,7 +4,7 @@ import { useState, FormEvent } from 'react'
 import { getSession, signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, AlertCircle, ArrowRight, MapPin } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react'
 
 export default function AgentLoginPage() {
   const router = useRouter()
@@ -18,7 +18,12 @@ export default function AgentLoginPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const result = await signIn('credentials', { email, password, redirect: false })
+    const result = await signIn('credentials', {
+      email,
+      password,
+      redirect: false,
+      portal: 'agent',
+    })
     if (result?.error) {
       setLoading(false)
       setError('Invalid email or password.')
@@ -198,5 +203,5 @@ export default function AgentLoginPage() {
 }
 
 function Spinner() {
-  return <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  return <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
 }

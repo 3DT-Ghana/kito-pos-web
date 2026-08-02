@@ -71,9 +71,9 @@ export function SignOutConfirmModal({ open, onClose }: SignOutConfirmProps) {
       />
 
       {/* Mobile: bottom sheet */}
-      <div className="sm:hidden absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl p-6 pb-10">
+      <div className="sm:hidden absolute bottom-0 left-0 right-0 bg-white  shadow-2xl p-6 pb-10">
         {/* Drag handle */}
-        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+        <div className="w-10 h-1 bg-gray-200 -full mx-auto mb-5" />
         {inner}
       </div>
 
@@ -97,21 +97,19 @@ interface IdleWarningProps {
 }
 
 export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
+  if (!open) return null
+
+  return <IdleWarningDialog onStaySignedIn={onStaySignedIn} />
+}
+
+function IdleWarningDialog({ onStaySignedIn }: Omit<IdleWarningProps, 'open'>) {
   const [secs, setSecs] = useState(WARNING_SECS)
   const interval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    if (!open) {
-      setSecs(WARNING_SECS)
-      if (interval.current) clearInterval(interval.current)
-      return
-    }
-
-    setSecs(WARNING_SECS)
     interval.current = setInterval(() => {
-      setSecs(prev => {
+      setSecs((prev) => {
         if (prev <= 1) {
-          // Timer expires — sign-out is handled by useIdleTimeout; just clean up
           if (interval.current) clearInterval(interval.current)
           return 0
         }
@@ -122,9 +120,7 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
     return () => {
       if (interval.current) clearInterval(interval.current)
     }
-  }, [open])
-
-  if (!open) return null
+  }, [])
 
   const pct = (secs / WARNING_SECS) * 100
   const urgent = secs <= 15
@@ -139,14 +135,14 @@ export function IdleWarningModal({ open, onStaySignedIn }: IdleWarningProps) {
 
         <h2 className="text-base font-bold text-gray-900">Still there?</h2>
         <p className="mt-1.5 text-sm text-gray-500">
-          You&rsquo;ve been inactive. You&rsquo;ll be signed out automatically in{' '}
+          You&apos;ve been inactive. You&apos;ll be signed out automatically in{' '}
           <span className={`font-bold ${urgent ? 'text-red-600' : 'text-amber-600'}`}>{secs}s</span>.
         </p>
 
         {/* Countdown bar */}
-        <div className="mt-4 h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+        <div className="mt-4 h-1.5 w-full -full bg-gray-100 overflow-hidden">
           <div
-            className={`h-1.5 rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-amber-400'}`}
+            className={`h-1.5 -full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-amber-400'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -181,6 +177,6 @@ function Backdrop({ children, onClose }: { children: React.ReactNode; onClose: (
 
 function Spinner() {
   return (
-    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+    <div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" />
   )
 }

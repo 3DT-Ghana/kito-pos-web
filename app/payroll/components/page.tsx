@@ -20,14 +20,33 @@ export default function PayrollComponentsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const r = await fetch('/api/payroll/components')
-    if (r.ok) setComponents(await r.json())
-    setLoading(false)
+  const fetchComponents = useCallback(async () => {
+    const response = await fetch('/api/payroll/components')
+    if (!response.ok) return []
+    return response.json() as Promise<PayrollComponent[]>
   }, [])
 
-  useEffect(() => { load() }, [load])
+  const load = useCallback(async () => {
+    setLoading(true)
+    setComponents(await fetchComponents())
+    setLoading(false)
+  }, [fetchComponents])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      const nextComponents = await fetchComponents()
+      if (cancelled) return
+
+      setComponents(nextComponents)
+      setLoading(false)
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchComponents])
 
   function openCreate() {
     setEditing(null)
@@ -87,7 +106,7 @@ export default function PayrollComponentsPage() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-12"><div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" /></div>
         ) : (
           <>
             {[{ label: 'Allowances', items: allowances }, { label: 'Deductions', items: deductions }].map(({ label, items }) => (
@@ -116,21 +135,21 @@ export default function PayrollComponentsPage() {
                           <td className="px-3 py-3 text-gray-500">{c.subType ?? '—'}</td>
                           <td className="px-3 py-3 text-center">
                             {label === 'Allowances'
-                              ? (c.isTaxable ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Taxable</span> : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Non-taxable</span>)
-                              : (c.isBeforeTax ? <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Before PAYE</span> : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">After PAYE</span>)
+                              ? (c.isTaxable ? <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 -full">Taxable</span> : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 -full">Non-taxable</span>)
+                              : (c.isBeforeTax ? <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 -full">Before PAYE</span> : <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 -full">After PAYE</span>)
                             }
                           </td>
                           <td className="px-3 py-3 text-center">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
+                            <span className={`text-xs px-2 py-0.5 -full ${c.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400'}`}>
                               {c.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </td>
                           <td className="px-5 py-3 text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded">
+                              <button onClick={() => openEdit(c)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 ">
                                 <Pencil className="w-3.5 h-3.5" />
                               </button>
-                              <button onClick={() => toggleActive(c)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded" title={c.isActive ? 'Deactivate' : 'Activate'}>
+                              <button onClick={() => toggleActive(c)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 " title={c.isActive ? 'Deactivate' : 'Activate'}>
                                 {c.isActive ? <ToggleRight className="w-4 h-4 text-emerald-600" /> : <ToggleLeft className="w-4 h-4" />}
                               </button>
                             </div>
@@ -182,12 +201,12 @@ export default function PayrollComponentsPage() {
 
               {form.type === 'ALLOWANCE' ? (
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.isTaxable} onChange={(e) => setForm((f) => ({ ...f, isTaxable: e.target.checked }))} className="w-4 h-4 text-indigo-600 rounded" />
+                  <input type="checkbox" checked={form.isTaxable} onChange={(e) => setForm((f) => ({ ...f, isTaxable: e.target.checked }))} className="w-4 h-4 text-indigo-600 " />
                   <span className="text-sm text-gray-700">Taxable allowance (adds to PAYE chargeable income)</span>
                 </label>
               ) : (
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={form.isBeforeTax} onChange={(e) => setForm((f) => ({ ...f, isBeforeTax: e.target.checked }))} className="w-4 h-4 text-indigo-600 rounded" />
+                  <input type="checkbox" checked={form.isBeforeTax} onChange={(e) => setForm((f) => ({ ...f, isBeforeTax: e.target.checked }))} className="w-4 h-4 text-indigo-600 " />
                   <span className="text-sm text-gray-700">Deduct before PAYE (reduces chargeable income)</span>
                 </label>
               )}

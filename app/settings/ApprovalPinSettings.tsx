@@ -142,7 +142,7 @@ export function ApprovalPinSettings() {
             {Array.from({ length: PIN_LENGTH }).map((_, i) => (
               <div
                 key={i}
-                className={`w-4 h-4 rounded-full border-2 transition-colors ${
+                className={`w-4 h-4 -full border-2 transition-colors ${
                   i < displayDigits.length ? 'bg-amber-500 border-amber-500' : 'border-gray-300'
                 }`}
               />

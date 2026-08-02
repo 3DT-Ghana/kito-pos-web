@@ -126,7 +126,7 @@ export default function SalesPage() {
               >
                 <Bell className="w-4 h-4 text-gray-600" />
                 {sentQuotationsCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] font-bold -full flex items-center justify-center leading-none">
                     {sentQuotationsCount > 99 ? '99+' : sentQuotationsCount}
                   </span>
                 )}

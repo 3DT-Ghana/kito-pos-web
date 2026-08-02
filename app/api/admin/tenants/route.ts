@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 import { TenantStatus } from '@prisma/client'
 import { approvedSaleWhere } from '@/lib/approvals/sales'
+import { requireSuperAdmin } from '@/lib/admin/server'
 
 /**
  * GET /api/admin/tenants
  *
  * Super-admin endpoint — lists all tenants with aggregated stats.
- * Access is restricted to the email(s) in SUPER_ADMIN_EMAILS env var.
  *
  * Returns each tenant with:
  *  - Basic info (id, name, phone, status, createdAt)
@@ -19,28 +17,16 @@ import { approvedSaleWhere } from '@/lib/approvals/sales'
  *  - Purchase count + total spend
  *  - Feature flags summary
  */
-
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS || 'ee.wilson@outlook.com')
-  .split(',')
-  .map(e => e.trim().toLowerCase())
-
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (!SUPER_ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
-      return NextResponse.json({ error: 'Forbidden — super-admin only' }, { status: 403 })
-    }
+    const { error } = await requireSuperAdmin()
+    if (error) return error
 
     const tenants = await prisma.tenant.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
         users: {
-          select: { id: true, name: true, email: true, role: true, createdAt: true },
+          select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         },
         _count: {
@@ -156,15 +142,8 @@ export async function GET() {
  */
 export async function PATCH(req: Request) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    if (!SUPER_ADMIN_EMAILS.includes(session.user.email.toLowerCase())) {
-      return NextResponse.json({ error: 'Forbidden — super-admin only' }, { status: 403 })
-    }
+    const { error } = await requireSuperAdmin()
+    if (error) return error
 
     const body = await req.json()
     const { tenantId, status } = body

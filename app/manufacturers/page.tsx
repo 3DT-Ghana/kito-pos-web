@@ -56,9 +56,9 @@ export default function ManufacturersPage() {
     <AppLayout>
       <div className="space-y-5">
         <PageHeader
-          title="Manufacturers"
-          subtitle="Manage product manufacturers"
-          actions={<Btn icon={Plus} href="/manufacturers/new">New Manufacturer</Btn>}
+          title="Brands / Manufacturers"
+          subtitle="Manage product brands and manufacturers"
+          actions={<Btn icon={Plus} href="/manufacturers/new">New Brand / Manufacturer</Btn>}
         />
 
         {error && (
@@ -67,7 +67,7 @@ export default function ManufacturersPage() {
 
         <div className="grid grid-cols-2 gap-3">
           <StatCard
-            label="Total Manufacturers"
+            label="Total Brands / Manufacturers"
             value={manufacturers.length}
             icon={Factory}
             accent="bg-blue-50"
@@ -86,7 +86,7 @@ export default function ManufacturersPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search manufacturers..."
+            placeholder="Search brands / manufacturers..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full pl-9 pr-8 py-2.5 bg-white border border-gray-200 text-sm focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
@@ -107,10 +107,10 @@ export default function ManufacturersPage() {
         ) : filtered.length === 0 ? (
           <EmptyState
             icon={Factory}
-            title="No manufacturers found"
-            description={search ? 'Try a different search term' : 'Add your first manufacturer'}
+            title="No brands / manufacturers found"
+            description={search ? 'Try a different search term' : 'Add your first brand or manufacturer'}
             action={!search && (
-              <Btn icon={Plus} href="/manufacturers/new" size="sm">Add Manufacturer</Btn>
+              <Btn icon={Plus} href="/manufacturers/new" size="sm">Add Brand / Manufacturer</Btn>
             )}
           />
         ) : (
@@ -118,7 +118,7 @@ export default function ManufacturersPage() {
             <table className="w-full">
               <thead className="bg-gray-50/80 border-b border-gray-100">
                 <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Manufacturer</th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Brand / Manufacturer</th>
                   <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Items</th>
                   <th className="px-5 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
                 </tr>

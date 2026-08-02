@@ -180,9 +180,9 @@ export default function ExpensesPage() {
                     <Badge variant={CATEGORY_BADGE[cat] ?? 'gray'} className="shrink-0 w-24 justify-center">
                       {CATEGORY_LABELS[cat] || cat}
                     </Badge>
-                    <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="flex-1 bg-gray-100 -full h-1.5 overflow-hidden">
                       <div
-                        className="bg-red-400 h-1.5 rounded-full transition-all"
+                        className="bg-red-400 h-1.5 -full transition-all"
                         style={{ width: `${Math.round((amt / totalAmount) * 100)}%` }}
                       />
                     </div>

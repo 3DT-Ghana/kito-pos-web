@@ -5,17 +5,18 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { BarcodeGenerator, type LabelItem } from '@/components/barcode/BarcodeGenerator'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { Btn } from '@/components/ui/Btn'
-import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { useBranch } from '@/lib/branch/BranchContext'
+import { getStockAlertState, isLowStock, isOutOfStock } from '@/lib/items/stock'
 import { formatCurrency } from '@/lib/utils/format'
-import { Printer, Search, X, Package, CheckSquare, Square, Filter } from 'lucide-react'
+import { Printer, Search, X, Package, CheckSquare, Square } from 'lucide-react'
 
 interface Item {
   id: string
   name: string
   barcode: string | null
   quantity: number
+  reorderLevel: number
   sellingPrice: number
   manufacturer: { name: string } | null
   category: { id: string; name: string; color: string | null } | null
@@ -31,16 +32,20 @@ export default function BarcodesPage() {
   const [stockFilter, setStockFilter] = useState<StockFilter>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showGenerator, setShowGenerator] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => { fetchItems() }, [currentBranchId])
 
   const fetchItems = async () => {
     try {
       setIsLoading(true)
+      setFetchError(null)
       const res = await fetch('/api/items')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to load items')
       const data = await res.json()
       setItems(Array.isArray(data) ? data : data.data || [])
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load items')
     } finally {
       setIsLoading(false)
     }
@@ -54,14 +59,19 @@ export default function BarcodesPage() {
       || (i.barcode || '').toLowerCase().includes(q)
     const matchStock =
       stockFilter === 'all' ? true
-      : stockFilter === 'out' ? i.quantity === 0
-      : stockFilter === 'low' ? i.quantity > 0 && i.quantity <= 10
-      : i.quantity > 10
+      : stockFilter === 'out' ? isOutOfStock(i.quantity)
+      : stockFilter === 'low' ? isLowStock(i.quantity, i.reorderLevel)
+      : !isOutOfStock(i.quantity) && !isLowStock(i.quantity, i.reorderLevel)
     return matchSearch && matchStock
   })
 
   const toggleItem = (id: string) =>
-    setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const toggleAll = () => {
     if (selected.size === filtered.length && filtered.length > 0) {
@@ -199,6 +209,14 @@ export default function BarcodesPage() {
           </div>
         )}
 
+        {/* Fetch error */}
+        {fetchError && (
+          <div className="bg-red-50 border border-red-200 px-5 py-4 text-sm text-red-700 flex items-center gap-3">
+            <span>{fetchError}</span>
+            <button onClick={fetchItems} className="underline font-medium ml-auto shrink-0">Retry</button>
+          </div>
+        )}
+
         {/* Items grid */}
         {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -216,7 +234,7 @@ export default function BarcodesPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {filtered.map(item => {
               const isSelected = selected.has(item.id)
-              const stockStatus = item.quantity === 0 ? 'out' : item.quantity <= 10 ? 'low' : 'ok'
+              const stockStatus = getStockAlertState(item.quantity, item.reorderLevel)
               return (
                 <button
                   key={item.id}
@@ -250,7 +268,7 @@ export default function BarcodesPage() {
                     <span className="text-sm font-bold text-gray-800">{formatCurrency(item.sellingPrice)}</span>
                     <div className="flex items-center gap-1.5">
                       {item.barcode ? (
-                        <span className="text-xs text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 rounded">
+                        <span className="text-xs text-gray-400 font-mono bg-gray-50 px-1.5 py-0.5 ">
                           {item.barcode.slice(0, 10)}{item.barcode.length > 10 ? '…' : ''}
                         </span>
                       ) : (
@@ -270,7 +288,7 @@ export default function BarcodesPage() {
                     ) : (
                       <span />
                     )}
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    <span className={`text-xs font-semibold px-2 py-0.5 -full ${
                       stockStatus === 'out' ? 'bg-red-50 text-red-600'
                       : stockStatus === 'low' ? 'bg-amber-50 text-amber-600'
                       : 'bg-emerald-50 text-emerald-600'

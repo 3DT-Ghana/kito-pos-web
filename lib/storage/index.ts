@@ -49,3 +49,17 @@ export async function uploadDocument(
   await putObject(key, buffer, contentType)
   return fileUrlForKey(key)
 }
+
+/**
+ * Delete the object behind a persisted file URL.
+ *
+ * Used when a document is replaced, so the superseded object does not linger in
+ * the bucket. Silently ignores anything that is not one of our `/api/files`
+ * paths — rows written before the move to R2 hold absolute Supabase URLs, and
+ * those objects are not ours to delete.
+ */
+export async function deleteStoredFile(fileUrl: string): Promise<void> {
+  const key = keyFromFileUrl(fileUrl)
+  if (!key) return
+  await deleteObject(key)
+}

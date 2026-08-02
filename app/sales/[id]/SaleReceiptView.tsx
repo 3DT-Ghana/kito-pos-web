@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ThermalReceipt, printReceipt } from '@/components/receipts/ThermalReceipt'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { Printer, Eye, EyeOff, Pencil, RotateCcw } from 'lucide-react'
+import { Printer, Eye, EyeOff, Pencil, RotateCcw, Truck } from 'lucide-react'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 
 interface SaleItem {
@@ -103,9 +103,7 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
       ? 'CREDIT'
       : sale.paymentMethod === 'MOMO'
         ? 'MOMO'
-        : sale.paymentMethod === 'BANK'
-          ? 'BANK TRANSFER'
-          : 'CASH',
+        : 'CASH',
     showManufacturer: tenant.showManufacturerOnReceipt,
   }
 
@@ -142,6 +140,13 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
               Show Preview
             </>
           )}
+        </button>
+        <button
+          onClick={() => router.push(`/waybills/new?saleId=${sale.id}&consigneeName=${encodeURIComponent(sale.customer?.name ?? '')}`)}
+          className="px-5 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-2"
+        >
+          <Truck className="w-4 h-4" />
+          Create Waybill
         </button>
         <button
           onClick={printReceipt}
@@ -185,7 +190,7 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
           <div>
             <span className="text-sm font-semibold text-gray-600">Payment Method:</span>
             <p className="text-base text-gray-900">
-              {sale.paymentMethod === 'MOMO' ? '📱 MoMo' : sale.paymentMethod === 'BANK' ? '🏦 Bank Transfer' : '💵 Cash'}
+              {sale.paymentMethod === 'MOMO' ? '📱 Mobile Money' : '💵 Cash'}
             </p>
           </div>
           <div>

@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 import { authOptions } from '@/lib/auth/auth'
 
 interface AdminContext {
+  platformAdminId: string
   email: string
+  name: string
 }
 
 interface RequireSuperAdminResult {
@@ -11,14 +13,9 @@ interface RequireSuperAdminResult {
   error: NextResponse | null
 }
 
-const SUPER_ADMIN_EMAILS = (process.env.SUPER_ADMIN_EMAILS ?? '')
-  .split(',')
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean)
-
 /**
  * Require a platform super-admin session.
- * Super admins are defined by the SUPER_ADMIN_EMAILS env var.
+ * Platform admins authenticate independently from tenant users.
  */
 export async function requireSuperAdmin(): Promise<RequireSuperAdminResult> {
   const session = await getServerSession(authOptions)
@@ -40,12 +37,29 @@ export async function requireSuperAdmin(): Promise<RequireSuperAdminResult> {
     }
   }
 
-  if (!SUPER_ADMIN_EMAILS.includes(email)) {
+  if (session.user.platformRole !== 'SUPER_ADMIN') {
     return {
       context: null,
       error: NextResponse.json({ error: 'Forbidden — super admin access required' }, { status: 403 }),
     }
   }
 
-  return { context: { email }, error: null }
+  if (!session.user.platformAdminId) {
+    return {
+      context: null,
+      error: NextResponse.json(
+        { error: 'Forbidden — platform admin session is incomplete' },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return {
+    context: {
+      platformAdminId: session.user.platformAdminId,
+      email,
+      name: session.user.name ?? 'Platform Admin',
+    },
+    error: null,
+  }
 }

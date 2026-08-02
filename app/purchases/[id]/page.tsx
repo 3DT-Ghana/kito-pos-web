@@ -52,7 +52,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
     return (
       <AppLayout>
         <div className="flex items-center justify-center h-64">
-          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-green-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -118,7 +118,7 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
             <div>
               <span className="text-sm font-semibold text-gray-600">Payment Type:</span>
               <p className="mt-0.5">
-                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                <span className={`inline-block px-2.5 py-0.5 -full text-xs font-bold ${
                   purchase.paymentType === 'CASH' ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'
                 }`}>
                   {purchase.paymentType === 'CASH' ? '✓ Paid in Full' : '📦 Credit Purchase'}

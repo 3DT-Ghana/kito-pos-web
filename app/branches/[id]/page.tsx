@@ -184,7 +184,7 @@ export default function BranchDetailPage() {
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-gray-900">{branch.name}</h1>
               {branch.isDefault && (
-                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full font-semibold">Default</span>
+                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 -full font-semibold">Default</span>
               )}
             </div>
             {branch.address && <p className="text-sm text-gray-500">{branch.address}</p>}
@@ -352,14 +352,14 @@ export default function BranchDetailPage() {
             <div className="divide-y divide-gray-100">
               {branch.users.map(u => (
                 <div key={u.id} className="px-5 py-3 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
+                  <div className="w-8 h-8 -full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-sm shrink-0">
                     {u.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm">{u.name}</p>
                     <p className="text-xs text-gray-500">{u.email}</p>
                   </div>
-                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full font-semibold capitalize">
+                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 -full font-semibold capitalize">
                     {u.role.replace('_', ' ').toLowerCase()}
                   </span>
                 </div>

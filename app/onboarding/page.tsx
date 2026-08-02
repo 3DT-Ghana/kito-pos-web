@@ -105,7 +105,6 @@ export default function OnboardingPage() {
 
       if (!response.ok) {
         setError(data.error || "Registration failed. Please try again.");
-        setIsLoading(false);
         return;
       }
 
@@ -123,6 +122,7 @@ export default function OnboardingPage() {
       }
     } catch {
       setError("Something went wrong. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-lg">
         {/* Logo Area */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-xl mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-white -full shadow-xl mb-4">
             <span className="text-4xl">🏪</span>
           </div>
           <h1 className="text-3xl font-bold text-white">Business Management</h1>
@@ -144,7 +144,7 @@ export default function OnboardingPage() {
           {([1, 2, 3] as Step[]).map((s) => (
             <div key={s} className="flex items-center">
               <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                className={`w-10 h-10 -full flex items-center justify-center font-bold text-sm transition-all ${
                   step === s
                     ? "bg-white text-blue-700 shadow-lg scale-110"
                     : step > s
@@ -156,7 +156,7 @@ export default function OnboardingPage() {
               </div>
               {s < 3 && (
                 <div
-                  className={`w-12 h-1 mx-1 rounded ${step > s ? "bg-green-400" : "bg-blue-500"}`}
+                  className={`w-12 h-1 mx-1  ${step > s ? "bg-green-400" : "bg-blue-500"}`}
                 />
               )}
             </div>
@@ -295,7 +295,7 @@ export default function OnboardingPage() {
                       {[1, 2, 3, 4].map((i) => (
                         <div
                           key={i}
-                          className={`h-1.5 flex-1 rounded-full ${
+                          className={`h-1.5 flex-1 -full ${
                             formData.password.length >= i * 3
                               ? formData.password.length >= 12
                                 ? "bg-green-500"

@@ -130,7 +130,7 @@ export default function ModuleSetupPage() {
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-indigo-600 border-t-transparent -full animate-spin" />
           </div>
         ) : (
           Object.entries(byCategory).map(([cat, mods]) => (
@@ -154,8 +154,8 @@ export default function ModuleSetupPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-gray-900">{m.name}</p>
-                          <span className="text-xs font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">{m.key}</span>
-                          {!m.isActive && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inactive</span>}
+                          <span className="text-xs font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 ">{m.key}</span>
+                          {!m.isActive && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 -full">Inactive</span>}
                         </div>
                         {m.description && <p className="text-xs text-gray-400 mt-0.5">{m.description}</p>}
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">

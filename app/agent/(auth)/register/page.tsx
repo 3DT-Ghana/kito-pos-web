@@ -155,7 +155,7 @@ export default function AgentRegisterPage() {
             return (
               <div key={label} className="flex items-center">
                 <div className="flex flex-col items-center">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
+                  <div className={`w-9 h-9 -full flex items-center justify-center text-sm font-bold transition-all ${
                     done ? 'bg-indigo-600 text-white' : active ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-600' : 'bg-gray-100 text-gray-400'
                   }`}>
                     {done ? '✓' : <Icon className="w-4 h-4" />}

@@ -1,12 +1,21 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { ALL_BRANCHES_SELECTION, BRANCH_SELECTION_COOKIE } from '@/lib/branch/constants'
 
-interface Branch {
+export interface Branch {
   id: string
   name: string
   isDefault: boolean
+}
+
+interface BranchBootstrapState {
+  branches: Branch[]
+  branchesEnabled: boolean
+  currentBranchId: string | null
+  assignedBranchId: string | null
+  canViewAllBranches: boolean
+  isBranchLocked: boolean
 }
 
 interface BranchContextValue {
@@ -45,20 +54,31 @@ function writeBranchSelection(value: string | null) {
   document.cookie = `${STORAGE_KEY}=${encodeURIComponent(storedValue)}; path=/; samesite=lax`
 }
 
-export function BranchProvider({ children }: { children: ReactNode }) {
-  const [branches, setBranches] = useState<Branch[]>([])
-  const [branchesEnabled, setBranchesEnabled] = useState(false)
-  const [currentBranchId, setCurrentBranchId] = useState<string | null>(null)
-  const [assignedBranchId, setAssignedBranchId] = useState<string | null>(null)
-  const [canViewAllBranches, setCanViewAllBranches] = useState(false)
-  const [isBranchLocked, setIsBranchLocked] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
+interface BranchProviderProps {
+  children: ReactNode
+  initialState?: BranchBootstrapState
+}
+
+export function BranchProvider({ children, initialState }: BranchProviderProps) {
+  const initialStateRef = useRef(initialState)
+  const [branches, setBranches] = useState<Branch[]>(() => initialState?.branches ?? [])
+  const [branchesEnabled, setBranchesEnabled] = useState(() => initialState?.branchesEnabled ?? false)
+  const [currentBranchId, setCurrentBranchId] = useState<string | null>(() => initialState?.currentBranchId ?? null)
+  const [assignedBranchId, setAssignedBranchId] = useState<string | null>(() => initialState?.assignedBranchId ?? null)
+  const [canViewAllBranches, setCanViewAllBranches] = useState(() => initialState?.canViewAllBranches ?? false)
+  const [isBranchLocked, setIsBranchLocked] = useState(() => initialState?.isBranchLocked ?? false)
+  const [isLoading, setIsLoading] = useState(() => !initialState)
 
   useEffect(() => {
-    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
-    if (saved) {
-      document.cookie = `${STORAGE_KEY}=${encodeURIComponent(saved)}; path=/; samesite=lax`
+    if (initialStateRef.current) {
+      writeBranchSelection(initialStateRef.current.currentBranchId)
+    } else {
+      const saved = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
+      if (saved) {
+        document.cookie = `${STORAGE_KEY}=${encodeURIComponent(saved)}; path=/; samesite=lax`
+      }
     }
+
     void fetchBranches()
   }, [])
 

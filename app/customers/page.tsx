@@ -14,7 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Pagination } from '@/components/ui/Pagination'
 import {
   Users, Search, X, AlertCircle, CheckCircle, Plus,
-  Scale, Download, Phone
+  Scale, Download, Phone, MessageCircle
 } from 'lucide-react'
 
 type Tab = 'all' | 'debtors' | 'paid'
@@ -35,22 +35,49 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [page, setPage] = useState(1)
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const PAGE_SIZE = 20
 
   useEffect(() => { fetchCustomers() }, [])
 
+  async function sendWhatsAppReminder(e: React.MouseEvent, customer: Customer) {
+    e.stopPropagation()
+    if (!customer.phone) { alert('This customer has no phone number.'); return }
+    if (customer.balance <= 0) { alert('This customer has no outstanding balance.'); return }
+    setSendingReminder(customer.id)
+    try {
+      const res = await fetch(`/api/customers/${customer.id}/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: 'whatsapp' }),
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(data.error || 'Failed to send reminder'); return }
+      alert(`WhatsApp reminder sent to ${customer.name}`)
+    } catch {
+      alert('Failed to send reminder')
+    } finally {
+      setSendingReminder(null)
+    }
+  }
+
   const fetchCustomers = async () => {
     try {
+      setFetchError(null)
       const res = await fetch('/api/customers')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to load customers')
       const data = await res.json()
       setCustomers(data.customers || data.data || data || [])
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load customers')
     } finally {
       setIsLoading(false)
     }
   }
 
   useEffect(() => setPage(1), [search, tab])
+
 
   const filtered = customers.filter(c => {
     const q = search.toLowerCase()
@@ -147,13 +174,19 @@ export default function CustomersPage() {
           </div>
         </div>
 
+        {fetchError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            {fetchError}
+          </div>
+        )}
+
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3,4].map(i => (
               <div key={i} className="bg-white shadow-sm ring-1 ring-black/5 h-16 animate-pulse" />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : fetchError ? null : filtered.length === 0 ? (
           <EmptyState
             icon={Users}
             title="No customers found"
@@ -182,11 +215,21 @@ export default function CustomersPage() {
                       )}
                       <p className="text-xs text-gray-400 mt-0.5">{c._count?.sales || 0} sales</p>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
                       {c.balance > 0 ? (
                         <>
                           <p className="text-sm font-bold text-red-600">{formatCurrency(c.balance)}</p>
                           <p className="text-xs text-red-400">owes you</p>
+                          {c.phone && (
+                            <button
+                              onClick={e => sendWhatsAppReminder(e, c)}
+                              disabled={sendingReminder === c.id}
+                              className="flex items-center gap-1 text-xs text-emerald-600 font-semibold hover:text-emerald-700 disabled:opacity-40"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                              {sendingReminder === c.id ? 'Sending…' : 'Remind'}
+                            </button>
+                          )}
                         </>
                       ) : (
                         <Badge variant="green">Cleared</Badge>
@@ -232,9 +275,24 @@ export default function CustomersPage() {
                           </Badge>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <button className="text-xs text-blue-600 font-semibold hover:underline">
-                            View →
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button className="text-xs text-blue-600 font-semibold hover:underline">
+                              View →
+                            </button>
+                            {c.balance > 0 && c.phone && (
+                              <button
+                                onClick={e => sendWhatsAppReminder(e, c)}
+                                disabled={sendingReminder === c.id}
+                                title="Send WhatsApp balance reminder"
+                                className="p-1 text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40"
+                              >
+                                {sendingReminder === c.id
+                                  ? <span className="text-xs">…</span>
+                                  : <MessageCircle className="w-4 h-4" />
+                                }
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     )

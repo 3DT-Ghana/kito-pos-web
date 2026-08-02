@@ -1,5 +1,6 @@
 import { withAuth } from 'next-auth/middleware'
 import { NextResponse } from 'next/server'
+import { getMobileAuthToken } from '@/lib/auth/mobileHeaders'
 
 function applySecurityHeaders(response: NextResponse) {
   response.headers.set('X-Frame-Options', 'DENY')
@@ -7,6 +8,105 @@ function applySecurityHeaders(response: NextResponse) {
   response.headers.set('X-XSS-Protection', '1; mode=block')
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   return response
+}
+
+type MobileBearerUser = {
+  id: string
+  email: string
+  name: string
+  role: string
+  tenantId: string
+  branchId: string | null
+}
+
+function decodeBase64Url(value: string): Uint8Array {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=')
+  const binary = atob(padded)
+  const bytes = new Uint8Array(binary.length)
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+
+  return bytes
+}
+
+async function getMobileBearerUser(token: string | null): Promise<MobileBearerUser | null> {
+  if (!token) {
+    return null
+  }
+
+  const secret = process.env.NEXTAUTH_SECRET
+  if (!secret) {
+    return null
+  }
+
+  const parts = token.split('.')
+  if (parts.length !== 3) {
+    return null
+  }
+
+  const [encodedHeader, encodedPayload, encodedSignature] = parts
+
+  try {
+    const header = JSON.parse(new TextDecoder().decode(decodeBase64Url(encodedHeader))) as {
+      alg?: string
+    }
+
+    if (header.alg !== 'HS256') {
+      return null
+    }
+
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    )
+    const signature = decodeBase64Url(encodedSignature).buffer as ArrayBuffer
+
+    const isValid = await crypto.subtle.verify(
+      'HMAC',
+      key,
+      signature,
+      new TextEncoder().encode(`${encodedHeader}.${encodedPayload}`)
+    )
+
+    if (!isValid) {
+      return null
+    }
+
+    const payload = JSON.parse(
+      new TextDecoder().decode(decodeBase64Url(encodedPayload))
+    ) as Record<string, unknown>
+
+    if (typeof payload.exp === 'number' && Date.now() >= payload.exp * 1000) {
+      return null
+    }
+
+    if (
+      typeof payload.id !== 'string' ||
+      typeof payload.email !== 'string' ||
+      typeof payload.name !== 'string' ||
+      typeof payload.role !== 'string' ||
+      typeof payload.tenantId !== 'string'
+    ) {
+      return null
+    }
+
+    return {
+      id: payload.id,
+      email: payload.email,
+      name: payload.name,
+      role: payload.role,
+      tenantId: payload.tenantId,
+      branchId: typeof payload.branchId === 'string' ? payload.branchId : null,
+    }
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -35,7 +135,7 @@ function applySecurityHeaders(response: NextResponse) {
  */
 
 export default withAuth(
-  function proxy(req) {
+  async function proxy(req) {
     const token = req.nextauth.token
     const { pathname } = req.nextUrl
     const isApi = pathname.startsWith('/api/')
@@ -44,7 +144,10 @@ export default withAuth(
       isAuthApi ||
       pathname === '/api/health' ||
       pathname.startsWith('/api/tenants') ||
-      pathname.startsWith('/api/agent/register')
+      pathname.startsWith('/api/agent/register') ||
+      // session-settings GET is read by useIdleTimeout on every authenticated page
+      // — it must be accessible without a super-admin token
+      (pathname === '/api/admin/session-settings' && req.method === 'GET')
     const isSuperAdmin = token?.platformRole === 'SUPER_ADMIN'
     const isAdminPage = pathname.startsWith('/admin')
     const isAdminApi = pathname.startsWith('/api/admin/')
@@ -64,31 +167,50 @@ export default withAuth(
     const defaultAgentDestination = isPendingAgent
       ? '/agent/profile'
       : '/agent/dashboard'
+    const mobileAuth = getMobileAuthToken((name) => req.headers.get(name))
+    const mobileBearerUser =
+      !token && isApi && !isAdminApi && !isAgentApi
+        ? await getMobileBearerUser(mobileAuth.token)
+        : null
 
     // Log requests in development
     if (process.env.NODE_ENV === 'development') {
       console.log(`[${new Date().toISOString()}] ${req.method} ${pathname}`, {
-        user: token?.email,
-        role: token?.role,
-        tenantId: token?.tenantId,
+        user: token?.email ?? mobileBearerUser?.email,
+        role: token?.role ?? mobileBearerUser?.role,
+        tenantId: token?.tenantId ?? mobileBearerUser?.tenantId,
       })
     }
 
     if (isApi && !isPublicApi) {
-      if (!token) {
-        return applySecurityHeaders(
-          NextResponse.json(
-            { error: 'Authentication required' },
-            { status: 401 }
-          )
-        )
-      }
-
+      // Private file downloads are checked before the admin/agent/tenant split,
+      // because both agents and super admins need them. A session cookie is
+      // required — the route reads getServerSession, so a mobile bearer token
+      // would not identify the caller. The handler itself then confirms the
+      // caller owns (or administers) the object.
       if (isFileApi) {
+        if (!token) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Authentication required' },
+              { status: 401 }
+            )
+          )
+        }
+
         return applySecurityHeaders(NextResponse.next())
       }
 
       if (isAdminApi) {
+        if (!token) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Authentication required' },
+              { status: 401 }
+            )
+          )
+        }
+
         if (!isSuperAdmin) {
           return applySecurityHeaders(
             NextResponse.json(
@@ -102,6 +224,15 @@ export default withAuth(
       }
 
       if (isAgentApi) {
+        if (!token) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Authentication required' },
+              { status: 401 }
+            )
+          )
+        }
+
         if (token.platformRole !== 'AGENT') {
           return applySecurityHeaders(
             NextResponse.json(
@@ -123,7 +254,16 @@ export default withAuth(
         return applySecurityHeaders(NextResponse.next())
       }
 
-      if (token.platformRole === 'AGENT') {
+      if (!token && !mobileBearerUser) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: 'Authentication required' },
+            { status: 401 }
+          )
+        )
+      }
+
+      if (token?.platformRole === 'AGENT') {
         return applySecurityHeaders(
           NextResponse.json(
             { error: 'Agent accounts cannot access tenant APIs' },
@@ -132,7 +272,7 @@ export default withAuth(
         )
       }
 
-      if (token.platformRole === 'SUPER_ADMIN') {
+      if (token?.platformRole === 'SUPER_ADMIN') {
         return applySecurityHeaders(
           NextResponse.json(
             { error: 'Super admin accounts cannot access tenant APIs' },
@@ -141,7 +281,7 @@ export default withAuth(
         )
       }
 
-      if (!token.tenantId) {
+      if (!(token?.tenantId ?? mobileBearerUser?.tenantId)) {
         return applySecurityHeaders(
           NextResponse.json(
             { error: 'No tenant associated with your account. Please sign in again.' },
@@ -238,11 +378,13 @@ export default withAuth(
         // Allow public routes (login, register, onboarding, etc.)
         if (
           pathname.startsWith('/auth/') ||
+          pathname === '/account-suspended' ||
           pathname.startsWith('/agent/login') ||
           pathname.startsWith('/agent/register') ||
           pathname.startsWith('/onboarding') ||
           pathname.startsWith('/api/tenants') ||
-          pathname.startsWith('/api/agent/register')
+          pathname.startsWith('/api/agent/register') ||
+          pathname.startsWith('/api/auth/login-check')
         ) {
           return true
         }

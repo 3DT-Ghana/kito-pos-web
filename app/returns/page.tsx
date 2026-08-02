@@ -493,9 +493,10 @@ function ProcessReturnModal({
   onSuccess: () => void
 }) {
   const [step, setStep] = useState<'lookup' | 'form'>('lookup')
-  const [lookupId, setLookupId] = useState('')
+  const [lookupQuery, setLookupQuery] = useState('')
   const [isLooking, setIsLooking] = useState(false)
   const [lookupError, setLookupError] = useState<string | null>(null)
+  const [searchResults, setSearchResults] = useState<{ id: string; customer: { name: string } | null; createdAt: string }[]>([])
 
   const [sale, setSale] = useState<SaleOption | null>(null)
   const [purchase, setPurchase] = useState<PurchaseOption | null>(null)
@@ -504,27 +505,63 @@ function ProcessReturnModal({
   const [quantity, setQuantity] = useState(1)
   const [returnType, setReturnType] = useState<'CASH' | 'CREDIT' | 'EXCHANGE'>('CASH')
   const [amount, setAmount] = useState('')
+  const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const handleLookup = async () => {
-    const id = lookupId.trim()
-    if (!id) { setLookupError('Enter a sale or purchase ID'); return }
+  const selectSale = async (id: string) => {
     setIsLooking(true)
     setLookupError(null)
+    setSearchResults([])
     try {
-      const endpoint = kind === 'customer' ? `/api/sales/${id}` : `/api/purchases/${id}`
-      const res = await fetch(endpoint)
+      const res = await fetch(`/api/sales/${id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Not found')
+      setSale(data)
+      setSelectedItemId(data.items?.[0]?.item?.id ?? '')
+      setStep('form')
+    } catch (e) {
+      setLookupError(e instanceof Error ? e.message : 'Not found')
+    } finally {
+      setIsLooking(false)
+    }
+  }
+
+  const handleLookup = async () => {
+    const q = lookupQuery.trim()
+    if (!q) { setLookupError('Enter a customer name, sale ID, or purchase ID'); return }
+    setIsLooking(true)
+    setLookupError(null)
+    setSearchResults([])
+    try {
       if (kind === 'customer') {
-        setSale(data)
-        setSelectedItemId(data.items?.[0]?.item?.id ?? '')
+        // Try direct ID lookup first; fall back to customer name search
+        const directRes = await fetch(`/api/sales/${q}`)
+        if (directRes.ok) {
+          const data = await directRes.json()
+          setSale(data)
+          setSelectedItemId(data.items?.[0]?.item?.id ?? '')
+          setStep('form')
+          return
+        }
+        // Search by customer name
+        const searchRes = await fetch(`/api/sales?search=${encodeURIComponent(q)}&limit=10`)
+        const searchData = await searchRes.json()
+        const results = searchData.sales ?? []
+        if (results.length === 0) throw new Error('No sales found for that name or ID')
+        if (results.length === 1) {
+          await selectSale(results[0].id)
+          return
+        }
+        setSearchResults(results)
       } else {
+        const res = await fetch(`/api/purchases/${q}`)
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Not found')
         setPurchase(data)
         setSelectedItemId(data.items?.[0]?.item?.id ?? '')
+        setStep('form')
       }
-      setStep('form')
     } catch (e) {
       setLookupError(e instanceof Error ? e.message : 'Not found')
     } finally {
@@ -555,8 +592,8 @@ function ProcessReturnModal({
     try {
       const endpoint = kind === 'customer' ? '/api/returns/customers' : '/api/returns/suppliers'
       const body = kind === 'customer'
-        ? { saleId: sale!.id, itemId: selectedItemId, quantity, type: returnType, amount: amountNum }
-        : { purchaseId: purchase!.id, itemId: selectedItemId, quantity, type: returnType, amount: amountNum }
+        ? { saleId: sale!.id, itemId: selectedItemId, quantity, type: returnType, amount: amountNum, note: note.trim() || undefined }
+        : { purchaseId: purchase!.id, itemId: selectedItemId, quantity, type: returnType, amount: amountNum, note: note.trim() || undefined }
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -577,14 +614,14 @@ function ProcessReturnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-t-3xl sm:shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
+      <div className="bg-white sm:shadow-2xl w-full sm:max-w-md max-h-[90dvh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white rounded-t-3xl sm:rounded-t-2xl z-10">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
           <div>
             <h3 className="text-base font-bold text-gray-900">{title}</h3>
             {step === 'form' && (
               <button
-                onClick={() => { setStep('lookup'); setSale(null); setPurchase(null) }}
+                onClick={() => { setStep('lookup'); setSale(null); setPurchase(null); setSearchResults([]) }}
                 className="text-xs text-blue-600 hover:underline mt-0.5"
               >
                 ← Change {kind === 'customer' ? 'sale' : 'purchase'}
@@ -603,22 +640,39 @@ function ProcessReturnModal({
         {step === 'lookup' ? (
           <div className="p-5 space-y-4">
             <p className="text-sm text-gray-500">
-              Enter the {kind === 'customer' ? 'Sale' : 'Purchase'} ID to look up the original transaction.
+              {kind === 'customer'
+                ? 'Search by customer name or paste the full Sale ID.'
+                : 'Paste the Purchase ID to look up the original transaction.'}
             </p>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                {kind === 'customer' ? 'Sale' : 'Purchase'} ID
+                {kind === 'customer' ? 'Customer name or Sale ID' : 'Purchase ID'}
               </label>
               <input
                 type="text"
-                value={lookupId}
-                onChange={e => setLookupId(e.target.value)}
+                value={lookupQuery}
+                onChange={e => { setLookupQuery(e.target.value); setSearchResults([]) }}
                 onKeyDown={e => e.key === 'Enter' && handleLookup()}
-                placeholder="Paste the full ID here…"
+                placeholder={kind === 'customer' ? 'e.g. Kwame Mensah or paste ID…' : 'Paste the full ID here…'}
                 autoFocus
-                className="w-full px-4 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm font-mono bg-gray-50"
+                className="w-full px-4 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm bg-gray-50"
               />
             </div>
+            {/* Search results list */}
+            {searchResults.length > 1 && (
+              <div className="border border-gray-200 divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {searchResults.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => selectSale(s.id)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors"
+                  >
+                    <p className="text-sm font-semibold text-gray-800">{s.customer?.name ?? 'Walk-in'}</p>
+                    <p className="text-xs text-gray-400 font-mono">#{s.id.slice(0, 10).toUpperCase()} · {new Date(s.createdAt).toLocaleDateString('en-GH')}</p>
+                  </button>
+                ))}
+              </div>
+            )}
             {lookupError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 text-sm">
                 {lookupError}
@@ -761,6 +815,20 @@ function ProcessReturnModal({
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Reason / note */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Reason <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="e.g. Defective, wrong item, customer changed mind…"
+                className="w-full px-3 py-2.5 border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-100 focus:outline-none text-sm"
+              />
             </div>
 
             {submitError && (

@@ -1,21 +1,19 @@
 import { NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/admin/server'
 import { prisma } from '@/lib/db/prisma'
+import {
+  getCachedPlatformSettings,
+  getDefaultPlatformSettings,
+  primePlatformSettingsCache,
+} from '@/lib/admin/platformSettings'
 
-const DEFAULTS = { idleTimeoutMinutes: 5, sessionMaxHours: 4 }
+const DEFAULTS = getDefaultPlatformSettings()
 
 // Public GET — no auth needed; client-side hook and auth.ts read this.
 export async function GET() {
   try {
-    const settings = await prisma.platformSettings.upsert({
-      where: { id: 'global' },
-      create: { id: 'global', ...DEFAULTS },
-      update: {},
-    })
-    return NextResponse.json({
-      idleTimeoutMinutes: settings.idleTimeoutMinutes,
-      sessionMaxHours: settings.sessionMaxHours,
-    })
+    const settings = await getCachedPlatformSettings()
+    return NextResponse.json(settings)
   } catch {
     // DB unavailable — return hardcoded defaults so the app still works
     return NextResponse.json(DEFAULTS)
@@ -44,6 +42,11 @@ export async function PATCH(req: Request) {
       where: { id: 'global' },
       create: { id: 'global', ...DEFAULTS, ...data },
       update: { ...data, updatedByEmail: context!.email },
+    })
+
+    primePlatformSettingsCache({
+      idleTimeoutMinutes: settings.idleTimeoutMinutes,
+      sessionMaxHours: settings.sessionMaxHours,
     })
 
     await prisma.platformAuditLog.create({

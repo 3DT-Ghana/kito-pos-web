@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Check } from 'lucide-react'
 
 interface FeaturesSettingsProps {
@@ -28,12 +28,12 @@ function Toggle({ id, checked, onChange }: { id: string; checked: boolean; onCha
       id={id}
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer rounded-full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+      className={`relative inline-flex h-8 w-16 shrink-0 cursor-pointer -full border-3 transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
         checked ? 'bg-blue-600 border-blue-600' : 'bg-gray-200 border-gray-200'
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-full w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+        className={`pointer-events-none inline-block h-full w-7 transform -full bg-white shadow ring-0 transition duration-200 ease-in-out ${
           checked ? 'translate-x-8' : 'translate-x-0'
         }`}
       >
@@ -47,6 +47,16 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
   const [settings, setSettings] = useState(initialSettings)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true)
+
+  useEffect(() => {
+    setTooltipsEnabled(localStorage.getItem('petros_tooltips') !== 'off')
+  }, [])
+
+  const handleTooltipToggle = (enabled: boolean) => {
+    setTooltipsEnabled(enabled)
+    localStorage.setItem('petros_tooltips', enabled ? 'on' : 'off')
+  }
 
   const toggle = (key: keyof typeof settings) =>
     setSettings(prev => ({ ...prev, [key]: !prev[key] }))
@@ -238,6 +248,30 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
             </div>
           </div>
         ))}
+
+        {/* Display Preferences — localStorage only, no server save */}
+        <div>
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-1.5">
+            <span>🖱️</span> Display Preferences
+          </p>
+          <div className="border-2 border-gray-200 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-3 flex-1">
+                <span className="text-2xl mt-0.5">💬</span>
+                <div>
+                  <p className="text-base font-bold text-gray-900">Sidebar Tooltips</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Show a brief description when hovering over sidebar menu items.
+                    This preference is saved in your browser only — each user can set their own.
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 mt-1">
+                <Toggle id="tooltips" checked={tooltipsEnabled} onChange={handleTooltipToggle} />
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Note */}
         <div className="bg-amber-50 border-2 border-amber-200 p-4 text-sm text-amber-800">

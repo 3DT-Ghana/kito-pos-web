@@ -74,14 +74,15 @@ async function fetchTransfersData(status: string) {
 }
 
 async function fetchSourceItemsData() {
-  const res = await fetch('/api/items')
+  // Use the POS items endpoint which filters out zero-stock INVENTORY items
+  const res = await fetch('/api/pos/items?limit=200')
   const data = await res.json().catch(() => null)
 
   if (!res.ok) {
     throw new Error(data?.error || 'Failed to load source items')
   }
 
-  return (Array.isArray(data) ? data : data?.data || []) as SourceItemOption[]
+  return (Array.isArray(data?.items) ? data.items : []) as SourceItemOption[]
 }
 
 export default function TransfersPage() {
@@ -316,7 +317,7 @@ export default function TransfersPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -326,7 +327,7 @@ export default function TransfersPage() {
     return (
       <AppLayout>
         <div className="flex items-center justify-center py-16">
-          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent -full animate-spin" />
         </div>
       </AppLayout>
     )
@@ -375,7 +376,7 @@ export default function TransfersPage() {
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 {enabling
-                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enabling…</>
+                  ? <><div className="w-4 h-4 border-2 border-white border-t-transparent -full animate-spin" /> Enabling…</>
                   : 'Enable Branches'
                 }
               </button>
@@ -619,7 +620,7 @@ export default function TransfersPage() {
                           <span className="font-bold text-gray-900">
                             {transfer.fromBranch?.name ?? 'Unknown Branch'} <span className="text-gray-400">→</span> {transfer.toBranch?.name ?? 'Unknown Branch'}
                           </span>
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${status.className}`}>
+                          <span className={`text-xs px-2.5 py-1 -full font-semibold ${status.className}`}>
                             {status.label}
                           </span>
                         </div>

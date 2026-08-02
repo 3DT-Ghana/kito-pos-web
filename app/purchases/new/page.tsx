@@ -30,7 +30,7 @@ export default function NewPurchasePage() {
     return (
       <AppLayout>
         <div className="max-w-lg mx-auto text-center py-12">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-24 h-24 bg-green-100 -full flex items-center justify-center mx-auto mb-6">
             <span className="text-5xl">✓</span>
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Purchase Recorded!</h2>

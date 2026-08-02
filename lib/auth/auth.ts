@@ -3,14 +3,97 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { compare } from 'bcryptjs'
 import { prisma } from '@/lib/db/prisma'
 import { Role } from '@/lib/permissions/rbac'
+import {
+  authorizePlatformAdminCredentials,
+  findPlatformAdminForSession,
+} from '@/lib/admin/platformAdmins'
+import { getCachedPlatformSettings } from '@/lib/admin/platformSettings'
+
+type LoginPortal = 'business' | 'agent' | 'admin'
+
+function getRequestedPortal(portal?: string): LoginPortal | null {
+  return portal === 'business' || portal === 'agent' || portal === 'admin' ? portal : null
+}
+
+async function authorizeBusinessUser(normalizedEmail: string, password: string) {
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    include: { tenant: true },
+  })
+
+  if (!user) {
+    return null
+  }
+
+  const valid = await compare(password, user.password)
+  if (!valid) {
+    return null
+  }
+
+  if (!user.isActive) {
+    throw new Error('Your account has been disabled. Please contact your administrator.')
+  }
+
+  if (user.tenant.status === 'SUSPENDED') {
+    throw new Error('Your account has been suspended. Please contact support.')
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role as unknown as Role,
+    tenantId: user.tenantId,
+    branchId: user.branchId,
+    tenantStatus: user.tenant.status as 'TRIAL' | 'ACTIVE' | 'SUSPENDED',
+  }
+}
+
+async function authorizeAgentUser(normalizedEmail: string, password: string) {
+  const agent = await prisma.agent.findUnique({
+    where: { email: normalizedEmail },
+  })
+
+  if (!agent) {
+    return null
+  }
+
+  const valid = await compare(password, agent.passwordHash)
+  if (!valid) {
+    return null
+  }
+
+  if (agent.status === 'REJECTED') {
+    throw new Error('Your agent application has been rejected. Please contact support.')
+  }
+
+  if (agent.status === 'SUSPENDED') {
+    throw new Error('Your agent account has been suspended. Please contact support.')
+  }
+
+  return {
+    id: agent.id,
+    email: agent.email,
+    name: agent.fullName,
+    role: 'STAFF' as unknown as Role,
+    branchId: null,
+    platformRole: 'AGENT' as const,
+    agentId: agent.id,
+    agentStatus: agent.status,
+  }
+}
 
 export const authOptions: NextAuthOptions = {
+  // NEXTAUTH_URL must be set to the live domain in production env vars.
+  // Fallback: if not set, Next.js auto-detects from request headers (works on Vercel/DO).
+  ...(process.env.NEXTAUTH_URL ? { url: process.env.NEXTAUTH_URL } : {}),
   providers: [
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
         email: { label: 'Email', type: 'email', placeholder: 'your@email.com' },
         password: { label: 'Password', type: 'password' },
+        portal: { label: 'Portal', type: 'text' },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -19,73 +102,62 @@ export const authOptions: NextAuthOptions = {
 
         try {
           const normalizedEmail = credentials.email.trim().toLowerCase()
+          const requestedPortal = getRequestedPortal(credentials.portal)
+          const tryPlatformAdminSignIn = async () => {
+            const platformAdminAttempt = await authorizePlatformAdminCredentials(
+              normalizedEmail,
+              credentials.password
+            )
 
-          // ── 1. Try tenant user ───────────────────────────────────────────
-          const user = await prisma.user.findUnique({
-            where: { email: normalizedEmail },
-            include: { tenant: true },
-          })
-
-          if (user) {
-            const valid = await compare(credentials.password, user.password)
-            if (!valid) throw new Error('Invalid email or password')
-
-            const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? '')
-              .split(',')
-              .map((e) => e.trim().toLowerCase())
-              .filter(Boolean)
-
-            if (superAdminEmails.includes(normalizedEmail)) {
-              return {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role as unknown as Role,
-                branchId: null,
-                platformRole: 'SUPER_ADMIN' as const,
-              }
+            if (platformAdminAttempt.status === 'success') {
+              return platformAdminAttempt.user
             }
 
-            if (user.tenant.status === 'SUSPENDED') {
-              throw new Error('Your account has been suspended. Please contact support.')
-            }
-
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role as unknown as Role,
-              tenantId: user.tenantId,
-              branchId: user.branchId,
-            }
+            return null
           }
 
-          // ── 2. Try platform agent ────────────────────────────────────────
-          const agent = await prisma.agent.findUnique({
-            where: { email: normalizedEmail },
-          })
-
-          if (agent) {
-            const valid = await compare(credentials.password, agent.passwordHash)
-            if (!valid) throw new Error('Invalid email or password')
-
-            if (agent.status === 'REJECTED') {
-              throw new Error('Your agent application has been rejected. Please contact support.')
-            }
-            if (agent.status === 'SUSPENDED') {
-              throw new Error('Your agent account has been suspended. Please contact support.')
+          if (requestedPortal === 'business') {
+            const businessUser = await authorizeBusinessUser(normalizedEmail, credentials.password)
+            if (businessUser) {
+              return businessUser
             }
 
-            return {
-              id: agent.id,
-              email: agent.email,
-              name: agent.fullName,
-              // Agents authenticate into the platform flow, not a tenant workspace.
-              role: 'STAFF' as unknown as Role,
-              branchId: null,
-              platformRole: 'AGENT' as const,
-              agentId: agent.id,
-              agentStatus: agent.status,
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
+            }
+
+            throw new Error('Invalid email or password')
+          } else if (requestedPortal === 'admin') {
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
+            }
+
+            throw new Error('Invalid email or password')
+          } else if (requestedPortal === 'agent') {
+            const agentUser = await authorizeAgentUser(normalizedEmail, credentials.password)
+            if (agentUser) {
+              return agentUser
+            }
+            throw new Error('Invalid email or password')
+          } else {
+            const platformAdminUser = await tryPlatformAdminSignIn()
+            if (platformAdminUser) {
+              return platformAdminUser
+            }
+
+            const [businessUser, agentUser] = await Promise.all([
+              authorizeBusinessUser(normalizedEmail, credentials.password),
+              authorizeAgentUser(normalizedEmail, credentials.password),
+            ])
+
+            if (businessUser) {
+              return businessUser
+            }
+
+            if (agentUser) {
+              return agentUser
             }
           }
 
@@ -121,8 +193,42 @@ export const authOptions: NextAuthOptions = {
         token.branchId = user.branchId ?? null
         // Agent/platform fields
         if (user.platformRole) token.platformRole = user.platformRole
+        if (user.platformAdminId) token.platformAdminId = user.platformAdminId
         if (user.agentId) token.agentId = user.agentId
         if (user.agentStatus) token.agentStatus = user.agentStatus
+        if (user.tenantStatus) token.tenantStatus = user.tenantStatus
+      }
+
+      if (token.platformRole === 'SUPER_ADMIN') {
+        try {
+          const platformAdmin = await findPlatformAdminForSession({
+            platformAdminId: token.platformAdminId as string | null | undefined,
+            email: token.email as string | null | undefined,
+          })
+
+          if (!platformAdmin) {
+            token.expired = true
+          } else {
+            token.id = platformAdmin.id
+            token.email = platformAdmin.email
+            token.name = platformAdmin.name
+            token.role = Role.OWNER
+            token.tenantId = null
+            token.branchId = null
+            token.platformAdminId = platformAdmin.id
+          }
+        } catch (error) {
+          console.error('Failed to refresh platform admin session:', error)
+
+          if (token.platformAdminId && token.email && token.name) {
+            token.id = token.platformAdminId as string
+            token.role = Role.OWNER
+            token.tenantId = null
+            token.branchId = null
+          } else {
+            token.expired = true
+          }
+        }
       }
 
       if (token.platformRole === 'AGENT' && token.agentId) {
@@ -146,11 +252,8 @@ export const authOptions: NextAuthOptions = {
 
       // Enforce the admin-configured absolute session limit.
       if (token.loginAt) {
-        let sessionMaxHours = 4 // fallback default
-        try {
-          const ps = await prisma.platformSettings.findUnique({ where: { id: 'global' } })
-          if (ps?.sessionMaxHours) sessionMaxHours = ps.sessionMaxHours
-        } catch { /* DB hiccup — use default */ }
+        const settings = await getCachedPlatformSettings()
+        const sessionMaxHours = settings.sessionMaxHours
 
         const elapsedSecs = Math.floor(Date.now() / 1000) - (token.loginAt as number)
         if (elapsedSecs > sessionMaxHours * 60 * 60) {
@@ -174,12 +277,14 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string
         // Tenant user fields
         if (token.role) session.user.role = token.role as unknown as Role
-        if (token.tenantId) session.user.tenantId = token.tenantId as string
+        session.user.tenantId = (token.tenantId as string | null | undefined) ?? null
         session.user.branchId = (token.branchId as string | null | undefined) ?? null
         // Agent/platform fields
         if (token.platformRole) session.user.platformRole = token.platformRole as 'AGENT' | 'SUPER_ADMIN'
+        session.user.platformAdminId = (token.platformAdminId as string | null | undefined) ?? null
         if (token.agentId) session.user.agentId = token.agentId as string
         if (token.agentStatus) session.user.agentStatus = token.agentStatus as string
+        session.user.tenantStatus = (token.tenantStatus as 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | null | undefined) ?? null
       }
       return session
     },

@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useItems } from '@/hooks/useItems'
 import { useSuppliers } from '@/hooks/useSuppliers'
+import { useTenantFeatures } from '@/hooks/useTenant'
 import { useUser } from '@/hooks/useUser'
 import { formatCurrency } from '@/lib/utils/format'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
@@ -72,14 +73,8 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
   const [formError, setFormError] = useState('')
 
   const { user } = useUser()
-  const [useUnitSystem, setUseUnitSystem] = useState(false)
-  useEffect(() => {
-    if (!user?.tenantId) return
-    fetch(`/api/tenants/${user.tenantId}`)
-      .then(r => r.json())
-      .then(data => { if (data?.useUnitSystem) setUseUnitSystem(true) })
-      .catch(() => {})
-  }, [user?.tenantId])
+  const { features } = useTenantFeatures()
+  const { useUnitSystem } = features
 
   const [purchaseType, setPurchaseType] = useState<'CASH' | 'CREDIT'>('CASH')
   const [supplierSearch, setSupplierSearch] = useState('')
@@ -92,7 +87,13 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
   const itemSearchRef = useRef<HTMLDivElement>(null)
   const [depositPaid, setDepositPaid] = useState('')
 
-  const { items } = useItems()
+  // Inline new item creation
+  const [addingNewItem, setAddingNewItem] = useState(false)
+  const [newItemDraft, setNewItemDraft] = useState({ name: '', costPrice: '', sellingPrice: '' })
+  const [newItemSaving, setNewItemSaving] = useState(false)
+  const [newItemError, setNewItemError] = useState('')
+
+  const { items, refetch: refreshItems } = useItems()
   const { suppliers } = useSuppliers()
 
   // ── Draft persistence ─────────────────────────────────────────────────────
@@ -144,6 +145,53 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
     if (!draftKey) return
     try { localStorage.removeItem(draftKey) } catch {}
   }
+
+  const openNewItemForm = useCallback((prefillName: string) => {
+    setNewItemDraft({ name: prefillName, costPrice: '', sellingPrice: '' })
+    setNewItemError('')
+    setAddingNewItem(true)
+    setShowItemDropdown(false)
+    setItemSearch('')
+  }, [])
+
+  const saveNewItem = useCallback(async () => {
+    const name = newItemDraft.name.trim()
+    const cost = parseFloat(newItemDraft.costPrice)
+    const sell = parseFloat(newItemDraft.sellingPrice)
+    if (!name) { setNewItemError('Item name is required'); return }
+    if (isNaN(cost) || cost < 0) { setNewItemError('Valid cost price is required'); return }
+    if (isNaN(sell) || sell < 0) { setNewItemError('Valid selling price is required'); return }
+    setNewItemSaving(true)
+    setNewItemError('')
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, costPrice: cost, sellingPrice: sell, quantity: 0 }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setNewItemError(data.error || 'Failed to create item'); return }
+      await refreshItems()
+      setCart(prev => [...prev, {
+        itemId: data.id,
+        name: data.name,
+        manufacturer: data.manufacturer?.name || 'System',
+        itemType: normalizeItemType(data.itemType),
+        quantity: 1,
+        costPrice: data.costPrice,
+        unitName: data.unitName,
+        piecesPerUnit: data.piecesPerUnit,
+        cartonsInput: 1,
+        piecesInput: 0,
+      }])
+      setAddingNewItem(false)
+      setNewItemDraft({ name: '', costPrice: '', sellingPrice: '' })
+    } catch {
+      setNewItemError('Something went wrong. Please try again.')
+    } finally {
+      setNewItemSaving(false)
+    }
+  }, [newItemDraft, refreshItems])
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -358,63 +406,130 @@ export function PurchaseForm({ onSubmit, onCancel }: PurchaseFormProps) {
         )}
       </div>
 
-      {/* Item Search */}
+      {/* Item Search / Inline Create */}
       <div ref={itemSearchRef} className="relative">
         <label className="block text-sm font-semibold text-gray-700 mb-1.5">
           Add Items <span className="text-red-500">*</span>
         </label>
-        <div className="relative">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" placeholder="Search items by name or manufacturer..."
-            value={itemSearch}
-            onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
-            onFocus={() => setShowItemDropdown(true)}
-            className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm"
-          />
-        </div>
-        {showItemDropdown && filteredItems.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
-            {filteredItems.map(item => {
-              const inCart = cart.find(c => c.itemId === item.id)
-              const stockTracked = isInventoryItemType(item.itemType)
-              return (
-                <button key={item.id} type="button" onClick={() => addToCart(item)}
-                  className="w-full px-4 py-2.5 text-left border-b border-gray-100 last:border-0 flex items-center gap-3 hover:bg-green-50 cursor-pointer">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{item.name}</p>
-                    <div className="mt-0.5 flex items-center gap-2 flex-wrap">
-                      <p className="text-xs text-blue-600 font-medium">{item.manufacturer?.name || 'Unknown'}</p>
-                      {!stockTracked && (
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
-                          {itemTypeLabel(item.itemType)}
+
+        {addingNewItem ? (
+          <div className="border-2 border-amber-300 bg-amber-50 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">New Item</span>
+              <button type="button" onClick={() => { setAddingNewItem(false); setNewItemError('') }}
+                className="text-xs text-gray-400 hover:text-gray-600 font-semibold">Cancel</button>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 mb-1">Item Name <span className="text-red-500">*</span></label>
+              <input
+                type="text"
+                value={newItemDraft.name}
+                onChange={e => setNewItemDraft(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Coca Cola 500ml"
+                autoFocus
+                className="w-full px-3 py-2 border border-amber-300 focus:border-amber-500 focus:outline-none text-sm bg-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Cost Price (GH₵) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  value={newItemDraft.costPrice}
+                  onChange={e => setNewItemDraft(p => ({ ...p, costPrice: e.target.value }))}
+                  placeholder="0.00"
+                  step="0.01" min="0"
+                  className="w-full px-3 py-2 border border-amber-300 focus:border-amber-500 focus:outline-none text-sm bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Selling Price (GH₵) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  value={newItemDraft.sellingPrice}
+                  onChange={e => setNewItemDraft(p => ({ ...p, sellingPrice: e.target.value }))}
+                  placeholder="0.00"
+                  step="0.01" min="0"
+                  className="w-full px-3 py-2 border border-amber-300 focus:border-amber-500 focus:outline-none text-sm bg-white"
+                />
+              </div>
+            </div>
+            {newItemError && (
+              <p className="text-xs text-red-600 font-medium">⚠ {newItemError}</p>
+            )}
+            <p className="text-xs text-amber-700">Brand / Manufacturer defaults to <strong>System</strong>. You can update it later from Items.</p>
+            <button
+              type="button"
+              onClick={saveNewItem}
+              disabled={newItemSaving}
+              className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold disabled:opacity-50 transition-colors"
+            >
+              {newItemSaving ? 'Creating & adding…' : 'Create Item & Add to Order'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input type="text" placeholder="Search items by name or brand / manufacturer..."
+                value={itemSearch}
+                onChange={e => { setItemSearch(e.target.value); setShowItemDropdown(true) }}
+                onFocus={() => setShowItemDropdown(true)}
+                className="w-full pl-9 pr-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm"
+              />
+            </div>
+            {showItemDropdown && filteredItems.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl overflow-hidden max-h-64 overflow-y-auto">
+                {filteredItems.map(item => {
+                  const inCart = cart.find(c => c.itemId === item.id)
+                  const stockTracked = isInventoryItemType(item.itemType)
+                  return (
+                    <button key={item.id} type="button" onClick={() => addToCart(item)}
+                      className="w-full px-4 py-2.5 text-left border-b border-gray-100 last:border-0 flex items-center gap-3 hover:bg-green-50 cursor-pointer">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm truncate">{item.name}</p>
+                        <div className="mt-0.5 flex items-center gap-2 flex-wrap">
+                          <p className="text-xs text-blue-600 font-medium">{item.manufacturer?.name || 'System'}</p>
+                          {!stockTracked && (
+                            <span className="-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                              {itemTypeLabel(item.itemType)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold text-gray-800 text-sm">{formatCurrency(item.costPrice)}</p>
+                        <p className="text-xs text-gray-500">
+                          {stockTracked
+                            ? (useUnitSystem && item.unitName ? `Stock: ${item.quantity} ${item.unitName}` : `Stock: ${item.quantity}`)
+                            : 'No stock tracking'}
+                        </p>
+                      </div>
+                      {inCart && (
+                        <span className="w-5 h-5 bg-green-600 -full flex items-center justify-center text-white text-xs font-bold shrink-0">
+                          {inCart.quantity}
                         </span>
                       )}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-bold text-gray-800 text-sm">{formatCurrency(item.costPrice)}</p>
-                    <p className="text-xs text-gray-500">
-                      {stockTracked
-                        ? (useUnitSystem && item.unitName ? `Stock: ${item.quantity} ${item.unitName}` : `Stock: ${item.quantity}`)
-                        : 'No stock tracking'}
-                    </p>
-                  </div>
-                  {inCart && (
-                    <span className="w-5 h-5 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0">
-                      {inCart.quantity}
-                    </span>
-                  )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            {showItemDropdown && itemSearch.trim() && filteredItems.length === 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center">
+                <p className="text-sm text-gray-500 mb-2">No items found matching &ldquo;{itemSearch}&rdquo;</p>
+                <button
+                  type="button"
+                  onClick={() => openNewItemForm(itemSearch)}
+                  className="text-sm font-bold text-amber-600 hover:text-amber-800 underline"
+                >
+                  + Create &ldquo;{itemSearch}&rdquo; as a new item
                 </button>
-              )
-            })}
-          </div>
-        )}
-        {showItemDropdown && itemSearch.trim() && filteredItems.length === 0 && (
-          <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
-            No items found matching &ldquo;{itemSearch}&rdquo;
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 

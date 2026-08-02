@@ -114,7 +114,7 @@ export function BottomNav() {
                 <span className={`text-xs font-medium ${active ? 'text-blue-600' : 'text-gray-400'}`}>
                   {name}
                 </span>
-                {active && <div className="absolute top-0 h-0.5 w-8 bg-blue-600 rounded-full" />}
+                {active && <div className="absolute top-0 h-0.5 w-8 bg-blue-600 -full" />}
               </Link>
             )
           })}
@@ -129,7 +129,7 @@ export function BottomNav() {
             <span className={`text-xs font-medium ${moreActive ? 'text-blue-600' : 'text-gray-400'}`}>
               More
             </span>
-            {moreActive && <div className="absolute top-0 h-0.5 w-8 bg-blue-600 rounded-full" />}
+            {moreActive && <div className="absolute top-0 h-0.5 w-8 bg-blue-600 -full" />}
           </button>
         </div>
       </nav>
@@ -141,7 +141,7 @@ export function BottomNav() {
             className="fixed inset-0 z-50 bg-black/50 block md:hidden"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl block md:hidden max-h-[85vh] flex flex-col">
+          <div className="fixed bottom-0 left-0 right-0 z-50 bg-white  shadow-2xl block md:hidden max-h-[85vh] flex flex-col">
 
             {/* Handle + header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">

@@ -128,7 +128,7 @@ export default function PurchaseOrderDetailPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold text-gray-900">PO #{order.id.slice(0, 8).toUpperCase()}</h1>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${meta.cls}`}>{meta.label}</span>
+                <span className={`text-xs px-2 py-0.5 -full font-semibold ${meta.cls}`}>{meta.label}</span>
               </div>
               <p className="text-sm text-gray-500">Created {formatDate(order.createdAt)}</p>
             </div>
@@ -166,7 +166,7 @@ export default function PurchaseOrderDetailPage() {
         </div>
 
         {/* Printable PO document */}
-        <div className="bg-white border border-gray-200 p-6 print:border-0 print:rounded-none print:p-8 print:shadow-none">
+        <div className="bg-white border border-gray-200 p-6 print:border-0 print:-none print:p-8 print:shadow-none">
           {/* Print header */}
           <div className="hidden print:flex items-start justify-between mb-8">
             <div>
