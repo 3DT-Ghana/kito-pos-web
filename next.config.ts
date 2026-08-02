@@ -47,10 +47,17 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
+  // Self-hosted on Hetzner in Docker: emit `.next/standalone`, a self-contained
+  // server plus only the traced node_modules. Ignored by Vercel, which builds
+  // its own output format. See docker/Dockerfile.
+  output: "standalone",
+
   // Don't advertise the framework version to scanners.
   poweredByHeader: false,
 
-  // Vercel serves gzip/brotli at the edge; compressing again in Node is wasted CPU.
+  // The reverse proxy in front of the app compresses: Vercel's edge does it, and
+  // on Hetzner Caddy does it (`encode zstd gzip` in docker/Caddyfile).
+  // Compressing again in Node would be wasted CPU.
   compress: false,
 
   // Trailing slashes off keeps one canonical URL per route, which matters once

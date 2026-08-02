@@ -38,8 +38,11 @@ export async function GET() {
       database,
       databaseLatencyMs,
       config: env.ok ? 'ok' : 'incomplete',
-      // Vercel injects these; useful for confirming which build is live.
-      commit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      // Useful for confirming which build is live. Vercel injects
+      // VERCEL_GIT_COMMIT_SHA; the Hetzner image bakes in APP_COMMIT_SHA at
+      // build time (see docker/Dockerfile).
+      commit:
+        (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.APP_COMMIT_SHA)?.slice(0, 7) || null,
       environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
       uptimeCheckMs: Date.now() - startedAt,
     },

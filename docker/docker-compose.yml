@@ -1,0 +1,91 @@
+# Production stack on the Hetzner host.
+#
+#   caddy  — public entrypoint, terminates TLS (Let's Encrypt, automatic)
+#   app    — Next.js standalone server, reachable only on the private network
+#            and on 127.0.0.1:3000 for health checks and debugging
+#   migrate— one-shot `prisma migrate deploy`, run by scripts/deploy.sh
+#
+# The database is Neon; nothing stateful runs here except Caddy's certificates.
+# Secrets come from /etc/pos/app.env, which lives outside the repo checkout and
+# is readable only by root and the deploy group.
+
+name: pos
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runner
+      args:
+        APP_COMMIT_SHA: ${APP_COMMIT_SHA:-}
+    image: pos-app:current
+    restart: unless-stopped
+    env_file:
+      - /etc/pos/app.env
+    # Loopback only. Caddy reaches the app over the compose network; this
+    # publish exists so the deploy script and an operator on the box can probe
+    # /api/health without going through DNS or TLS. ufw does not expose it.
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set in /etc/pos/app.env}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      # A *directory* mount, staged by scripts/deploy.sh from docker/Caddyfile.
+      # Mounting the file directly does not work here: a bind-mounted file is
+      # pinned to its inode, and `actions/checkout` replaces the file rather
+      # than rewriting it, so the container would keep serving the Caddyfile it
+      # started with and no config change would ever take effect.
+      - /opt/pos/caddy:/etc/caddy:ro
+      - caddy_data:/data      # certificates and ACME account — must persist
+      - caddy_config:/config
+    networks:
+      - web
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Not started by `up`; invoked explicitly as
+  #   docker compose --profile tools run --rm migrate
+  # It reuses the builder stage, which already has the Prisma CLI and the
+  # migrations folder, so the runtime image stays lean.
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: builder
+    image: pos-migrate:current
+    env_file:
+      - /etc/pos/app.env
+    command: ["npx", "prisma", "migrate", "deploy"]
+    networks:
+      - web
+
+networks:
+  web:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

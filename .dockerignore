@@ -1,0 +1,22 @@
+# Keep the build context small — node_modules alone is several hundred MB and is
+# reinstalled inside the image from the lockfile anyway.
+node_modules
+.next
+.git
+.github
+.vercel
+coverage
+build
+out
+
+# Never let a local secret file end up in an image layer.
+.env
+.env.*
+!.env.example
+
+# Customer deployment folder (see .gitignore)
+deploy/
+
+*.tsbuildinfo
+npm-debug.log*
+.DS_Store

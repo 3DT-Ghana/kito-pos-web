@@ -1,0 +1,43 @@
+# Public entrypoint. Caddy obtains and renews the TLS certificate on its own —
+# there is no certbot, no cron job, and no manual renewal step. It keeps the
+# account key and certificates in the `caddy_data` volume, so recreating the
+# container does not re-issue (and does not burn Let's Encrypt rate limits).
+#
+# APP_DOMAIN and ACME_EMAIL come from /etc/pos/app.env via docker-compose.yml.
+
+{
+	email {$ACME_EMAIL}
+
+	# Requests arrive from Caddy's own container network; trust only private
+	# ranges when reading X-Forwarded-For so a client cannot spoof its IP.
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$APP_DOMAIN} {
+	# The app sets `compress: false` in next.config.ts — compression was
+	# Vercel's edge job and is now Caddy's. Without this, every HTML and JS
+	# response ships uncompressed.
+	encode zstd gzip
+
+	# Private documents are authorised per request and must never be cached by
+	# an intermediary. next.config.ts already sends this; restated here so the
+	# guarantee does not depend on the origin alone. The `>` prefix *replaces*
+	# rather than appends — without it the response carries the header twice.
+	header /api/* >Cache-Control "private, no-store, max-age=0"
+
+	reverse_proxy app:3000 {
+		# Reports and spreadsheet exports can run long; the Vercel deployment
+		# allowed 60s per API route.
+		transport http {
+			response_header_timeout 120s
+			read_timeout 120s
+		}
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

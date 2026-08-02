@@ -288,7 +288,166 @@ bypass advisories — directly relevant, since `proxy.ts` *is* the auth gate),
 
 ---
 
-## 6. Local development
+## 6. Self-hosted deployment on Hetzner
+
+A second production target runs the same app on a Hetzner VPS instead of Vercel.
+The database is still **Neon** and object storage is still **R2** — only the
+compute moves.
+
+```
+  Browser
+     │  HTTPS (Let's Encrypt, issued and renewed by Caddy)
+     ▼
+  167.233.131.235  ── Hetzner CX (Ubuntu 26.04, 2 vCPU, 3.8 GB)
+     │
+     ├─ caddy      container  :80 :443   TLS, compression, reverse proxy
+     └─ app        container  :3000      Next.js standalone server
+            │  Postgres            │  S3 API
+            ▼                      ▼
+          Neon                Cloudflare R2
+```
+
+### Host layout
+
+| Path | Owner | What it is |
+|---|---|---|
+| `/etc/pos/app.env` | `root:deploy` `0640` | All secrets. Never in git. |
+| `/opt/actions-runner` | `deploy` | GitHub Actions runner + its checkout |
+| `/swapfile` | — | 4 GB; `next build` does not fit comfortably in 3.8 GB alone |
+
+`ufw` allows 22, 80 and 443 only. The app publishes to `127.0.0.1:3000` so an
+operator can probe it directly; that port is not reachable from outside.
+Unattended security upgrades are enabled, and Docker's json-file logs are capped
+at 3 × 10 MB per container.
+
+### Images
+
+[docker/Dockerfile](docker/Dockerfile) builds in three stages — `deps`,
+`builder`, `runner`. `next.config.ts` sets `output: "standalone"`, so the final
+image carries a self-contained server and only the traced `node_modules`, with
+no npm, no source and a non-root user. Vercel ignores `output` and builds its
+own format, so both targets stay on one config.
+
+The build never sees production secrets: `lib/env.ts` validates lazily on first
+read, so `next build` compiles against the same placeholder values CI uses.
+`prisma generate` does need `DATABASE_URL`/`DIRECT_URL` to *parse* — it never
+connects — which is why the placeholders are set in the builder stage.
+
+`prisma migrate deploy` runs from the `builder` stage via the `migrate` compose
+service (profile `tools`), so the Prisma CLI and the migrations folder stay out
+of the runtime image.
+
+### TLS
+
+Caddy handles certificates with no certbot and no renewal cron. The ACME account
+and certificates live in the `caddy_data` volume, so recreating the container
+does not re-issue and does not burn Let's Encrypt rate limits.
+
+`APP_DOMAIN` and `ACME_EMAIL` are read from `/etc/pos/app.env`.
+
+`scripts/deploy.sh` copies `docker/Caddyfile` to `/opt/pos/caddy/Caddyfile`, and
+the container mounts that **directory**. Mounting the file directly does not
+work: a bind-mounted file is pinned to its inode, and `actions/checkout`
+replaces the file rather than rewriting it, so the container would go on serving
+whatever Caddyfile it started with and no config change would ever take effect.
+
+> Response-header rules need the `>` prefix (`header /api/* >Cache-Control …`).
+> `>` means "set, deferred". A plain set runs *before* the reverse proxy writes
+> the upstream's headers, so the upstream value is appended afterwards and the
+> response carries the field twice.
+
+> The app sets `compress: false` — on Vercel the edge compressed, and here
+> [docker/Caddyfile](docker/Caddyfile) does (`encode zstd gzip`). If you ever put
+> the app behind something that does not compress, flip that flag back on.
+
+### CI/CD
+
+One workflow, [.github/workflows/ci.yml](.github/workflows/ci.yml):
+
+```
+push / PR ──► verify   (GitHub-hosted: check:env, generate, typecheck, lint, build)
+          ──► audit    (GitHub-hosted: npm audit --omit=dev)
+                        │
+push to main only ──────┴──► deploy  (self-hosted runner on the Hetzner box)
+```
+
+`deploy` needs both checks, so a red typecheck never reaches the server. The
+runner is registered as `hetzner-pos` with the label `pos-hetzner`, runs as the
+`deploy` user under systemd, and starts on boot.
+
+> **This repository is public.** The `if:` condition on the `deploy` job is a
+> security boundary, not a convenience — it restricts the job to `push` and
+> `workflow_dispatch` on `main`, refs only a collaborator can write to. A fork's
+> pull request therefore cannot execute anything on the production host. Never
+> add `pull_request` to that job, and keep `verify`/`audit` on GitHub-hosted
+> runners.
+
+### What a deploy does
+
+[scripts/deploy.sh](scripts/deploy.sh), run by the workflow and equally runnable
+by hand on the box:
+
+1. Tag the running image `pos-app:previous` — the rollback point.
+2. Build `pos-app:current` from the new commit.
+3. `prisma migrate deploy`. If it fails, stop; the running app is untouched.
+4. Recreate the containers.
+5. Poll `/api/health` for up to 150 s. A 200 means config validated *and* Neon
+   answered `SELECT 1`.
+6. On failure, retag `previous` → `current`, bring it back, and exit non-zero so
+   the Actions run goes red.
+7. Reload Caddy and prune dangling images.
+
+Migrations land before the new container takes over, so during the swap the old
+build serves against a schema that is a superset of what it knows. That is safe
+for additive changes. A migration that drops or renames a column the running
+build still reads breaks that window — ship those as expand/contract over two
+deploys.
+
+### Operating it
+
+```bash
+ssh root@167.233.131.235
+
+# what is running
+docker compose -p pos -f /opt/actions-runner/_work/point-of-sale/point-of-sale/docker/docker-compose.yml ps
+
+# logs
+docker logs -f pos-app-1
+docker logs -f pos-caddy-1
+
+# is it healthy, and which commit is live
+curl -s http://127.0.0.1:3000/api/health
+
+# runner
+systemctl status actions.runner.eyosolutionsgh-point-of-sale.hetzner-pos
+```
+
+Deploy by hand (same script the runner uses):
+
+```bash
+sudo -u deploy bash /opt/actions-runner/_work/point-of-sale/point-of-sale/scripts/deploy.sh
+```
+
+Roll back to the previous image without a git revert:
+
+```bash
+docker tag pos-app:previous pos-app:current
+docker compose -p pos --env-file /etc/pos/app.env \
+  -f /opt/actions-runner/_work/point-of-sale/point-of-sale/docker/docker-compose.yml \
+  up -d --no-build app
+```
+
+### Changing configuration
+
+Edit `/etc/pos/app.env` as root, then re-run the deploy script — compose reads
+`env_file` at container creation, so a restart is required for a change to take
+effect. The file is the single source of truth for secrets on this host; nothing
+is stored in GitHub Actions secrets, so a repository compromise does not hand
+over the database.
+
+---
+
+## 7. Local development
 
 ```bash
 cp .env.example .env.local     # fill in real values
