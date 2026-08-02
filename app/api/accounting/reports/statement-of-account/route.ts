@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
-import { requireBranchAccess } from '@/lib/branch/server'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
 import { round2 } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     if (startDate) {
       const priorSales = await prisma.sale.findMany({
         where: {
-          tenantId: context!.tenantId,
+          ...applyBranchScope({ tenantId: context!.tenantId }, context!),
           customerId,
           paymentType: 'CREDIT',
           createdAt: { lt: new Date(startDate) },
@@ -65,13 +65,15 @@ export async function GET(req: Request) {
       })
       const priorPayments = await prisma.customerPayment.findMany({
         where: {
-          tenantId: context!.tenantId,
+          ...applyBranchScope({ tenantId: context!.tenantId }, context!),
           customerId,
           createdAt: { lt: new Date(startDate) },
         },
         select: { amount: true },
       })
       const priorTransfers = await prisma.ledgerTransfer.findMany({
+        // LedgerTransfer has no branchId column — ledger entries are recorded
+        // at business level — so this stays tenant-scoped.
         where: {
           tenantId: context!.tenantId,
           OR: [{ debitCustomerId: customerId }, { creditCustomerId: customerId }],
@@ -92,7 +94,7 @@ export async function GET(req: Request) {
     // Sales in period
     const sales = await prisma.sale.findMany({
       where: {
-        tenantId: context!.tenantId,
+        ...applyBranchScope({ tenantId: context!.tenantId }, context!),
         customerId,
         OR: [{ approvalStatus: null }, { approvalStatus: 'APPROVED' }],
         ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
@@ -111,7 +113,7 @@ export async function GET(req: Request) {
     // Payments in period
     const payments = await prisma.customerPayment.findMany({
       where: {
-        tenantId: context!.tenantId,
+        ...applyBranchScope({ tenantId: context!.tenantId }, context!),
         customerId,
         ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
       },
@@ -126,6 +128,7 @@ export async function GET(req: Request) {
 
     // Transfers in period involving this customer
     const transfers = await prisma.ledgerTransfer.findMany({
+      // Tenant-scoped: LedgerTransfer carries no branchId (see above).
       where: {
         tenantId: context!.tenantId,
         OR: [{ debitCustomerId: customerId }, { creditCustomerId: customerId }],

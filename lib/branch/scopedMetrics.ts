@@ -190,6 +190,9 @@ export async function getScopedSupplierMetrics(
 
   for (const supplierReturn of creditReturns) {
     const supplierId = supplierReturn.purchase.supplierId
+    // Guarded to match the customer path above — without it a return against a
+    // supplier-less purchase writes a null key into the metrics map.
+    if (!supplierId) continue
     const metric = metrics.get(supplierId) ?? createEmptyMetric()
     metric.totalPayments += supplierReturn.amount
     metrics.set(supplierId, finalizeMetric(metric))

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { ALL_BRANCHES_SELECTION, BRANCH_SELECTION_COOKIE } from '@/lib/branch/constants'
 
 export interface Branch {
@@ -61,6 +62,10 @@ interface BranchProviderProps {
 
 export function BranchProvider({ children, initialState }: BranchProviderProps) {
   const initialStateRef = useRef(initialState)
+  const router = useRouter()
+  // Set once the user picks a branch, so a late /api/branches response cannot
+  // overwrite their selection with the value the server had at page load.
+  const userSelectedRef = useRef(false)
   const [branches, setBranches] = useState<Branch[]>(() => initialState?.branches ?? [])
   const [branchesEnabled, setBranchesEnabled] = useState(() => initialState?.branchesEnabled ?? false)
   const [currentBranchId, setCurrentBranchId] = useState<string | null>(() => initialState?.currentBranchId ?? null)
@@ -85,6 +90,9 @@ export function BranchProvider({ children, initialState }: BranchProviderProps) 
   const fetchBranches = async () => {
     try {
       const res = await fetch('/api/branches')
+      // On failure, keep whatever the server rendered rather than falling back
+      // to branchesEnabled: false — that hid the branch switcher entirely and
+      // stranded the user on the cookie's branch with no error and no way back.
       if (!res.ok) return
       const data = await res.json()
       const list: Branch[] = data.branches || []
@@ -93,13 +101,21 @@ export function BranchProvider({ children, initialState }: BranchProviderProps) 
       setAssignedBranchId(data.context?.assignedBranchId ?? null)
       setCanViewAllBranches(Boolean(data.context?.canViewAllBranches))
       setIsBranchLocked(Boolean(data.context?.isBranchLocked))
-      setCurrentBranchId(data.context?.currentBranchId ?? null)
 
-      if (data.context?.currentBranchId === null && data.context?.canViewAllBranches) {
-        writeBranchSelection(null)
-      } else if (data.context?.currentBranchId) {
-        writeBranchSelection(data.context.currentBranchId)
+      // A request that started before the user switched branches would
+      // otherwise land afterwards and silently revert their choice.
+      if (!userSelectedRef.current) {
+        setCurrentBranchId(data.context?.currentBranchId ?? null)
+
+        if (data.context?.currentBranchId === null && data.context?.canViewAllBranches) {
+          writeBranchSelection(null)
+        } else if (data.context?.currentBranchId) {
+          writeBranchSelection(data.context.currentBranchId)
+        }
       }
+    } catch {
+      // Network failure — same reasoning as the !res.ok path above: hold the
+      // server-rendered state rather than throwing an unhandled rejection.
     } finally {
       setIsLoading(false)
     }
@@ -107,8 +123,14 @@ export function BranchProvider({ children, initialState }: BranchProviderProps) 
 
   const setBranchId = (id: string | null) => {
     if (isBranchLocked) return
+    userSelectedRef.current = true
     setCurrentBranchId(id)
     writeBranchSelection(id)
+    // Server components read the branch from the cookie at request time, so
+    // without this the page kept rendering the previous branch's rows while
+    // the switcher showed the new one — which reads as a data leak even though
+    // the server is scoping correctly.
+    router.refresh()
   }
 
   const currentBranch = branches.find(b => b.id === currentBranchId) ?? null

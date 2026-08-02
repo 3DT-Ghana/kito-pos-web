@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { WaybillStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
-import { requireBranchAccess } from '@/lib/branch/server'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { waybillSelect } from '@/lib/waybills/server'
 import { sendWhatsApp, buildWhatsAppWaybillDispatch } from '@/lib/whatsapp/meta'
@@ -18,7 +18,7 @@ export async function GET(_req: Request, { params }: RouteParams) {
 
     const { id } = await params
     const waybill = await prisma.waybill.findFirst({
-      where: { id, tenantId: context!.tenantId },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       select: waybillSelect,
     })
 
@@ -43,7 +43,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const action = body.action ? String(body.action) : null
 
     const waybill = await prisma.waybill.findFirst({
-      where: { id, tenantId: context!.tenantId },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       select: { id: true, status: true },
     })
     if (!waybill) return NextResponse.json({ error: 'Waybill not found' }, { status: 404 })
@@ -164,7 +164,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
 
     const { id } = await params
     const waybill = await prisma.waybill.findFirst({
-      where: { id, tenantId: context!.tenantId },
+      where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       select: { id: true, status: true },
     })
     if (!waybill) return NextResponse.json({ error: 'Waybill not found' }, { status: 404 })
@@ -173,7 +173,7 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     }
 
     // Scope the delete by tenant too rather than trusting the prior read
-    await prisma.waybill.deleteMany({ where: { id, tenantId: context!.tenantId } })
+    await prisma.waybill.deleteMany({ where: applyBranchScope({ id, tenantId: context!.tenantId }, context!) })
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[waybills/:id DELETE]', err)

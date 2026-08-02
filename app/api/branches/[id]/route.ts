@@ -83,12 +83,29 @@ export async function PUT(
       }
     }
 
+    // A whitespace-only name is truthy, so it skipped the duplicate check above
+    // and saved as an empty string — leaving a blank entry in the branch switcher.
+    if (body.name !== undefined && (typeof body.name !== 'string' || !body.name.trim())) {
+      return NextResponse.json({ error: 'Branch name cannot be empty' }, { status: 400 })
+    }
+
     // If setting as default, unset previous default
     if (body.isDefault) {
       await prisma.branch.updateMany({
         where: { tenantId: context!.tenantId, isDefault: true, id: { not: id } },
         data: { isDefault: false },
       })
+    } else if (body.isDefault === false && branch.isDefault) {
+      // Unsetting the current default left the tenant with none. That silently
+      // disabled the "cannot delete the default branch" guard, allowing every
+      // branch to be deleted down to the last one. Promote another branch
+      // instead of allowing zero.
+      return NextResponse.json(
+        {
+          error: 'A business must always have one default branch. Set another branch as the default instead of clearing this one.',
+        },
+        { status: 400 }
+      )
     }
 
     const updated = await prisma.branch.update({
@@ -152,6 +169,13 @@ export async function DELETE(
       supplierPaymentsCount,
       transferOutCount,
       transferInCount,
+      // Branch has no foreign keys to any of these, so nothing at the database
+      // level stops a delete. Omitting them left quotations, waybills and
+      // purchase orders pointing at a branch that no longer exists — and since
+      // scoping is strict equality, permanently invisible from every branch.
+      quotationsCount,
+      purchaseOrdersCount,
+      waybillsCount,
     ] = await Promise.all([
       prisma.item.count({ where: { tenantId: context!.tenantId, branchId: id } }),
       prisma.sale.count({ where: { tenantId: context!.tenantId, branchId: id } }),
@@ -183,24 +207,37 @@ export async function DELETE(
           toBranchId: id,
         },
       }),
+      prisma.quotation.count({ where: { tenantId: context!.tenantId, branchId: id } }),
+      prisma.purchaseOrder.count({ where: { tenantId: context!.tenantId, branchId: id } }),
+      prisma.waybill.count({ where: { tenantId: context!.tenantId, branchId: id } }),
     ])
 
-    const linkedRecordsCount =
-      itemsCount +
-      salesCount +
-      purchasesCount +
-      adjustmentsCount +
-      expensesCount +
-      registersCount +
-      customerPaymentsCount +
-      supplierPaymentsCount +
-      transferOutCount +
-      transferInCount
+    const linkedRecords: [string, number][] = [
+      ['items', itemsCount],
+      ['sales', salesCount],
+      ['purchases', purchasesCount],
+      ['stock adjustments', adjustmentsCount],
+      ['expenses', expensesCount],
+      ['till sessions', registersCount],
+      ['customer payments', customerPaymentsCount],
+      ['supplier payments', supplierPaymentsCount],
+      ['outgoing transfers', transferOutCount],
+      ['incoming transfers', transferInCount],
+      ['quotations', quotationsCount],
+      ['purchase orders', purchaseOrdersCount],
+      ['waybills', waybillsCount],
+    ]
+    const blocking = linkedRecords.filter(([, count]) => count > 0)
 
-    if (linkedRecordsCount > 0) {
+    if (blocking.length > 0) {
       return NextResponse.json(
         {
-          error: 'Cannot delete a branch that already has transactions, transfers, or inventory. Move or clear the data first.',
+          // Naming what blocks the delete is the difference between an
+          // actionable message and a dead end, since none of these have a
+          // foreign key that would name itself in an error.
+          error: `Cannot delete this branch — it still has ${blocking
+            .map(([label, count]) => `${count} ${label}`)
+            .join(', ')}. Move or clear that data first.`,
         },
         { status: 409 }
       )

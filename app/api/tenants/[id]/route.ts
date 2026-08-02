@@ -4,6 +4,7 @@ import { requireOwner } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { TenantStatus } from '@prisma/client'
 import { seedDefaultAccounts } from '@/lib/accounting/seedAccounts'
+import { backfillNullBranchRows } from '@/lib/branch/backfill'
 
 /**
  * Tenant Management API
@@ -129,6 +130,15 @@ export async function PUT(req: Request, { params }: RouteParams) {
       )
     }
 
+    // Captured before the update so the branches OFF -> ON transition can be
+    // detected; a plain `body.enableBranches === true` would re-run the
+    // backfill on every unrelated settings save.
+    const previous = await prisma.tenant.findUnique({
+      where: { id },
+      select: { enableBranches: true },
+    })
+    const enablingBranches = body.enableBranches === true && previous?.enableBranches === false
+
     // Update tenant
     const tenant = await prisma.tenant.update({
       where: { id },
@@ -177,7 +187,16 @@ export async function PUT(req: Request, { params }: RouteParams) {
       await seedDefaultAccounts(id)
     }
 
-    return NextResponse.json(tenant)
+    // Branch scoping is strict equality, so every row written while branches
+    // were off (branchId: null) would vanish from every list and report the
+    // moment the flag flips — and only OWNER/STORE_MANAGER could ever see it
+    // again via "All Branches". Tag that history to the default branch instead.
+    let branchBackfill: Awaited<ReturnType<typeof backfillNullBranchRows>> | null = null
+    if (enablingBranches) {
+      branchBackfill = await backfillNullBranchRows(id)
+    }
+
+    return NextResponse.json({ ...tenant, ...(branchBackfill ? { branchBackfill } : {}) })
   } catch (err) {
     console.error('Failed to update tenant:', err)
     return NextResponse.json(
