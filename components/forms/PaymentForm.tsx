@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { paymentSchema, PaymentFormData } from '@/types/form'
@@ -25,7 +25,6 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedEntity, setSelectedEntity] = useState<{ id: string; name: string; balance: number } | null>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
 
   // Payment method & split
   const [method, setMethod] = useState<PaymentMethod>('CASH')
@@ -68,16 +67,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
     }
   }, [preselectedId, entities]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  // No global mousedown listener needed — dropdown closes via onBlur on the search input
 
   // Auto-fill cash portion when momo amount changes in split mode
   useEffect(() => {
@@ -240,7 +230,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
       <input type="hidden" {...register(fieldName)} />
 
       {/* ── Entity Search ── */}
-      <div ref={searchRef} className="relative">
+      <div className="relative">
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           {label} <span className="text-red-500">*</span>
         </label>
@@ -282,6 +272,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                 value={search}
                 onChange={e => { setSearch(e.target.value); setShowDropdown(true) }}
                 onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                 className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
               />
             </div>
@@ -291,6 +282,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                   <button
                     key={entity.id}
                     type="button"
+                    onMouseDown={e => e.preventDefault()}
                     onClick={() => handleSelect(entity)}
                     className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
                   >
