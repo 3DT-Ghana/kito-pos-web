@@ -222,6 +222,8 @@ model Tenant {
   // Receipt Settings
   showManufacturerOnReceipt Boolean @default(true)
   receiptPrinterWidth       String  @default("80mm") // "58mm" or "80mm"
+  receiptPrinterName        String? // QZ Tray printer name for POS receipts
+  reportPrinterName         String? // QZ Tray printer name for invoices/reports (A4)
 
   // Unit System
   // When enabled, items have a unit name (e.g. "carton") and piecesPerUnit (e.g. 12).

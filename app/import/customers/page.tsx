@@ -20,12 +20,26 @@ Kwame Mensah,0244123456,150.00
 Ama Owusu,0201987654,0
 Kofi Asante,,75.50`
 
+// Handles quoted fields so values with commas work correctly
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let cur = '', inQuote = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') { inQuote = !inQuote }
+    else if (ch === ',' && !inQuote) { result.push(cur.trim()); cur = '' }
+    else { cur += ch }
+  }
+  result.push(cur.trim())
+  return result
+}
+
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return { headers: [], rows: [] }
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase())
   const rows = lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim())
+    const vals = parseCSVLine(line)
     const obj: Record<string, string> = {}
     headers.forEach((h, i) => { obj[h] = vals[i] ?? '' })
     return obj
@@ -81,6 +95,7 @@ export default function ImportCustomersPage() {
       setResult(data)
       setParsed(null)
       setCsvText('')
+      if (fileRef.current) fileRef.current.value = ''
     } catch (err) {
       setParseError(err instanceof Error ? err.message : 'Import failed')
     } finally {
@@ -125,9 +140,11 @@ export default function ImportCustomersPage() {
           <p className="font-mono text-xs bg-blue-100  px-2 py-1 inline-block">
             name, phone, balance
           </p>
-          <p className="mt-1 text-xs text-blue-600">
-            • <strong>name</strong> is required · <strong>phone</strong> and <strong>balance</strong> are optional
-          </p>
+          <ul className="mt-2 text-xs text-blue-600 space-y-0.5">
+            <li>• <strong>name</strong> is required · <strong>phone</strong> and <strong>balance</strong> are optional</li>
+            <li>• <strong>balance</strong> = amount customer owes (opening debt)</li>
+            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">"Mensah, Kwame"</code></li>
+          </ul>
           <button
             onClick={() => {
               const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv' })

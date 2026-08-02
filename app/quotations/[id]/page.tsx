@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -200,7 +201,7 @@ export default function QuotationDetailPage() {
               </button>
             )}
             <button
-              onClick={() => window.print()}
+              onClick={() => smartPrint('report')}
               className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
             >
               🖨️ Print / PDF
@@ -317,6 +318,9 @@ export default function QuotationDetailPage() {
         <div className="px-8 pb-8 border-t border-gray-100">
           <p className="text-xs text-gray-400 text-center mt-4">
             This is a quotation only, not a tax invoice. Prices subject to change without notice.
+          </p>
+          <p className="text-[10px] text-gray-300 text-center mt-3 border-t border-dashed border-gray-100 pt-2">
+            System Developed EYO Solutions | 0246462398
           </p>
         </div>
       </div>

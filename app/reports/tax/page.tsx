@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -390,7 +391,7 @@ export default function TaxReportsPage() {
           <div className="flex gap-2 print:hidden">
             <ExportButton filename={reportType} label="Export" getData={() => exportRows} />
             <button
-              onClick={() => window.print()}
+              onClick={() => smartPrint('report')}
               className="bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
             >
               Print / PDF

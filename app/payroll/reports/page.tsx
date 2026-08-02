@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -113,7 +114,7 @@ export default function PayrollReportsPage() {
                 <h2 className="text-sm font-semibold text-gray-900">{REPORT_LABELS[reportType]}</h2>
                 <p className="text-xs text-gray-500">{MONTH_NAMES[run.periodMonth]} {run.periodYear} · Status: {run.status}</p>
               </div>
-              <button onClick={() => window.print()} className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-300 px-3 py-1.5 hover:bg-gray-50">
+              <button onClick={() => smartPrint('report')} className="flex items-center gap-1.5 text-sm text-gray-500 border border-gray-300 px-3 py-1.5 hover:bg-gray-50">
                 <Printer className="w-4 h-4" /> Print
               </button>
             </div>

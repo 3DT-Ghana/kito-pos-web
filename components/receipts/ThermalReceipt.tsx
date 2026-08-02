@@ -176,6 +176,9 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
         <div className="mt-1" style={{ fontSize: is58mm ? '9px' : '10px' }}>
           Please come again
         </div>
+        <div className="mt-2 border-t border-dashed border-gray-400 pt-1" style={{ fontSize: is58mm ? '8px' : '9px', color: '#888' }}>
+          System Developed EYO Solutions | 0246462398
+        </div>
       </div>
 
       {/* Print Styles */}
@@ -221,10 +224,10 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
 }
 
 /**
- * Print Receipt Function
+ * Print Receipt Function — uses QZ Tray silent print if configured, else browser dialog
  */
-export function printReceipt() {
-  if (typeof window !== 'undefined') {
-    window.print()
-  }
+export async function printReceipt() {
+  if (typeof window === 'undefined') return
+  const { smartPrint } = await import('@/lib/print/print')
+  await smartPrint('receipt', document.querySelector('.thermal-receipt') as HTMLElement | null)
 }

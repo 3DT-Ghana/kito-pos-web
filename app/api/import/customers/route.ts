@@ -45,12 +45,16 @@ export async function POST(req: Request) {
       const row = rows[i]
       const rowNum = i + 2
 
-      const name = (String(row.name || '')).trim()
-      const phone = (String(row.phone || '')).trim() || null
+      const name    = (String(row.name || '')).trim()
+      const rawPhone = (String(row.phone || '')).trim()
+      // Normalise phone: strip spaces/dashes, ensure leading 0 format
+      const phone   = rawPhone
+        ? rawPhone.replace(/[\s\-().]/g, '').replace(/^\+233/, '0').replace(/^233/, '0') || null
+        : null
       const balance = parseFloat(String(row.balance ?? '0'))
 
       if (!name) { results.errors.push(`Row ${rowNum}: name is required`); results.skipped++; continue }
-      if (isNaN(balance) || balance < 0) { results.errors.push(`Row ${rowNum}: invalid balance`); results.skipped++; continue }
+      if (isNaN(balance)) { results.errors.push(`Row ${rowNum}: balance must be a number`); results.skipped++; continue }
 
       try {
         // Check for duplicate name

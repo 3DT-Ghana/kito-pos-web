@@ -46,6 +46,22 @@ export async function POST(req: Request) {
 
     const results = { imported: 0, skipped: 0, errors: [] as string[] }
 
+    // Pre-fetch or create a default "General" manufacturer for rows without one
+    let defaultMfrId: string | null = null
+    const getDefaultMfr = async () => {
+      if (defaultMfrId) return defaultMfrId
+      let mfr = await prisma.manufacturer.findFirst({
+        where: { tenantId: context!.tenantId, name: { equals: 'General', mode: 'insensitive' } },
+      })
+      if (!mfr) {
+        mfr = await prisma.manufacturer.create({
+          data: { tenantId: context!.tenantId, name: 'General' },
+        })
+      }
+      defaultMfrId = mfr.id
+      return mfr.id
+    }
+
     // Cache manufacturer lookups to avoid N+1 queries
     const mfrCache: Record<string, string> = {}
 
@@ -53,48 +69,73 @@ export async function POST(req: Request) {
       const row = rows[i]
       const rowNum = i + 2 // 1-indexed + header row
 
-      const name = String(row.name || '').trim()
-      const mfrName = String(row.manufacturer || '').trim()
-      const costPrice = parseFloat(String(row.costprice ?? row.costPrice))
-      const sellingPrice = parseFloat(String(row.sellingprice ?? row.sellingPrice))
-      const quantity = parseInt(String(row.quantity ?? '0'), 10)
+      const name         = String(row.name || '').trim()
+      const mfrName      = String(row.manufacturer || '').trim()
+      const costPrice    = parseFloat(String(row.costprice ?? row.costPrice ?? ''))
+      const sellingPrice = parseFloat(String(row.sellingprice ?? row.sellingPrice ?? ''))
+      const quantity     = parseFloat(String(row.quantity ?? '0'))
+      const barcode      = String(row.barcode || '').trim() || null
+      const reorderLevel = parseInt(String(row.reorderlevel ?? row.reorderLevel ?? '10'), 10)
 
-      // Validate row
+      // Parse itemType — accept case-insensitive variations
+      const rawType = String(row.itemtype ?? row.itemType ?? row.type ?? 'INVENTORY').trim().toUpperCase()
+      const itemType =
+        rawType === 'SERVICE'                                      ? 'SERVICE'
+        : rawType === 'NON_INVENTORY' || rawType === 'NONINVENTORY' ? 'NON_INVENTORY'
+        : 'INVENTORY'
+
+      // Validate required fields
       if (!name) { results.errors.push(`Row ${rowNum}: name is required`); results.skipped++; continue }
-      if (!mfrName) { results.errors.push(`Row ${rowNum}: manufacturer is required`); results.skipped++; continue }
       if (isNaN(costPrice) || costPrice < 0) { results.errors.push(`Row ${rowNum}: invalid costPrice`); results.skipped++; continue }
       if (isNaN(sellingPrice) || sellingPrice < 0) { results.errors.push(`Row ${rowNum}: invalid sellingPrice`); results.skipped++; continue }
-      if (isNaN(quantity) || quantity < 0) { results.errors.push(`Row ${rowNum}: invalid quantity`); results.skipped++; continue }
+      // quantity only relevant for INVENTORY items
+      if (itemType === 'INVENTORY' && (isNaN(quantity) || quantity < 0)) { results.errors.push(`Row ${rowNum}: invalid quantity`); results.skipped++; continue }
 
       try {
-        // Resolve manufacturer (create if not exists)
-        const mfrKey = mfrName.toLowerCase()
-        if (!mfrCache[mfrKey]) {
-          let mfr = await prisma.manufacturer.findFirst({
-            where: { tenantId: context!.tenantId, name: { equals: mfrName, mode: 'insensitive' } },
-          })
-          if (!mfr) {
-            mfr = await prisma.manufacturer.create({
-              data: { tenantId: context!.tenantId, name: mfrName },
+        // Resolve manufacturer — fall back to "General" if not provided
+        let manufacturerId: string
+        if (mfrName) {
+          const mfrKey = mfrName.toLowerCase()
+          if (!mfrCache[mfrKey]) {
+            let mfr = await prisma.manufacturer.findFirst({
+              where: { tenantId: context!.tenantId, name: { equals: mfrName, mode: 'insensitive' } },
             })
+            if (!mfr) {
+              mfr = await prisma.manufacturer.create({
+                data: { tenantId: context!.tenantId, name: mfrName },
+              })
+            }
+            mfrCache[mfrKey] = mfr.id
           }
-          mfrCache[mfrKey] = mfr.id
+          manufacturerId = mfrCache[mfrKey]
+        } else {
+          manufacturerId = await getDefaultMfr()
         }
-        const manufacturerId = mfrCache[mfrKey]
 
-        // Skip duplicate item names within the same manufacturer
+        // Skip if exact name already exists in this branch/tenant
         const existing = await prisma.item.findFirst({
           where: {
             tenantId: context!.tenantId,
-            manufacturerId,
             ...(context!.branchesEnabled ? { branchId } : {}),
             name: { equals: name, mode: 'insensitive' },
           },
         })
         if (existing) {
-          results.errors.push(`Row ${rowNum}: item "${name}" already exists for this manufacturer — skipped`)
+          results.errors.push(`Row ${rowNum}: item "${name}" already exists — skipped`)
           results.skipped++
           continue
+        }
+
+        // Check barcode uniqueness if provided
+        if (barcode) {
+          const barcodeExists = await prisma.item.findFirst({
+            where: { tenantId: context!.tenantId, barcode },
+          })
+          if (barcodeExists) {
+            results.errors.push(`Row ${rowNum}: barcode "${barcode}" already in use — skipped`)
+            results.skipped++
+            continue
+          }
         }
 
         await prisma.item.create({
@@ -105,7 +146,16 @@ export async function POST(req: Request) {
             name,
             costPrice,
             sellingPrice,
-            quantity,
+            itemType: itemType as 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE',
+            // Only set stock fields for inventory items
+            ...(itemType === 'INVENTORY' ? {
+              quantity: isNaN(quantity) ? 0 : quantity,
+              reorderLevel: isNaN(reorderLevel) ? 10 : reorderLevel,
+            } : {
+              quantity: 0,
+              reorderLevel: 0,
+            }),
+            ...(barcode ? { barcode } : {}),
           },
         })
         results.imported++
