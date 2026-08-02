@@ -22,6 +22,7 @@ type Transaction =
   | { type: 'sale'; id: string; date: string; totalAmount: number; paidAmount: number; items: SaleItem[] }
   | { type: 'payment'; id: string; date: string; amount: number; method: string }
   | { type: 'transfer'; id: string; date: string; amount: number; description: string; isDebit: boolean; counterparty: string }
+  | { type: 'return'; id: string; date: string; amount: number; returnType: string; itemName: string; quantity: number; note: string | null }
 
 export default function CustomerStatementPage() {
   const router = useRouter()
@@ -33,10 +34,14 @@ export default function CustomerStatementPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Default: current month
+  // Default: current month. Formatted from local parts rather than
+  // .toISOString(), which converts to UTC and shifted the range by a day in any
+  // timezone west of UTC.
   const today = new Date()
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-  const todayStr = today.toISOString().split('T')[0]
+  const asLocalISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const firstOfMonth = asLocalISO(new Date(today.getFullYear(), today.getMonth(), 1))
+  const todayStr = asLocalISO(today)
 
   const [startDate, setStartDate] = useState(firstOfMonth)
   const [endDate, setEndDate] = useState(todayStr)
@@ -46,11 +51,18 @@ export default function CustomerStatementPage() {
   const fetchCustomer = async () => {
     try {
       setIsLoading(true)
+      // Cleared on entry — otherwise one failed fetch left `error` truthy
+      // forever and the page stayed stuck on the error screen even after a
+      // later date-range change succeeded.
+      setError(null)
       const qp = new URLSearchParams()
       if (startDate) qp.set('startDate', startDate)
       if (endDate) qp.set('endDate', endDate)
       const res = await fetch(`/api/customers/${customerId}?${qp}`)
-      if (!res.ok) throw new Error('Failed to fetch customer')
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}))
+        throw new Error(errBody.error || 'Failed to fetch customer')
+      }
       const data = await res.json()
       setCustomer(data.data || data)
     } catch (err) {
@@ -117,17 +129,37 @@ export default function CustomerStatementPage() {
     }
   })
 
-  const allTx = [...sales, ...paymentsTx, ...transfersTx].sort(
+  // Returns reduce what the customer owes but were absent from the statement,
+  // leaving a gap between the listed rows and the closing balance.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const returnsTx: Transaction[] = (customer.returns || []).map((r: any) => ({
+    type: 'return' as const,
+    id: r.id,
+    date: r.createdAt,
+    amount: r.amount,
+    returnType: r.type,
+    itemName: r.item?.name ?? 'Item',
+    quantity: r.quantity,
+    note: r.note,
+  }))
+
+  const allTx = [...sales, ...paymentsTx, ...transfersTx, ...returnsTx].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
-  // Compute running balance (starting from 0 for the period shown)
-  let runningBalance = 0
+  // Start from the balance carried in from before the period, so the closing
+  // figure in the table is the customer's actual balance rather than a
+  // period-only number sitting next to an all-time total.
+  const openingBalance: number = customer.openingBalance ?? 0
+  let runningBalance = openingBalance
   const txWithBalance = allTx.map(tx => {
     if (tx.type === 'sale') {
       runningBalance += tx.totalAmount - tx.paidAmount
     } else if (tx.type === 'payment') {
       runningBalance -= tx.amount
+    } else if (tx.type === 'return') {
+      // Only a CREDIT return reduces the balance; a CASH refund pays money back
+      if (tx.returnType === 'CREDIT') runningBalance -= tx.amount
     } else {
       // transfer: debit → customer owes more; credit → customer owes less
       runningBalance += tx.isDebit ? tx.amount : -tx.amount
@@ -135,8 +167,26 @@ export default function CustomerStatementPage() {
     return { tx, balance: runningBalance }
   })
 
-  const totalSalesValue = sales.reduce((s, tx) => s + (tx.type === 'sale' ? tx.totalAmount : 0), 0)
-  const totalPaymentsValue = paymentsTx.reduce((s, tx) => s + (tx.type === 'payment' ? tx.amount : 0), 0)
+  // Footer totals must be the sums of the columns above them. These previously
+  // counted only sales and only customer-payment rows, while the columns also
+  // rendered transfers and deposits — so the footer never matched its own column.
+  const totalDebits = allTx.reduce((s, tx) => {
+    if (tx.type === 'sale') return s + tx.totalAmount
+    if (tx.type === 'transfer' && tx.isDebit) return s + tx.amount
+    return s
+  }, 0)
+  const totalCredits = allTx.reduce((s, tx) => {
+    if (tx.type === 'sale') return s + tx.paidAmount
+    if (tx.type === 'payment') return s + tx.amount
+    if (tx.type === 'return' && tx.returnType === 'CREDIT') return s + tx.amount
+    if (tx.type === 'transfer' && !tx.isDebit) return s + tx.amount
+    return s
+  }, 0)
+  // Closing balance derived from the statement itself, so a reader can verify
+  // opening + debits − credits = closing.
+  const closingBalance = openingBalance + totalDebits - totalCredits
+  const totalSalesValue = totalDebits
+  const totalPaymentsValue = totalCredits
   const currentBalance = customer.balance
 
   const periodLabel = startDate && endDate
@@ -180,11 +230,16 @@ export default function CustomerStatementPage() {
               filename={`statement-${customer?.name || 'customer'}-${startDate}-${endDate}`}
               getData={() => txWithBalance.map(({ tx, balance }) => ({
                 Date: formatDate(tx.date),
-                Type: tx.type === 'sale' ? 'Sale' : tx.type === 'payment' ? 'Payment' : 'Transfer',
+                Type: tx.type === 'sale' ? 'Sale'
+                  : tx.type === 'payment' ? 'Payment'
+                  : tx.type === 'return' ? 'Return'
+                  : 'Transfer',
                 Description: tx.type === 'sale'
                   ? `Sale #${tx.id.slice(0, 8).toUpperCase()}`
                   : tx.type === 'payment'
                   ? 'Payment Received'
+                  : tx.type === 'return'
+                  ? `Return — ${tx.itemName}`
                   : tx.description,
                 'Debit (GHS)': tx.type === 'sale'
                   ? tx.totalAmount.toFixed(2)
@@ -195,6 +250,8 @@ export default function CustomerStatementPage() {
                   ? (tx.paidAmount > 0 ? tx.paidAmount.toFixed(2) : '')
                   : tx.type === 'payment'
                   ? tx.amount.toFixed(2)
+                  : tx.type === 'return'
+                  ? (tx.returnType === 'CREDIT' ? tx.amount.toFixed(2) : '')
                   : tx.type === 'transfer' && !tx.isDebit
                   ? tx.amount.toFixed(2)
                   : '',
@@ -266,9 +323,44 @@ export default function CustomerStatementPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
+                {/* Balance carried in from before this period, so the closing
+                    figure below is derivable from the rows shown. */}
+                <tr className="bg-gray-50">
+                  <td className="py-2.5 pr-4 text-gray-500 text-xs">{startDate ? formatDate(startDate) : '—'}</td>
+                  <td className="py-2.5 pr-4 font-semibold text-gray-700">Balance brought forward</td>
+                  <td className="py-2.5 pr-4 text-right text-gray-400">—</td>
+                  <td className="py-2.5 pr-4 text-right text-gray-400">—</td>
+                  <td className={`py-2.5 text-right font-bold ${openingBalance > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                    {formatCurrency(Math.abs(openingBalance))}
+                    {openingBalance > 0 && <span className="text-xs font-normal text-red-400 ml-1">DR</span>}
+                  </td>
+                </tr>
                 {txWithBalance.map(({ tx, balance }) => {
+                  if (tx.type === 'return') {
+                    return (
+                      <tr key={`return-${tx.id}`} className="hover:bg-gray-50 print:hover:bg-transparent">
+                        <td className="py-2.5 pr-4 text-gray-500 text-xs">{formatDate(tx.date)}</td>
+                        <td className="py-2.5 pr-4">
+                          <p className="font-semibold text-amber-700">
+                            Return — {tx.itemName}{tx.quantity ? ` ×${tx.quantity}` : ''}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {tx.returnType === 'CREDIT' ? 'Credited to account' : tx.returnType === 'CASH' ? 'Refunded in cash' : 'Exchanged'}
+                            {tx.note ? ` · ${tx.note}` : ''}
+                          </p>
+                        </td>
+                        <td className="py-2.5 pr-4 text-right text-gray-400">—</td>
+                        <td className="py-2.5 pr-4 text-right font-semibold text-amber-700">
+                          {tx.returnType === 'CREDIT' ? formatCurrency(tx.amount) : '—'}
+                        </td>
+                        <td className={`py-2.5 text-right font-bold ${balance > 0 ? 'text-red-600' : 'text-gray-700'}`}>
+                          {formatCurrency(Math.abs(balance))}
+                          {balance > 0 && <span className="text-xs font-normal text-red-400 ml-1">DR</span>}
+                        </td>
+                      </tr>
+                    )
+                  }
                   if (tx.type === 'sale') {
-                    const credit = tx.totalAmount - tx.paidAmount
                     return (
                       <tr key={`sale-${tx.id}`} className="hover:bg-gray-50 print:hover:bg-transparent">
                         <td className="py-2.5 pr-4 text-gray-500 text-xs">{formatDate(tx.date)}</td>
@@ -343,11 +435,15 @@ export default function CustomerStatementPage() {
               </tbody>
               <tfoot>
                 <tr className="border-t-2 border-gray-300 bg-gray-50">
-                  <td colSpan={2} className="py-3 pl-2 font-bold text-gray-700">Period Total</td>
+                  <td colSpan={2} className="py-3 pl-2 font-bold text-gray-700">Closing Balance</td>
+                  {/* These are now the sums of the columns above, and the
+                      balance is opening + debits − credits, so the whole
+                      statement reconciles on its face. */}
                   <td className="py-3 pr-4 text-right font-bold text-gray-900">{formatCurrency(totalSalesValue)}</td>
                   <td className="py-3 pr-4 text-right font-bold text-green-700">{formatCurrency(totalPaymentsValue)}</td>
-                  <td className={`py-3 text-right font-bold text-lg ${currentBalance > 0 ? 'text-red-600' : 'text-green-700'}`}>
-                    {formatCurrency(currentBalance)}
+                  <td className={`py-3 text-right font-bold text-lg ${closingBalance > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                    {formatCurrency(Math.abs(closingBalance))}
+                    {closingBalance > 0 && <span className="text-xs font-normal text-red-400 ml-1">DR</span>}
                   </td>
                 </tr>
               </tfoot>
@@ -358,7 +454,11 @@ export default function CustomerStatementPage() {
         {/* Footer */}
         <div className="px-8 pb-8 mt-2 border-t border-gray-100">
           <p className="text-xs text-gray-400 text-center mt-4">
-            This statement was generated automatically. Balances are accurate as of the date printed.
+            This statement was generated automatically and covers the period shown above.
+            {Math.abs(closingBalance - currentBalance) > 0.01 && (
+              <> The account balance today is {formatCurrency(Math.abs(currentBalance))}
+              {currentBalance > 0 ? ' owing' : ' in credit'}.</>
+            )}
           </p>
         </div>
       </div>

@@ -127,7 +127,7 @@ export default function ManufacturersPage() {
                 {paginated.map(m => (
                   <tr
                     key={m.id}
-                    onClick={() => router.push(`/manufacturers/${m.id}`)}
+                    onClick={() => router.push(`/items?manufacturerId=${m.id}`)}
                     className="hover:bg-blue-50/40 cursor-pointer transition-colors"
                   >
                     <td className="px-5 py-3.5">
@@ -144,8 +144,15 @@ export default function ManufacturersPage() {
                       </Badge>
                     </td>
                     <td className="px-5 py-3.5 text-center">
-                      <button className="text-xs text-blue-600 font-semibold hover:underline">
-                        View →
+                      {/* There is no /manufacturers/[id] page, so this button
+                          and the row handler both led to a 404. Link to the
+                          items filtered by this brand, which is what a user
+                          actually wants from here. */}
+                      <button
+                        onClick={e => { e.stopPropagation(); router.push(`/items?manufacturerId=${m.id}`) }}
+                        className="text-xs text-blue-600 font-semibold hover:underline"
+                      >
+                        View items →
                       </button>
                     </td>
                   </tr>

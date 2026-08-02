@@ -14,6 +14,7 @@ interface Customer {
 
 interface RowState {
   newBalance: string   // string for controlled input
+  reason: string       // required — the server rejects an adjustment without one
   dirty: boolean
   saving: boolean
   error: string
@@ -25,22 +26,35 @@ export default function AdjustBalancePage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [isSavingAll, setIsSavingAll] = useState(false)
 
   useEffect(() => {
-    fetch('/api/customers')
-      .then(r => r.json())
-      .then(data => {
+    // Was .then().finally() with no .catch() and no res.ok check — a failed
+    // load was an unhandled rejection that left an empty table with no error.
+    const load = async () => {
+      try {
+        const res = await fetch('/api/customers')
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error(errBody.error || 'Failed to load customers')
+        }
+        const data = await res.json()
         const list: Customer[] = data.customers || data.data || data || []
         setCustomers(list)
         const initial: Record<string, RowState> = {}
         list.forEach(c => {
-          initial[c.id] = { newBalance: '', dirty: false, saving: false, error: '', saved: false }
+          initial[c.id] = { newBalance: '', reason: '', dirty: false, saving: false, error: '', saved: false }
         })
         setRows(initial)
-      })
-      .finally(() => setLoading(false))
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load customers')
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
   }, [])
 
   const setRow = (id: string, patch: Partial<RowState>) => {
@@ -55,17 +69,21 @@ export default function AdjustBalancePage() {
       setRow(customer.id, { error: 'Balance must be 0 or more' })
       return
     }
+    if (row.reason.trim().length < 3) {
+      setRow(customer.id, { error: 'Give a reason for this adjustment' })
+      return
+    }
     setRow(customer.id, { saving: true, error: '' })
     try {
       const res = await fetch('/api/customers/adjust-balance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ customerId: customer.id, balance: bal }),
+        body: JSON.stringify({ customerId: customer.id, balance: bal, reason: row.reason.trim() }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
       setCustomers(prev => prev.map(c => c.id === customer.id ? { ...c, balance: bal } : c))
-      setRow(customer.id, { saving: false, dirty: false, newBalance: '', saved: true, error: '' })
+      setRow(customer.id, { saving: false, dirty: false, newBalance: '', reason: '', saved: true, error: '' })
       setTimeout(() => setRow(customer.id, { saved: false }), 2000)
     } catch (err) {
       setRow(customer.id, { saving: false, error: err instanceof Error ? err.message : 'Failed' })
@@ -73,7 +91,9 @@ export default function AdjustBalancePage() {
   }
 
   const saveAll = async () => {
-    const dirtyCustomers = customers.filter(c => rows[c.id]?.dirty && rows[c.id]?.newBalance !== '')
+    const dirtyCustomers = customers.filter(
+      c => rows[c.id]?.dirty && rows[c.id]?.newBalance !== '' && (rows[c.id]?.reason.trim().length ?? 0) >= 3
+    )
     if (dirtyCustomers.length === 0) return
     setIsSavingAll(true)
     for (const customer of dirtyCustomers) {
@@ -87,11 +107,19 @@ export default function AdjustBalancePage() {
     return !q || c.name.toLowerCase().includes(q) || (c.phone || '').includes(q)
   })
 
-  const dirtyCount = Object.values(rows).filter(r => r.dirty && r.newBalance !== '').length
+  // Only rows with a reason can actually be saved
+  const dirtyCount = Object.values(rows).filter(
+    r => r.dirty && r.newBalance !== '' && r.reason.trim().length >= 3
+  ).length
 
   return (
     <AppLayout>
       <div className="space-y-5">
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {loadError}
+          </div>
+        )}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1">
@@ -145,6 +173,7 @@ export default function AdjustBalancePage() {
                     <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase">Phone</th>
                     <th className="text-right px-4 py-3 text-xs font-bold text-gray-500 uppercase">Current Balance</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase w-44">New Balance (GH₵)</th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-gray-500 uppercase w-56">Reason</th>
                     <th className="px-4 py-3 w-24"></th>
                   </tr>
                 </thead>
@@ -180,6 +209,16 @@ export default function AdjustBalancePage() {
                             className="w-full px-2 py-1.5 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
                           />
                         </td>
+                        {/* Reason is required — writing off a debt must be explainable */}
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            value={row.reason}
+                            onChange={e => setRow(customer.id, { reason: e.target.value, saved: false, error: '' })}
+                            placeholder="Reason (required)"
+                            className="w-full px-2 py-1.5 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-right">
                           {row.error && <p className="text-xs text-red-600 mb-1">{row.error}</p>}
                           {row.saved ? (
@@ -187,7 +226,7 @@ export default function AdjustBalancePage() {
                           ) : (
                             <button
                               onClick={() => saveRow(customer)}
-                              disabled={!row.dirty || row.newBalance === '' || row.saving}
+                              disabled={!row.dirty || row.newBalance === '' || row.reason.trim().length < 3 || row.saving || isSavingAll}
                               className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               {row.saving ? '…' : 'Save'}
@@ -225,19 +264,26 @@ export default function AdjustBalancePage() {
                         </span>
                       </div>
                     </div>
+                    <input
+                      type="number" min="0" step="0.01"
+                      value={row.newBalance}
+                      onChange={e => setRow(customer.id, { newBalance: e.target.value, dirty: e.target.value !== '', saved: false, error: '' })}
+                      placeholder={`New balance (${customer.balance.toFixed(2)})`}
+                      className="w-full px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
+                    />
                     <div className="flex gap-2 items-center">
                       <input
-                        type="number" min="0" step="0.01"
-                        value={row.newBalance}
-                        onChange={e => setRow(customer.id, { newBalance: e.target.value, dirty: e.target.value !== '', saved: false, error: '' })}
-                        placeholder={`New balance (${customer.balance.toFixed(2)})`}
+                        type="text"
+                        value={row.reason}
+                        onChange={e => setRow(customer.id, { reason: e.target.value, saved: false, error: '' })}
+                        placeholder="Reason (required)"
                         className="flex-1 px-3 py-2 border-2 border-gray-200 text-sm focus:border-indigo-500 focus:outline-none"
                       />
                       {row.saved ? (
                         <span className="text-xs text-green-600 font-semibold px-2">✓</span>
                       ) : (
                         <button onClick={() => saveRow(customer)}
-                          disabled={!row.dirty || row.newBalance === '' || row.saving}
+                          disabled={!row.dirty || row.newBalance === '' || row.reason.trim().length < 3 || row.saving || isSavingAll}
                           className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-30">
                           {row.saving ? '…' : 'Save'}
                         </button>

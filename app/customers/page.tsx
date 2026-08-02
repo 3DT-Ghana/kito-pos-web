@@ -276,7 +276,12 @@ export default function CustomersPage() {
                         </td>
                         <td className="px-5 py-3.5 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button className="text-xs text-blue-600 font-semibold hover:underline">
+                            {/* Had no onClick — it only worked because the row
+                                carries one, so it was unreachable by keyboard. */}
+                            <button
+                              onClick={e => { e.stopPropagation(); router.push(`/customers/${c.id}`) }}
+                              className="text-xs text-blue-600 font-semibold hover:underline"
+                            >
                               View →
                             </button>
                             {c.balance > 0 && c.phone && (

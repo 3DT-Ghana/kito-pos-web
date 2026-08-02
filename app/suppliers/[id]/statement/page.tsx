@@ -46,6 +46,7 @@ export default function SupplierStatementPage() {
   const fetchSupplier = async () => {
     try {
       setIsLoading(true)
+      setError(null)
       const qp = new URLSearchParams()
       if (startDate) qp.set('startDate', startDate)
       if (endDate) qp.set('endDate', endDate)

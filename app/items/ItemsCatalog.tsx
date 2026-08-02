@@ -143,6 +143,16 @@ export function ItemsCatalog({
   }, [currentBranchId, hasInitialData, initialBranchId, isBranchLoading])
 
   const manufacturers = Array.from(new Set(items.map(i => i.manufacturer?.name).filter(Boolean)))
+
+  // Honour ?manufacturerId= so the Brands page can link through to a filtered
+  // catalogue. The filter itself is by name, so resolve the id once items load.
+  useEffect(() => {
+    if (items.length === 0) return
+    const wanted = new URLSearchParams(window.location.search).get('manufacturerId')
+    if (!wanted) return
+    const match = items.find(i => i.manufacturer?.id === wanted)?.manufacturer?.name
+    if (match) setManufacturerFilter(match)
+  }, [items])
   const now = new Date()
   const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
   const activeTab: Tab = (!features.enableExpiryTracking && tab === 'expiring') ? 'all' : tab

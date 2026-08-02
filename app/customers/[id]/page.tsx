@@ -34,6 +34,7 @@ export default function CustomerDetailsPage() {
   const fetchCustomer = async () => {
     try {
       setIsLoading(true)
+      setError(null)
       const params = new URLSearchParams()
       if (startDate) params.set('startDate', startDate)
       if (endDate) params.set('endDate', endDate)

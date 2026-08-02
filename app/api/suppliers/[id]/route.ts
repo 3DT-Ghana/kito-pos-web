@@ -196,7 +196,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     // Validate
-    if (body.name !== undefined && (!body.name || typeof body.name !== 'string')) {
+    if (body.name !== undefined && (!body.name || typeof body.name !== 'string' || !body.name.trim())) {
       return NextResponse.json(
         { error: 'Supplier name must be a non-empty string' },
         { status: 400 }
@@ -211,37 +211,24 @@ export async function PUT(req: Request, { params }: RouteParams) {
       )
     }
 
-    // Check for duplicate name or phone (excluding current supplier)
+    // Name AND phone together, matching POST — an OR made two namesakes on
+    // different numbers permanently uneditable.
     if (body.name || body.phone) {
+      const candidateName = (body.name ?? existing.name)?.trim()
+      const candidatePhone = (body.phone ?? existing.phone)?.trim() || null
+
       const duplicate = await prisma.supplier.findFirst({
         where: {
           tenantId: context!.tenantId,
-          OR: [
-            ...(body.name
-              ? [
-                  {
-                    name: {
-                      equals: body.name.trim(),
-                      mode: 'insensitive' as const,
-                    },
-                  },
-                ]
-              : []),
-            ...(body.phone
-              ? [
-                  {
-                    phone: body.phone.trim(),
-                  },
-                ]
-              : []),
-          ],
+          name: { equals: candidateName, mode: 'insensitive' as const },
+          phone: candidatePhone,
           id: { not: id },
         },
       })
 
       if (duplicate) {
         return NextResponse.json(
-          { error: 'A supplier with this name or phone already exists' },
+          { error: 'A supplier with this name and phone number already exists' },
           { status: 409 }
         )
       }

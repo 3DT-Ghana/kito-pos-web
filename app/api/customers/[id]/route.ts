@@ -30,6 +30,9 @@ export async function GET(req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_customers')
+    if (!authorized) return permError!
+
     const { id } = await params
     const { searchParams } = new URL(req.url)
     const startDate = searchParams.get('startDate')
@@ -133,9 +136,81 @@ export async function GET(req: Request, { params }: RouteParams) {
     const scopedBalance = isBranchFilterActive(context!)
       ? (metric?.balance ?? 0)
       : customer.balance
+    // Returns move the customer balance (a CREDIT return decrements it) but
+    // were never fetched, so a returned item's effect on the balance appeared
+    // nowhere on the statement and the closing figure looked like an error.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const returnsWhere: any = {
+      tenantId: context!.tenantId,
+      sale: { customerId: id },
+    }
+    if (startDate || endDate) {
+      returnsWhere.createdAt = {}
+      if (startDate) returnsWhere.createdAt.gte = new Date(startDate)
+      if (endDate) {
+        const end = new Date(endDate)
+        end.setHours(23, 59, 59, 999)
+        returnsWhere.createdAt.lte = end
+      }
+    }
+
+    const returns = await prisma.customerReturn.findMany({
+      where: returnsWhere,
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        createdAt: true,
+        amount: true,
+        type: true,
+        note: true,
+        quantity: true,
+        item: { select: { name: true } },
+      },
+    })
+
+    // Opening balance: everything that affected the balance BEFORE the period
+    // start. Without it the statement's running balance started at zero while
+    // the footer showed the all-time balance — two different numbers in
+    // adjacent cells of a document handed to the customer.
+    let openingBalance = 0
+    if (startDate) {
+      const periodStart = new Date(startDate)
+      const [priorSales, priorPayments, priorReturns] = await Promise.all([
+        prisma.sale.aggregate({
+          where: approvedSaleWhere(
+            applyBranchScope(
+              { tenantId: context!.tenantId, customerId: id, createdAt: { lt: periodStart } },
+              context!
+            )
+          ),
+          _sum: { totalAmount: true, paidAmount: true },
+        }),
+        prisma.customerPayment.aggregate({
+          where: { tenantId: context!.tenantId, customerId: id, createdAt: { lt: periodStart } },
+          _sum: { amount: true },
+        }),
+        prisma.customerReturn.aggregate({
+          where: {
+            tenantId: context!.tenantId,
+            sale: { customerId: id },
+            type: 'CREDIT',
+            createdAt: { lt: periodStart },
+          },
+          _sum: { amount: true },
+        }),
+      ])
+
+      openingBalance =
+        (priorSales._sum.totalAmount ?? 0) -
+        (priorSales._sum.paidAmount ?? 0) -
+        (priorPayments._sum.amount ?? 0) -
+        (priorReturns._sum.amount ?? 0)
+    }
+
     const totalSales = sales.reduce((sum, sale) => sum + sale.totalAmount, 0)
     const totalPaid = sales.reduce((sum, sale) => sum + sale.paidAmount, 0)
     const totalPayments = payments.reduce((sum, p) => sum + p.amount, 0)
+    const totalReturns = returns.reduce((sum, r) => sum + (r.type === 'CREDIT' ? r.amount : 0), 0)
 
     return NextResponse.json({
       ...customer,
@@ -143,6 +218,8 @@ export async function GET(req: Request, { params }: RouteParams) {
       sales,
       payments,
       transfers,
+      returns,
+      openingBalance,
       _count: {
         sales: metric?.transactionCount ?? sales.length,
       },
@@ -150,6 +227,8 @@ export async function GET(req: Request, { params }: RouteParams) {
         totalSales,
         totalPaid,
         totalPayments,
+        totalReturns,
+        openingBalance,
         currentBalance: scopedBalance,
       },
     })
@@ -193,7 +272,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     }
 
     // Validate
-    if (body.name !== undefined && (!body.name || typeof body.name !== 'string')) {
+    if (body.name !== undefined && (!body.name || typeof body.name !== 'string' || !body.name.trim())) {
       return NextResponse.json(
         { error: 'Customer name must be a non-empty string' },
         { status: 400 }
@@ -208,30 +287,18 @@ export async function PUT(req: Request, { params }: RouteParams) {
       )
     }
 
-    // Check for duplicate name or phone (excluding current customer)
+    // Matches POST, which requires name AND phone together. Rejecting on name
+    // alone made two legitimately-created namesakes ("John Doe" on two
+    // different numbers) permanently uneditable.
     if (body.name || body.phone) {
+      const candidateName = (body.name ?? existing.name)?.trim()
+      const candidatePhone = (body.phone ?? existing.phone)?.trim() || null
+
       const duplicate = await prisma.customer.findFirst({
         where: {
           tenantId: context!.tenantId,
-          OR: [
-            ...(body.name
-              ? [
-                  {
-                    name: {
-                      equals: body.name.trim(),
-                      mode: 'insensitive' as const,
-                    },
-                  },
-                ]
-              : []),
-            ...(body.phone
-              ? [
-                  {
-                    phone: body.phone.trim(),
-                  },
-                ]
-              : []),
-          ],
+          name: { equals: candidateName, mode: 'insensitive' as const },
+          phone: candidatePhone,
           id: { not: id },
         },
       })
@@ -290,7 +357,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       where: { id, tenantId: context!.tenantId },
       include: {
         _count: {
-          select: { sales: true },
+          select: { sales: true, payments: true },
         },
       },
     })
@@ -302,31 +369,52 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       )
     }
 
-    // Check if customer has outstanding balance
-    if (customer.balance > 0) {
+    // Any non-zero balance blocks deletion. Checking only `> 0` let a credit
+    // balance — money owed *to* the customer — be deleted, losing the liability.
+    if (customer.balance !== 0) {
       return NextResponse.json(
         {
-          error: 'Cannot delete customer with outstanding balance',
+          error: customer.balance > 0
+            ? `"${customer.name}" still owes ${customer.balance.toFixed(2)}. Settle or write off the balance first.`
+            : `"${customer.name}" is in credit by ${Math.abs(customer.balance).toFixed(2)}. Resolve the credit before deleting.`,
           balance: customer.balance,
         },
         { status: 409 }
       )
     }
 
-    // Check if customer has sales history
-    if (customer._count.sales > 0) {
+    // Ledger transfers have no count relation on Customer, so query them
+    // directly rather than letting the delete fail on a raw FK error that
+    // surfaces as an unexplained 500.
+    const transferCount = await prisma.ledgerTransfer.count({
+      where: {
+        tenantId: context!.tenantId,
+        OR: [{ debitCustomerId: id }, { creditCustomerId: id }],
+      },
+    })
+
+    const history = [
+      ['sales', customer._count.sales],
+      ['payments', customer._count.payments],
+      ['ledger transfers', transferCount],
+    ] as const
+    const blocking = history.filter(([, count]) => count > 0)
+
+    if (blocking.length > 0) {
       return NextResponse.json(
         {
-          error: 'Cannot delete customer with sales history',
+          error: `Cannot delete "${customer.name}" — it has ${blocking
+            .map(([label, count]) => `${count} ${label}`)
+            .join(', ')}. Historical records would be lost.`,
           salesCount: customer._count.sales,
         },
         { status: 409 }
       )
     }
 
-    // Delete customer
-    await prisma.customer.delete({
-      where: { id },
+    // Scoped by tenant rather than trusting the earlier read
+    await prisma.customer.deleteMany({
+      where: { id, tenantId: context!.tenantId },
     })
 
     return NextResponse.json(

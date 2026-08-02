@@ -148,7 +148,7 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     // Validate required fields
-    if (!body.name || typeof body.name !== 'string') {
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
       return NextResponse.json(
         { error: 'Supplier name is required' },
         { status: 400 }
@@ -156,30 +156,23 @@ export async function POST(req: Request) {
     }
 
     // Check for duplicate supplier name or phone
+    // Name AND phone together, matching the customer route. An OR rejected two
+    // genuinely distinct suppliers that share a switchboard number
+    // ("Unilever – Accra" and "Unilever – Kumasi" on one line).
     const existing = await prisma.supplier.findFirst({
       where: {
         tenantId: context!.tenantId,
-        OR: [
-          {
-            name: {
-              equals: body.name.trim(),
-              mode: 'insensitive' as const,
-            },
-          },
-          ...(body.phone
-            ? [
-                {
-                  phone: body.phone.trim(),
-                },
-              ]
-            : []),
-        ],
+        name: {
+          equals: body.name.trim(),
+          mode: 'insensitive' as const,
+        },
+        phone: body.phone?.trim() || null,
       },
     })
 
     if (existing) {
       return NextResponse.json(
-        { error: 'A supplier with this name or phone already exists' },
+        { error: 'A supplier with this name and phone number already exists' },
         { status: 409 }
       )
     }

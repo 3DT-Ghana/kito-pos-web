@@ -21,6 +21,9 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_customers')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const hasDebt = searchParams.get('hasDebt') === 'true'
@@ -144,7 +147,7 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     // Validate required fields
-    if (!body.name || typeof body.name !== 'string') {
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
       return NextResponse.json(
         { error: 'Customer name is required' },
         { status: 400 }
