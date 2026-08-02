@@ -352,10 +352,6 @@ export default function PosPage() {
 
     const handleGlobalKey = (e: KeyboardEvent) => {
       const now    = Date.now()
-      const target = e.target as HTMLElement
-      const tag    = target.tagName
-      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-
       if (e.key === 'Enter') {
         // A scanner fires Enter right after the last char — gap < 50ms.
         // Human pressing Enter in search box has gap >> 50ms.
@@ -391,14 +387,6 @@ export default function PosPage() {
 
       lastKeyTime  = now
       scanBuffer  += e.key
-
-      // If not in a text field, redirect keystrokes to search so manual typing works
-      if (!inInput) {
-        setSearch(prev => prev + e.key)
-        setActiveGroup('ALL')
-        searchRef.current?.focus()
-        e.preventDefault()
-      }
 
       // Reset buffer if no Enter within 300 ms
       if (scanTimer) clearTimeout(scanTimer)
