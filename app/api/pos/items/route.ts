@@ -25,7 +25,9 @@ export async function GET(req: Request) {
     const q = searchParams.get('q')?.trim() ?? ''
     const manufacturerId = searchParams.get('manufacturerId')?.trim() ?? ''
     const categoryId = searchParams.get('categoryId')?.trim() ?? ''
-    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 200)
+    // Cap raised from 200 — a mid-size catalogue was silently truncated to the
+    // alphabetically-first 200 items, hiding the rest from the POS grid entirely.
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 2000)
 
     const stockFilter = [
       { itemType: ItemType.INVENTORY, quantity: { gt: 0 } },

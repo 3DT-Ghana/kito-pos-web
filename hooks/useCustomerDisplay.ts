@@ -15,23 +15,25 @@ export interface DisplayCartLine {
 }
 
 export type DisplayMessage =
-  | { type: 'CART_UPDATE'; cart: DisplayCartLine[]; grandTotal: number; orderDiscount: number; customerName: string | null; method: PaymentMethod }
+  | { type: 'CART_UPDATE'; cart: DisplayCartLine[]; grandTotal: number; orderDiscount: number; customerName: string | null; method: PaymentMethod; splitMode?: boolean }
   | { type: 'SALE_COMPLETE'; total: number; change: number; method: PaymentMethod; customerName: string }
   | { type: 'IDLE' }
   | { type: 'REQUEST_SYNC' }
 
 interface SenderState {
-  cart: { itemId: string; name: string; qty: number; basePrice: number }[]
+  /** `lineTotal` must already have line discounts applied — the display shows it verbatim. */
+  cart: { itemId: string; name: string; qty: number; basePrice: number; lineTotal: number }[]
   grandTotal: number
   orderDiscountNum: number
   selectedCustomer: { name: string } | null
   method: PaymentMethod
+  splitMode?: boolean
   flashSuccess: boolean
   lastSaleData: { total: number; change: number; method: PaymentMethod; customerName: string } | null
 }
 
 function buildCurrentMessage(state: SenderState): DisplayMessage {
-  const { cart, grandTotal, orderDiscountNum, selectedCustomer, method, flashSuccess, lastSaleData } = state
+  const { cart, grandTotal, orderDiscountNum, selectedCustomer, method, splitMode, flashSuccess, lastSaleData } = state
 
   if (flashSuccess && lastSaleData) {
     return {
@@ -54,12 +56,14 @@ function buildCurrentMessage(state: SenderState): DisplayMessage {
       name: c.name,
       qty: c.qty,
       basePrice: c.basePrice,
-      lineTotal: Math.max(0, c.basePrice * c.qty),
+      // Already discount-adjusted by the caller — must match the register
+      lineTotal: Math.max(0, c.lineTotal),
     })),
     grandTotal,
     orderDiscount: orderDiscountNum,
     customerName: selectedCustomer?.name ?? null,
     method,
+    splitMode,
   }
 }
 

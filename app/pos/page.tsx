@@ -63,6 +63,11 @@ interface HeldOrder {
   customerName: string
   note: string
   savedAt: number
+  // Order-level state — without these a held discount leaks onto the next customer
+  orderDiscountValue?: string
+  orderDiscountMode?: DiscountMode
+  globalTier?: PriceTier
+  method?: PaymentMethod
 }
 
 interface Customer {
@@ -218,6 +223,11 @@ export default function PosPage() {
   const [, setMomoTxId] = useState<string | null>(null)
   const [momoStatus, setMomoStatus] = useState<'idle' | 'sending' | 'pending' | 'success' | 'failed'>('idle')
   const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false)
+  const momoPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Synchronous submit lock — state batching makes isSubmitting unreliable for this
+  const submitLockRef = useRef(false)
+  // Whichever approval path (PIN or remote poll) lands first claims the sale
+  const approvalHandledRef = useRef(false)
   const [numpadBuffer, setNumpadBuffer] = useState('')
   const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'momoPaid' | 'cashPaid' | 'qty' | 'lineDiscount' | 'price'>('tendered')
 
@@ -300,7 +310,7 @@ export default function PosPage() {
   const loadItems = useCallback(async () => {
     setIsLoadingItems(true)
     try {
-      const res = await fetch('/api/pos/items?limit=200')
+      const res = await fetch('/api/pos/items?limit=2000')
       if (res.ok) {
         const data = await res.json()
         setAllItems(data.items ?? [])
@@ -312,6 +322,8 @@ export default function PosPage() {
   useEffect(() => { loadItems() }, [loadItems, currentBranchId])
   useEffect(() => { searchRef.current?.focus() }, [])
   useEffect(() => { setHolds(loadHolds()) }, [])
+  // Kill any in-flight MoMo poll if the terminal unmounts mid-transaction
+  useEffect(() => () => { if (momoPollRef.current) clearInterval(momoPollRef.current) }, [])
   useEffect(() => {
     if (!showSessionMenu) return
 
@@ -498,9 +510,32 @@ export default function PosPage() {
   const addToCartRef = useRef(addToCart)
   useEffect(() => { addToCartRef.current = addToCart }, [addToCart])
 
+  // Clears every in-flight line edit and returns the numpad to the payment field.
+  const resetLineEditing = () => {
+    setSelectedCartIdx(null)
+    setEditingPriceIdx(null); setPriceBuffer('')
+    setEditingDiscountIdx(null); setDiscountBuffer('')
+    setNumpadBuffer('')
+    setNumpadTarget('tendered')
+  }
+
+  // Dismissing the drawer abandons whatever line edit was open — drop the
+  // buffers too, or the next payment keystroke feeds a stale line buffer.
+  const dismissNumpadDrawer = () => {
+    setShowNumpadDrawer(false)
+    resetLineEditing()
+  }
+
+  // Cart edits are keyed by array index, so removing a row shifts every index
+  // after it. Without this the numpad commits onto the wrong product.
+  const shiftIdx = (cur: number | null, removed: number) =>
+    cur === null ? null : cur === removed ? null : cur > removed ? cur - 1 : cur
+
   const removeFromCart = (idx: number) => {
     setCart(prev => prev.filter((_, i) => i !== idx))
-    if (selectedCartIdx === idx) setSelectedCartIdx(null)
+    setSelectedCartIdx(p => shiftIdx(p, idx))
+    setEditingPriceIdx(p => shiftIdx(p, idx))
+    setEditingDiscountIdx(p => shiftIdx(p, idx))
   }
 
   const updateQty = (idx: number, qty: number) => {
@@ -538,9 +573,14 @@ export default function PosPage() {
   }
 
   const clearCart = () => {
-    setCart([]); setSelectedCartIdx(null); setNote('')
+    stopMomoPoll()
+    setCart([]); setNote('')
+    resetLineEditing()
     setMomoPaid(''); setCashPaid(''); setSplitMode(false)
     setMomoTxId(null); setMomoStatus('idle'); setMomoPhone('')
+    // Order-level state must reset too, or a held discount leaks onto the next customer
+    setOrderDiscountValue(''); setOrderDiscountMode('pct')
+    setGlobalTier('sellingPrice'); setMethod('CASH'); setTendered('')
   }
 
   const addAllToCart = (items: PosItem[]) => {
@@ -616,7 +656,7 @@ export default function PosPage() {
       else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setCashPaid(buf)
-    } else {
+    } else if (numpadTarget === 'tendered') {
       let buf = tendered
       if (key === '←') buf = buf.slice(0, -1)
       else if (key === 'C') buf = ''
@@ -627,6 +667,10 @@ export default function PosPage() {
       else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setTendered(buf)
+    } else {
+      // A line-edit target whose guard index went stale (drawer dismissed without
+      // committing). Recover rather than silently writing into the cash field.
+      resetLineEditing()
     }
   }
 
@@ -655,35 +699,50 @@ export default function PosPage() {
     return data.transactionId as string
   }
 
-  const pollMomoStatus = (txId: string, onSuccess: () => void, onFail: () => void) => {
+  // Poller lives in a ref so it can be cancelled from anywhere (method switch,
+  // split toggle, cart clear, unmount) — otherwise a late approval submits a
+  // sale built from a stale cart.
+  const stopMomoPoll = () => {
+    if (momoPollRef.current) { clearInterval(momoPollRef.current); momoPollRef.current = null }
+  }
+
+  const pollMomoStatus = (txId: string, onSuccess: () => void, onFail: (msg?: string) => void) => {
+    stopMomoPoll() // never run two pollers at once
     let attempts = 0
     const max = 24 // 2 minutes at 5s intervals
-    const interval = setInterval(async () => {
+    momoPollRef.current = setInterval(async () => {
       attempts++
-      const res = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
-      const data = await res.json()
-      if (data.status === 'success') {
-        clearInterval(interval)
-        setMomoStatus('success')
-        onSuccess()
-      } else if (data.status === 'failed' || attempts >= max) {
-        clearInterval(interval)
-        setMomoStatus('failed')
-        onFail()
+      try {
+        const res = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
+        const data = await res.json()
+        if (!res.ok) {
+          stopMomoPoll(); setMomoStatus('failed'); onFail(data.error)
+          return
+        }
+        if (data.status === 'success') {
+          stopMomoPoll(); setMomoStatus('success'); onSuccess()
+        } else if (data.status === 'failed' || attempts >= max) {
+          stopMomoPoll(); setMomoStatus('failed'); onFail()
+        }
+      } catch {
+        // Network hiccup — keep polling until the attempt cap
+        if (attempts >= max) { stopMomoPoll(); setMomoStatus('failed'); onFail() }
       }
     }, 5000)
-    return () => clearInterval(interval)
   }
 
   // ── Holds ───────────────────────────────────────────────────────────────────
 
   const holdOrder = () => {
     if (cart.length === 0) return
-    const id = Date.now().toString()
-    const label = `Order #${holds.length + 1}${selectedCustomer ? ` — ${selectedCustomer.name}` : ''}`
+    const savedAt = Date.now()
+    // Time-based label — a counter reuses numbers after a hold is deleted
+    const stamp = new Date(savedAt).toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' })
+    const label = `${stamp}${selectedCustomer ? ` — ${selectedCustomer.name}` : ''}`
     const newHold: HeldOrder = {
-      id, label, cart, customerId: selectedCustomer?.id ?? null,
-      customerName: selectedCustomer?.name ?? '', note, savedAt: Date.now(),
+      id: savedAt.toString(), label, cart, customerId: selectedCustomer?.id ?? null,
+      customerName: selectedCustomer?.name ?? '', note, savedAt,
+      orderDiscountValue, orderDiscountMode, globalTier, method,
     }
     const updated = [...holds, newHold]
     setHolds(updated); saveHolds(updated)
@@ -691,12 +750,31 @@ export default function PosPage() {
     setNote('')
   }
 
-  const recallHold = (hold: HeldOrder) => {
+  const recallHold = async (hold: HeldOrder) => {
     setCart(hold.cart)
     setNote(hold.note)
+    // Restore order-level state saved with the hold
+    setOrderDiscountValue(hold.orderDiscountValue ?? '')
+    setOrderDiscountMode(hold.orderDiscountMode ?? 'pct')
+    setGlobalTier(hold.globalTier ?? 'sellingPrice')
+    setMethod(hold.method ?? 'CASH')
     if (hold.customerId) {
-      setSelectedCustomer({ id: hold.customerId, name: hold.customerName, phone: null, balance: 0 })
-      setCustomerQuery(hold.customerName)
+      // Re-fetch so the cashier sees the real outstanding balance, not a stub
+      let customer: Customer = { id: hold.customerId, name: hold.customerName, phone: null, balance: 0 }
+      try {
+        const res = await fetch(`/api/customers/${hold.customerId}`)
+        if (res.ok) {
+          const fresh = await res.json()
+          customer = {
+            id: fresh.id ?? hold.customerId,
+            name: fresh.name ?? hold.customerName,
+            phone: fresh.phone ?? null,
+            balance: fresh.balance ?? 0,
+          }
+        }
+      } catch { /* keep the stored stub */ }
+      setSelectedCustomer(customer)
+      setCustomerQuery(customer.name)
     }
     const updated = holds.filter(h => h.id !== hold.id)
     setHolds(updated); saveHolds(updated)
@@ -711,29 +789,47 @@ export default function PosPage() {
   // ── Checkout ────────────────────────────────────────────────────────────────
 
   // Called once a sale is confirmed approved (via PIN grant or manager page polling)
-  const onSaleApproved = (total: number, saleId: string) => {
+  // `sale` is the server record when available (poll path / post-grant fetch) —
+  // it carries the authoritative totals and tax lines. Falls back to local cart
+  // state only if the fetch failed.
+  const onSaleApproved = (total: number, saleId: string, sale?: Record<string, unknown>) => {
+    // Whichever approval path lands first wins; the other becomes a no-op.
+    if (approvalHandledRef.current) return
+    approvalHandledRef.current = true
+
+    const serverItems = (sale?.items ?? []) as {
+      quantity: number; price: number; lineTotalAmount?: number; lineTaxAmount?: number; item?: { name: string }
+    }[]
     const now = new Date()
-    setLastSaleData(prev => prev ?? {
+    setLastSaleData({
       id: saleId,
       receiptNumber: saleId.slice(0, 8).toUpperCase(),
       date: now.toLocaleDateString('en-GH'),
       time: now.toLocaleTimeString('en-GH', { hour: '2-digit', minute: '2-digit' }),
-      items: cart.map(c => ({
-        name: c.name,
-        qty: c.qty,
-        unitPrice: c.basePrice,
-        lineTotal: lineTotal(c),
-        lineTaxAmount: 0,
-      })),
-      subtotal: cartSubtotal,
-      taxAmount: 0,
-      taxLines: [],
+      items: serverItems.length
+        ? serverItems.map(line => ({
+            name: line.item?.name ?? 'Item',
+            qty: line.quantity,
+            unitPrice: line.price,
+            lineTotal: line.lineTotalAmount ?? line.price * line.quantity,
+            lineTaxAmount: line.lineTaxAmount ?? 0,
+          }))
+        : cart.map(c => ({
+            name: c.name,
+            qty: c.qty,
+            unitPrice: c.basePrice,
+            lineTotal: lineTotal(c),
+            lineTaxAmount: 0,
+          })),
+      subtotal: (sale?.subtotalAmount as number | undefined) ?? cartSubtotal,
+      taxAmount: (sale?.taxAmount as number | undefined) ?? 0,
+      taxLines: summariseTaxBreakdown((sale?.taxLines ?? []) as Parameters<typeof summariseTaxBreakdown>[0]),
       orderDiscount: orderDiscountNum,
-      total,
-      paidAmount: total,
+      total: (sale?.totalAmount as number | undefined) ?? total,
+      paidAmount: (sale?.paidAmount as number | undefined) ?? total,
       change: 0,
-      method,
-      customerName: selectedCustomer?.name ?? '',
+      method: (sale?.paymentMethod as PaymentMethod | undefined) ?? method,
+      customerName: (sale as { customer?: { name?: string } } | undefined)?.customer?.name ?? selectedCustomer?.name ?? '',
       note,
     })
     setFlashSuccess(true)
@@ -782,6 +878,7 @@ export default function PosPage() {
       paymentMethod,
       momoPhone: method === 'MOMO' && !splitMode ? momoPhone.trim() || undefined : undefined,
       note,
+      source: 'pos' as const,
     }
   }
 
@@ -856,7 +953,7 @@ export default function PosPage() {
       pollMomoStatus(
         txId,
         () => void completeCheckout(),
-        () => setErrorMsg('MoMo payment was declined or timed out. Please try again.'),
+        (msg) => setErrorMsg(msg || 'MoMo payment was declined or timed out. Please try again.'),
       )
       return
     }
@@ -865,6 +962,10 @@ export default function PosPage() {
   }
 
   const completeCheckout = async () => {
+    // Synchronous guard — isSubmitting is state and can read stale across
+    // batched updates, and the MoMo poll callback bypasses it entirely.
+    if (submitLockRef.current) return
+    submitLockRef.current = true
     setErrorMsg('')
     setNoticeMsg('')
     setIsSubmitting(true)
@@ -879,6 +980,7 @@ export default function PosPage() {
       const result = await res.json()
 
       if (res.status === 202 && result.requiresApproval) {
+        approvalHandledRef.current = false // arm for this approval round
         setPendingApprovalSaleId(result.saleId)
         setPinDigits('')
         setPinError('')
@@ -896,6 +998,7 @@ export default function PosPage() {
       setErrorMsg(err instanceof Error ? err.message : 'Checkout failed')
     } finally {
       setIsSubmitting(false)
+      submitLockRef.current = false
     }
   }
 
@@ -910,7 +1013,7 @@ export default function PosPage() {
         if (sale.approvalStatus === 'APPROVED') {
           setShowPinModal(false)
           setPinDigits('')
-          onSaleApproved(sale.totalAmount, sale.id)
+          onSaleApproved(sale.totalAmount, sale.id, sale)
         } else if (sale.approvalStatus === 'REJECTED') {
           setShowPinModal(false)
           setPinDigits('')
@@ -926,11 +1029,15 @@ export default function PosPage() {
 
   // ── Customer display (second screen) ────────────────────────────────────────
   useCustomerDisplaySender({
-    cart,
+    // Send discount-adjusted line totals so the display matches the register
+    cart: cart.map(c => ({
+      itemId: c.itemId, name: c.name, qty: c.qty, basePrice: c.basePrice, lineTotal: lineTotal(c),
+    })),
     grandTotal,
     orderDiscountNum,
     selectedCustomer,
     method,
+    splitMode,
     flashSuccess,
     lastSaleData: lastSaleData
       ? { total: lastSaleData.total, change: lastSaleData.change, method: lastSaleData.method, customerName: lastSaleData.customerName }
@@ -1144,7 +1251,7 @@ export default function PosPage() {
                 className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-600">
                 {numpadDrawer === 'docked' ? '↑ Drawer' : '↓ Dock'}
               </button>
-              <button onClick={() => setNumpadDrawer('hidden')}
+              <button onClick={() => { setNumpadDrawer('hidden'); resetLineEditing() }}
                 className="px-2 py-1 text-[10px] font-bold bg-gray-100 text-gray-500">✕</button>
             </div>
           </div>
@@ -1485,7 +1592,7 @@ export default function PosPage() {
       <div className="grid grid-cols-4 border-t border-b border-gray-200">
         {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
           <button key={m}
-            onClick={() => { setMethod(m); setTendered(''); setMomoPhone(''); setSplitMode(false); setMomoStatus('idle'); setMomoTxId(null) }}
+            onClick={() => { stopMomoPoll(); setMethod(m); setTendered(''); setMomoPhone(''); setSplitMode(false); setMomoStatus('idle'); setMomoTxId(null) }}
             className={`py-2 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
               method === m && !splitMode ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
             }`}>
@@ -1494,6 +1601,7 @@ export default function PosPage() {
         ))}
         <button
           onClick={() => {
+            stopMomoPoll()
             setSplitMode(s => !s)
             if (!splitMode) { setNumpadTarget('momoPaid'); setMomoPaid(''); setCashPaid('') }
             else { setMomoStatus('idle'); setMomoTxId(null) }
@@ -1790,7 +1898,14 @@ export default function PosPage() {
           setIsPollingApproval(false)
           setShowPinModal(false)
           setPinDigits('')
-          onSaleApproved(grandTotal, pendingApprovalSaleId)
+          // Re-fetch the committed sale so the receipt carries the server's
+          // authoritative totals and tax lines rather than client estimates.
+          let sale: Record<string, unknown> | undefined
+          try {
+            const saleRes = await fetch(`/api/sales/${pendingApprovalSaleId}`)
+            if (saleRes.ok) sale = await saleRes.json()
+          } catch { /* fall back to local cart state */ }
+          onSaleApproved((sale?.totalAmount as number | undefined) ?? grandTotal, pendingApprovalSaleId, sale)
         } else {
           const err = await approveRes.json()
           setPinError(err.error ?? 'Approval failed')
@@ -1805,7 +1920,10 @@ export default function PosPage() {
     }
   }
 
-  const PinModal = () => {
+  // Rendered as a plain function returning JSX rather than a component defined
+  // in the render body — the latter gives React a new component type on every
+  // render, remounting the subtree and dropping focus on each keystroke.
+  const renderPinModal = () => {
     const numpadKeys = ['1','2','3','4','5','6','7','8','9','','0','backspace']
     return (
       <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -1931,7 +2049,7 @@ export default function PosPage() {
   return (
     <>
       {showHolds && <HoldsModal />}
-      {showPinModal && <PinModal />}
+      {showPinModal && renderPinModal()}
 
       <div className="fixed inset-0 bg-gray-100 flex flex-col overflow-hidden">
 
@@ -2096,7 +2214,7 @@ export default function PosPage() {
                 {/* Backdrop */}
                 <div
                   className="absolute inset-0 z-20"
-                  onClick={() => setShowNumpadDrawer(false)}
+                  onClick={dismissNumpadDrawer}
                 />
                 {/* Drawer panel — slides up from bottom of the cart column */}
                 <div className="absolute bottom-0 left-0 right-0 z-30 bg-white shadow-2xl border-t-2 border-indigo-200"
@@ -2106,7 +2224,7 @@ export default function PosPage() {
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                       {numpadTarget === 'qty' ? 'Set Quantity' : numpadTarget === 'price' ? 'Override Price' : numpadTarget === 'lineDiscount' ? 'Set Discount' : 'Cash Tendered'}
                     </span>
-                    <button onClick={() => setShowNumpadDrawer(false)}
+                    <button onClick={dismissNumpadDrawer}
                       className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
                   </div>
                   <Numpad />
@@ -2247,7 +2365,7 @@ export default function PosPage() {
             {/* Backdrop */}
             <div
               className="fixed inset-0 z-40 bg-black/30 md:hidden"
-              onClick={() => setNumpadDrawer('hidden')}
+              onClick={() => { setNumpadDrawer('hidden'); resetLineEditing() }}
             />
             {/* Bottom sheet */}
             <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden  shadow-2xl overflow-hidden">

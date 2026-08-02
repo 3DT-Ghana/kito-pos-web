@@ -59,6 +59,7 @@ export interface CreateSaleInput {
   bankName?: string
   bankAccountName?: string
   bankReference?: string
+  note?: string
   approvalGrant?: string
   items: SaleRequestItem[]
   sourceQuotationId?: string
@@ -426,6 +427,7 @@ export async function createSaleFromInput(
         bankName: paymentMethod === PaymentMethod.BANK && body.bankName ? String(body.bankName).trim() : null,
         bankAccountName: paymentMethod === PaymentMethod.BANK && body.bankAccountName ? String(body.bankAccountName).trim() : null,
         bankReference: paymentMethod === PaymentMethod.BANK && body.bankReference ? String(body.bankReference).trim() : null,
+        note: body.note ? String(body.note).trim() || null : null,
         createdById: context.user.id,
         ...(needsApproval || inlineApproval
           ? {
@@ -509,10 +511,22 @@ export async function createSaleFromInput(
     for (const saleItem of body.items) {
       const item = items.find((candidate) => candidate.id === saleItem.itemId)
       if (item?.itemType !== 'INVENTORY') continue
-      await tx.item.update({
-        where: { id: saleItem.itemId },
+      // Guarded decrement — the precheck above is not atomic, so two concurrent
+      // sales of the last unit would otherwise both succeed and drive stock negative.
+      const stockUpdate = await tx.item.updateMany({
+        where: {
+          id: saleItem.itemId,
+          tenantId: context.tenantId,
+          quantity: { gte: saleItem.quantity },
+        },
         data: { quantity: { decrement: saleItem.quantity } },
       })
+      if (stockUpdate.count !== 1) {
+        throw new SaleOperationError(
+          `Insufficient stock for "${item.name}" — another sale took it first. Please re-check the cart.`,
+          409
+        )
+      }
     }
 
     if (creditAmount > 0 && body.customerId) {

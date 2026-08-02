@@ -467,6 +467,7 @@ model Sale {
   bankName          String?       // captured when paymentMethod = BANK (sales invoice only)
   bankAccountName   String?       // account holder name
   bankReference     String?       // transaction / reference number
+  note              String?       // free-text note captured at the till
   createdAt         DateTime      @default(now())
   items         SaleItem[]
   returns       CustomerReturn[]

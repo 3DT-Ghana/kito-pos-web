@@ -17,10 +17,56 @@ import { createApprovalGrant } from '@/lib/approvals/inlineGrant'
  * Body:
  *   pin: string  (4–6 digit string)
  */
+
+// A 4-digit PIN is only a 10k keyspace, so an unthrottled endpoint is
+// brute-forceable by any authenticated cashier. Track failures per terminal.
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS = 5 * 60 * 1000
+const attempts = new Map<string, { count: number; firstAt: number }>()
+
+function checkRateLimit(key: string): { blocked: boolean; retryAfter: number } {
+  const now = Date.now()
+  const entry = attempts.get(key)
+  if (!entry || now - entry.firstAt > LOCKOUT_MS) {
+    return { blocked: false, retryAfter: 0 }
+  }
+  if (entry.count >= MAX_ATTEMPTS) {
+    return { blocked: true, retryAfter: Math.ceil((LOCKOUT_MS - (now - entry.firstAt)) / 1000) }
+  }
+  return { blocked: false, retryAfter: 0 }
+}
+
+function recordFailure(key: string) {
+  const now = Date.now()
+  const entry = attempts.get(key)
+  if (!entry || now - entry.firstAt > LOCKOUT_MS) {
+    attempts.set(key, { count: 1, firstAt: now })
+  } else {
+    entry.count++
+  }
+  // Opportunistic cleanup so the map cannot grow without bound
+  if (attempts.size > 500) {
+    for (const [k, v] of attempts) {
+      if (now - v.firstAt > LOCKOUT_MS) attempts.delete(k)
+    }
+  }
+}
 export async function POST(req: Request) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    const rateKey = `${context!.tenantId}:${context!.user.id}`
+    const limit = checkRateLimit(rateKey)
+    if (limit.blocked) {
+      return NextResponse.json(
+        {
+          valid: false,
+          error: `Too many incorrect PIN attempts. Try again in ${Math.ceil(limit.retryAfter / 60)} minute(s), or have a manager approve from the Approvals page.`,
+        },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      )
+    }
 
     const body = await req.json()
     const { pin } = body
@@ -76,6 +122,7 @@ export async function POST(req: Request) {
         scope: 'SALE',
       })
 
+      attempts.delete(rateKey) // successful approval clears the counter
       return NextResponse.json({
         valid: true,
         approverId: candidate.id,
@@ -84,6 +131,7 @@ export async function POST(req: Request) {
       })
     }
 
+    recordFailure(rateKey)
     return invalidResponse
   } catch (err) {
     console.error('PIN verify error:', err)
