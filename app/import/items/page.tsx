@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { formatCurrency } from '@/lib/utils/format'
 
 /**
  * Import Items Page
@@ -147,8 +146,8 @@ export default function ImportItemsPage() {
             <li>• <strong>name, costPrice, sellingPrice</strong> are required (marked *)</li>
             <li>• <strong>itemType</strong>: <code className="bg-blue-100 px-0.5">INVENTORY</code> (default) · <code className="bg-blue-100 px-0.5">SERVICE</code> · <code className="bg-blue-100 px-0.5">NON_INVENTORY</code></li>
             <li>• <strong>quantity</strong> and <strong>reorderLevel</strong> only apply to INVENTORY items (ignored for SERVICE/NON_INVENTORY)</li>
-            <li>• <strong>manufacturer</strong> is optional — auto-created if provided, defaults to "General"</li>
-            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">"Phone, Samsung"</code></li>
+            <li>• <strong>manufacturer</strong> is optional — auto-created if provided, defaults to &quot;General&quot;</li>
+            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">&quot;Phone, Samsung&quot;</code></li>
           </ul>
           <button
             onClick={() => {

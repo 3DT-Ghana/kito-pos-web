@@ -177,7 +177,7 @@ export default function PosPage() {
     setBranchId,
   } = useBranch()
   const { features } = useTenantFeatures()
-  const { hasTenantPermission } = useRolePermissions()
+  useRolePermissions()
   const { tenantName } = useTenant()
 
   // Catalog
@@ -214,7 +214,7 @@ export default function PosPage() {
   const [momoPaid, setMomoPaid] = useState('')        // momo amount in split
   const [cashPaid, setCashPaid] = useState('')        // cash amount in split
   const [splitMode, setSplitMode] = useState(false)   // cash + momo split
-  const [momoTxId, setMomoTxId] = useState<string | null>(null)
+  const [, setMomoTxId] = useState<string | null>(null)
   const [momoStatus, setMomoStatus] = useState<'idle' | 'sending' | 'pending' | 'success' | 'failed'>('idle')
   const [numpadBuffer, setNumpadBuffer] = useState('')
   const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'momoPaid' | 'cashPaid' | 'qty' | 'lineDiscount' | 'price'>('tendered')
@@ -472,7 +472,7 @@ export default function PosPage() {
     return (item[tier] as number | null) ?? item.sellingPrice
   }
 
-  const addToCart = (item: PosItem) => {
+  const addToCart = useCallback((item: PosItem) => {
     const price = resolvePrice(item, globalTier)
     const maxStock = isStockTracked(item) ? item.quantity : UNTRACKED_MAX_STOCK
     setCart(prev => {
@@ -502,7 +502,7 @@ export default function PosPage() {
     })
     setSearch('')
     searchRef.current?.focus()
-  }
+  }, [globalTier])
 
   // Stable ref so the scanner effect always calls the latest addToCart without re-registering.
   const addToCartRef = useRef(addToCart)
@@ -719,17 +719,6 @@ export default function PosPage() {
   }
 
   // ── Checkout ────────────────────────────────────────────────────────────────
-
-  // Returns true if the current cart has flags that require approval
-  const cartNeedsApproval = () => {
-    if (!features.requireApproval) return false
-    const canSelf = hasTenantPermission(user?.role, 'approve_transactions')
-    if (canSelf) return false
-    const hasDiscount = cart.some(c => c.lineDiscount > 0) || orderDiscountNum > 0
-    const hasPriceOverride = cart.some(c => c.basePrice < c.tiers.sellingPrice - 0.001)
-    const isCredit = (grandTotal - (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)) > 0.001
-    return hasDiscount || hasPriceOverride || isCredit
-  }
 
   // Called once a sale is confirmed approved (via PIN grant or manager page polling)
   const onSaleApproved = (total: number, saleId: string) => {
@@ -1434,7 +1423,8 @@ export default function PosPage() {
   }
 
   // ── Payment panel (shared) ──────────────────────────────────────────────────
-  const PaymentPanel = ({ mobile = false }: { mobile?: boolean }) => (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const PaymentPanel = (_props: { mobile?: boolean }) => (
     <div className="flex flex-col">
       {/* ── Order discount ── */}
       {features.enableDiscounts && (

@@ -143,7 +143,7 @@ export default function ImportCustomersPage() {
           <ul className="mt-2 text-xs text-blue-600 space-y-0.5">
             <li>• <strong>name</strong> is required · <strong>phone</strong> and <strong>balance</strong> are optional</li>
             <li>• <strong>balance</strong> = amount customer owes (opening debt)</li>
-            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">"Mensah, Kwame"</code></li>
+            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">&quot;Mensah, Kwame&quot;</code></li>
           </ul>
           <button
             onClick={() => {
