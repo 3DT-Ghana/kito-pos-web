@@ -49,6 +49,47 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'asc' },
     })
 
+    // Supplier payments, credit returns and ledger transfers reduce what is
+    // owed but never touch Purchase.paidAmount, so without applying them AP
+    // aging could not agree with sum(Supplier.balance) or account 2100.
+    const [payments, creditReturns, transfers] = await Promise.all([
+      prisma.supplierPayment.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled && context!.currentBranchId
+            ? { branchId: context!.currentBranchId }
+            : {}),
+          createdAt: { lte: asOf },
+        },
+        select: { supplierId: true, amount: true },
+      }),
+      prisma.supplierReturn.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          type: 'CREDIT',
+          createdAt: { lte: asOf },
+        },
+        select: { amount: true, purchase: { select: { supplierId: true } } },
+      }),
+      prisma.ledgerTransfer.findMany({
+        where: { tenantId: context!.tenantId, date: { lte: asOf } },
+        select: { amount: true, debitSupplierId: true, creditSupplierId: true },
+      }),
+    ])
+
+    const creditBySupplier = new Map<string, number>()
+    const addCredit = (supplierId: string | null | undefined, amount: number) => {
+      if (!supplierId) return
+      creditBySupplier.set(supplierId, round2((creditBySupplier.get(supplierId) ?? 0) + amount))
+    }
+    for (const p of payments) addCredit(p.supplierId, p.amount)
+    for (const r of creditReturns) addCredit(r.purchase?.supplierId, r.amount)
+    for (const t of transfers) {
+      // Debiting a supplier reduces the payable; crediting increases it
+      addCredit(t.debitSupplierId, t.amount)
+      addCredit(t.creditSupplierId, -t.amount)
+    }
+
     type SupplierRow = {
       supplierId: string
       supplierName: string
@@ -62,11 +103,21 @@ export async function GET(req: Request) {
     }
 
     const supplierMap = new Map<string, SupplierRow>()
+    const unappliedCredit = new Map(creditBySupplier)
 
     for (const purchase of purchases) {
       if (new Date(purchase.createdAt) > asOf) continue
-      const outstanding = round2(purchase.totalAmount - purchase.paidAmount)
+      let outstanding = round2(purchase.totalAmount - purchase.paidAmount)
       if (outstanding <= 0.001) continue
+
+      const supplierIdForCredit = purchase.supplier?.id
+      const credit = supplierIdForCredit ? unappliedCredit.get(supplierIdForCredit) ?? 0 : 0
+      if (credit > 0 && supplierIdForCredit) {
+        const applied = Math.min(credit, outstanding)
+        outstanding = round2(outstanding - applied)
+        unappliedCredit.set(supplierIdForCredit, round2(credit - applied))
+        if (outstanding <= 0.001) continue
+      }
 
       const sup = purchase.supplier
       const daysOld = Math.floor(

@@ -106,7 +106,11 @@ export default function TransfersPage() {
       setCustomers(Array.isArray(cust) ? cust : (cust.customers ?? cust.data ?? []))
       setSuppliers(Array.isArray(supp) ? supp : (supp.suppliers ?? supp.data ?? []))
       setAccounts(acct.accounts ?? [])
-    }).catch(() => {})
+    }).catch(() => {
+      // Was swallowed entirely: all three selectors rendered empty and the form
+      // could not be completed, with no indication why.
+      setError('Could not load customers, suppliers or accounts. Reload the page to try again.')
+    })
   }, [fetchTransfers])
 
   const handleSubmit = async (e: React.FormEvent) => {

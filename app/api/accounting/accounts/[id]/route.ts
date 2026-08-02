@@ -108,18 +108,26 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Cannot delete account with child accounts' }, { status: 409 })
     }
 
-    // Only block deletion if account has lines on POSTED entries (REVERSED entries no longer affect balances)
-    const postedLineCount = await prisma.journalLine.count({
+    // Counts ALL lines, not just POSTED ones. A reversed entry is a recorded
+    // correction that must stay inspectable, and JournalLine.account is a
+    // required non-cascading relation — so deleting past reversed lines either
+    // destroyed audit history or threw a raw FK error surfaced as a useless 500.
+    const lineCount = await prisma.journalLine.count({
       where: {
-        accountId:    id,
-        journalEntry: { status: 'POSTED' },
+        accountId: id,
+        journalEntry: { tenantId: context!.tenantId },
       },
     })
-    if (postedLineCount > 0) {
-      return NextResponse.json({ error: 'Cannot delete account with posted transactions' }, { status: 409 })
+    if (lineCount > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete this account — it has ${lineCount} journal line(s) in the ledger, including any reversed entries that must remain auditable. Deactivate it instead.`,
+        },
+        { status: 409 }
+      )
     }
 
-    await prisma.account.delete({ where: { id } })
+    await prisma.account.deleteMany({ where: { id, tenantId: context!.tenantId } })
 
     return NextResponse.json({ success: true })
   } catch (err) {

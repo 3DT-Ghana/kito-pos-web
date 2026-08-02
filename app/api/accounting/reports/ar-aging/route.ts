@@ -52,26 +52,55 @@ export async function GET(req: Request) {
       orderBy: { createdAt: 'asc' },
     })
 
-    // Also include customer payments to get accurate outstanding balance
-    const payments = await prisma.customerPayment.findMany({
-      where: {
-        tenantId: context!.tenantId,
-        ...(context!.branchesEnabled && context!.currentBranchId
-          ? { branchId: context!.currentBranchId }
-          : {}),
-      },
-      select: { customerId: true, amount: true, createdAt: true },
-    })
+    // Standalone payments, credit notes and ledger transfers all reduce what a
+    // customer owes but never touch Sale.paidAmount — they move Customer.balance
+    // and post to the AR control account instead. Without applying them here,
+    // AR aging, sum(Customer.balance) and trial-balance account 1100 were three
+    // numbers that could never agree.
+    //
+    // (This map was previously built and then never read, so the correction the
+    // comment promised never happened.)
+    const [payments, creditReturns, transfers] = await Promise.all([
+      prisma.customerPayment.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled && context!.currentBranchId
+            ? { branchId: context!.currentBranchId }
+            : {}),
+          createdAt: { lte: asOf },
+        },
+        select: { customerId: true, amount: true },
+      }),
+      prisma.customerReturn.findMany({
+        where: {
+          tenantId: context!.tenantId,
+          type: 'CREDIT',
+          createdAt: { lte: asOf },
+        },
+        select: { amount: true, sale: { select: { customerId: true } } },
+      }),
+      prisma.ledgerTransfer.findMany({
+        where: { tenantId: context!.tenantId, date: { lte: asOf } },
+        select: {
+          amount: true,
+          debitCustomerId: true,
+          creditCustomerId: true,
+        },
+      }),
+    ])
 
-    // Build payment totals by customer up to asOf
-    const paymentByCustomer = new Map<string, number>()
-    for (const p of payments) {
-      if (new Date(p.createdAt) <= asOf) {
-        paymentByCustomer.set(
-          p.customerId,
-          round2((paymentByCustomer.get(p.customerId) ?? 0) + p.amount)
-        )
-      }
+    // Net credit applied against each customer's invoices
+    const creditByCustomer = new Map<string, number>()
+    const addCredit = (customerId: string | null | undefined, amount: number) => {
+      if (!customerId) return
+      creditByCustomer.set(customerId, round2((creditByCustomer.get(customerId) ?? 0) + amount))
+    }
+    for (const p of payments) addCredit(p.customerId, p.amount)
+    for (const r of creditReturns) addCredit(r.sale?.customerId, r.amount)
+    for (const t of transfers) {
+      // A credit-side customer owes less; a debit-side customer owes more
+      addCredit(t.creditCustomerId, t.amount)
+      addCredit(t.debitCustomerId, -t.amount)
     }
 
     // Per customer, compute outstanding from sales created before asOf
@@ -89,13 +118,27 @@ export async function GET(req: Request) {
 
     const customerMap = new Map<string, CustomerRow>()
 
+    // Remaining credit per customer, consumed oldest-invoice-first below.
+    // `sales` is already ordered createdAt asc, so the natural iteration order
+    // settles the oldest debt first — which is also what makes the buckets
+    // meaningful rather than just the total.
+    const unappliedCredit = new Map(creditByCustomer)
+
     for (const sale of sales) {
       if (new Date(sale.createdAt) > asOf) continue
-      const outstanding = round2(sale.totalAmount - sale.paidAmount)
+      let outstanding = round2(sale.totalAmount - sale.paidAmount)
       if (outstanding <= 0.001) continue
 
       const cust = sale.customer
       if (!cust) continue
+
+      const credit = unappliedCredit.get(cust.id) ?? 0
+      if (credit > 0) {
+        const applied = Math.min(credit, outstanding)
+        outstanding = round2(outstanding - applied)
+        unappliedCredit.set(cust.id, round2(credit - applied))
+        if (outstanding <= 0.001) continue
+      }
 
       const daysOld = Math.floor(
         (asOf.getTime() - new Date(sale.createdAt).getTime()) / (1000 * 60 * 60 * 24)

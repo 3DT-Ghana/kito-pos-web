@@ -547,7 +547,26 @@ export async function reverseJournalEntry(
     include: { lines: true },
   })
   if (!original) throw new Error(`Journal entry ${originalId} not found`)
-  if (original.status !== 'POSTED') throw new Error('Only POSTED entries can be reversed')
+
+  // Claim the entry first with a conditional write. The caller's status check
+  // runs outside this transaction and the re-read above does not lock the row,
+  // so under Read Committed two concurrent reversals both saw POSTED and both
+  // created a reversal — over-reversing the ledger by the full entry amount.
+  // Letting the database arbiter the transition makes it single-shot.
+  const claimed = await tx.journalEntry.updateMany({
+    where: { id: originalId, status: 'POSTED' },
+    data: { status: 'REVERSED' },
+  })
+  if (claimed.count !== 1) {
+    throw new Error('This entry has already been reversed.')
+  }
+
+  // A reversal is itself POSTED, so without this a reversal could be reversed
+  // repeatedly, each time producing another balanced entry and rendering the
+  // audit trail meaningless.
+  if (original.reversalOfId) {
+    throw new Error('A reversal entry cannot itself be reversed.')
+  }
 
   const entryNumber = await nextEntryNumber(tx, original.tenantId)
 
@@ -571,9 +590,10 @@ export async function reverseJournalEntry(
     },
   })
 
+  // Status was already set by the claim above; this only records the backlink.
   await tx.journalEntry.update({
     where: { id: original.id },
-    data:  { status: 'REVERSED', reversedById: reversalEntry.id },
+    data:  { reversedById: reversalEntry.id },
   })
 
   return reversalEntry.id

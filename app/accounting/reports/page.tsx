@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { smartPrint } from '@/lib/print/print'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { useTenantFeatures } from '@/hooks/useTenant'
 import {
   TrendingUp,
   BarChart3,
@@ -1846,8 +1847,21 @@ const GROUP_META: Record<string, { color: string; dot: string }> = {
   'HR & Stock': { color: 'text-rose-600',   dot: 'bg-rose-500' },
 }
 
+// JournalEntry has no branchId, so every report derived from journal lines is
+// necessarily tenant-wide, while the raw-table reports are branch-scoped. Shown
+// side by side under one date header that difference was invisible and the
+// numbers looked like they disagreed for no reason.
+const JOURNAL_BASED_REPORTS: ReportType[] = [
+  'profit-loss',
+  'balance-sheet',
+  'trial-balance',
+  'general-ledger',
+  'cash-flow',
+]
+
 export default function AccountingReportsPage() {
   const [activeReport, setActiveReport] = useState<ReportType>('profit-loss')
+  const { features } = useTenantFeatures()
 
   const today = new Date().toISOString().slice(0, 10)
   const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -2066,6 +2080,16 @@ export default function AccountingReportsPage() {
             </div>
 
             <div id="report-panel-content" className="space-y-4">
+              {/* Journal-derived reports cannot be branch-filtered, so say so
+                  rather than letting them sit next to branch-scoped reports
+                  under one date header as though the scopes matched. */}
+              {features.enableBranches && JOURNAL_BASED_REPORTS.includes(activeReport) && (
+                <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2.5 text-xs">
+                  This report covers <strong>all branches</strong>. Ledger entries are recorded at
+                  business level, so it cannot be filtered to the selected branch — unlike A/R
+                  Aging, Inventory Valuation and the sales reports, which are branch-specific.
+                </div>
+              )}
               {activeReport === 'profit-loss'           && <ProfitLossReport          startDate={startDate} endDate={endDate} onData={handleData} />}
               {activeReport === 'balance-sheet'          && <BalanceSheetReport         asOf={endDate} onData={handleData} />}
               {activeReport === 'trial-balance'          && <TrialBalanceReport          startDate={startDate} endDate={endDate} onData={handleData} />}

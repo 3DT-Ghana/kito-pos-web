@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { TransferPartyType } from '@prisma/client'
 import { requireBranchAccess } from '@/lib/branch/server'
 import { postLedgerTransfer } from '@/lib/accounting/journalEngine'
+import { ACCOUNT_CODES } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
@@ -23,11 +24,19 @@ export async function GET(req: Request) {
     const featureError = requireTenantFeature(context!.features, 'enableAccounting')
     if (featureError) return featureError
 
+    // Was the only accounting handler with no permission check — any
+    // authenticated user could enumerate the full transfer history including
+    // customer and supplier names and amounts.
+    const { authorized, error: permError } = requirePermission(context!, 'record_transfers')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const startDate = searchParams.get('startDate')
     const endDate   = searchParams.get('endDate')
-    const skip = parseInt(searchParams.get('skip') ?? '0', 10)
-    const take = parseInt(searchParams.get('take') ?? '50',  10)
+    // Clamped — unguarded parseInt let ?skip=abc reach Prisma as NaN and
+    // ?take=999999 dump the whole table.
+    const skip = Math.max(0, parseInt(searchParams.get('skip') ?? '0', 10) || 0)
+    const take = Math.min(200, Math.max(1, parseInt(searchParams.get('take') ?? '50', 10) || 50))
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = { tenantId: context!.tenantId }
@@ -115,6 +124,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Debit and credit cannot be the same account' }, { status: 400 })
     }
 
+    // Every CUSTOMER party resolves to the one AR control account and every
+    // SUPPLIER to the one AP account, so a transfer between two *different*
+    // customers still posts AR-to-AR: a net-zero journal entry while the
+    // customer balances really move. The subledger and the general ledger then
+    // disagree and the control account stops tying to the sum of balances.
+    if (debitType === 'CUSTOMER' && creditType === 'CUSTOMER') {
+      return NextResponse.json(
+        {
+          error: 'Both sides are customers, so this would post to Accounts Receivable twice and record nothing in the ledger. Transfer through a control account instead, or adjust each balance separately.',
+        },
+        { status: 400 }
+      )
+    }
+    if (debitType === 'SUPPLIER' && creditType === 'SUPPLIER') {
+      return NextResponse.json(
+        {
+          error: 'Both sides are suppliers, so this would post to Accounts Payable twice and record nothing in the ledger. Transfer through a control account instead, or adjust each balance separately.',
+        },
+        { status: 400 }
+      )
+    }
+
     const tenantId = context!.tenantId
     const postedById = context!.user.id
 
@@ -134,6 +165,26 @@ export async function POST(req: Request) {
     if (creditType === 'CUSTOMER' && !creditCustomer) return NextResponse.json({ error: 'Credit customer not found' }, { status: 404 })
     if (creditType === 'SUPPLIER' && !creditSupplier) return NextResponse.json({ error: 'Credit supplier not found' }, { status: 404 })
     if (creditType === 'ACCOUNT'  && !creditAccount)  return NextResponse.json({ error: 'Credit account not found' },  { status: 404 })
+
+    // A CUSTOMER party posts to AR and a SUPPLIER party posts to AP, so pairing
+    // one with the *same* control account selected directly also produces a
+    // net-zero journal — while the customer or supplier balance still moves,
+    // breaking the tie between the control account and the subledger. The
+    // party-type guards above cannot catch this because the types differ.
+    const CONTROL_CODE_FOR_PARTY: Record<string, string> = {
+      CUSTOMER: ACCOUNT_CODES.ACCOUNTS_RECEIVABLE,
+      SUPPLIER: ACCOUNT_CODES.ACCOUNTS_PAYABLE,
+    }
+    const debitControlCode  = debitType === 'ACCOUNT'  ? debitAccount?.code  : CONTROL_CODE_FOR_PARTY[debitType]
+    const creditControlCode = creditType === 'ACCOUNT' ? creditAccount?.code : CONTROL_CODE_FOR_PARTY[creditType]
+    if (debitControlCode && debitControlCode === creditControlCode) {
+      return NextResponse.json(
+        {
+          error: `Both sides post to account ${debitControlCode}, so the ledger entry would cancel itself out while the balance still moves. Choose a different account on one side.`,
+        },
+        { status: 400 }
+      )
+    }
 
     // ── Atomic transaction ────────────────────────────────────────────────────
     const transfer = await prisma.$transaction(async (tx) => {

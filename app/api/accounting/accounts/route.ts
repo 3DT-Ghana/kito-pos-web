@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
 import { AccountType, NormalBalance } from '@prisma/client'
+import { isUniqueViolation } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
@@ -74,6 +75,28 @@ export async function POST(req: Request) {
     if (!normalBalance || !Object.values(NormalBalance).includes(normalBalance as NormalBalance)) {
       return NextResponse.json({ error: 'normalBalance must be DEBIT or CREDIT' }, { status: 400 })
     }
+    // type and normalBalance were validated independently, so the UI's override
+    // dropdown could create e.g. a REVENUE account with a DEBIT normal balance.
+    // Every report signs balances by normalBalance, so such an account shows
+    // inverted everywhere. Contra accounts are deliberately excluded from this
+    // rule and are seeded as system accounts rather than created through here.
+    const EXPECTED_NORMAL_BALANCE: Record<string, string> = {
+      ASSET: 'DEBIT',
+      COGS: 'DEBIT',
+      EXPENSE: 'DEBIT',
+      LIABILITY: 'CREDIT',
+      EQUITY: 'CREDIT',
+      REVENUE: 'CREDIT',
+    }
+    const expected = EXPECTED_NORMAL_BALANCE[type as string]
+    if (expected && normalBalance !== expected) {
+      return NextResponse.json(
+        {
+          error: `A ${type} account must have a ${expected} normal balance. Saving it as ${normalBalance} would make it appear inverted on every report.`,
+        },
+        { status: 400 }
+      )
+    }
 
     // Check code uniqueness
     const existing = await prisma.account.findUnique({
@@ -113,6 +136,12 @@ export async function POST(req: Request) {
     return NextResponse.json(account, { status: 201 })
   } catch (err) {
     console.error('Failed to create account:', err)
+    // The uniqueness check above is a read-then-write, so two concurrent
+    // creates of the same code both pass it and the loser hits the constraint.
+    // Report that as the 409 it is rather than a generic 500.
+    if (isUniqueViolation(err)) {
+      return NextResponse.json({ error: 'That account code already exists' }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
   }
 }

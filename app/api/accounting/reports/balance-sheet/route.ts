@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
-import { round2 } from '@/lib/accounting/accounts'
+import { round2, profitContribution } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
@@ -49,7 +49,8 @@ export async function GET(req: Request) {
       select: {
         debit: true,
         credit: true,
-        account: { select: { type: true } },
+        // normalBalance is required to sign contra accounts correctly
+        account: { select: { type: true, normalBalance: true } },
       },
     })
 
@@ -79,13 +80,16 @@ export async function GET(req: Request) {
 
     const totalAssets      = round2(assets.reduce((s, r)      => s + r.balance, 0))
     const totalLiabilities = round2(liabilities.reduce((s, r) => s + r.balance, 0))
+    // Uses the same helper as the P&L. Branching on `type` here while the P&L
+    // branched on `normalBalance` made the two reports disagree by twice the
+    // value of every customer return, and the balance sheet then visibly
+    // failed its own Assets = Liabilities + Equity check.
     const currentPeriodEarnings = round2(
-      profitAndLossLines.reduce((sum, line) => {
-        if (line.account.type === 'REVENUE') {
-          return round2(sum + (line.credit - line.debit))
-        }
-        return round2(sum - (line.debit - line.credit))
-      }, 0)
+      profitAndLossLines.reduce(
+        (sum, line) =>
+          round2(sum + profitContribution(line.account, { debit: line.debit, credit: line.credit })),
+        0
+      )
     )
     const equityRows = currentPeriodEarnings === 0
       ? equity

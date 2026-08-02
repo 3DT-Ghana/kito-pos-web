@@ -77,23 +77,78 @@ export function round2(n: number): number {
 export function assertBalanced(lines: { debit: number; credit: number }[]): void {
   const totalDebit  = round2(lines.reduce((s, l) => s + l.debit,  0))
   const totalCredit = round2(lines.reduce((s, l) => s + l.credit, 0))
-  if (Math.abs(totalDebit - totalCredit) > 0.01) {
+  // Totals are already rounded to 2dp, so float noise is gone. A tolerance of
+  // a full cent let a genuinely unbalanced entry (100.00 vs 100.01) post and
+  // drift the trial balance; compare against half a cent instead.
+  if (Math.abs(totalDebit - totalCredit) > 0.005) {
     throw new Error(
       `Journal entry is not balanced: debits=${totalDebit} credits=${totalCredit}`
     )
   }
 }
 
-// Generate next JE number for the tenant within the given transaction
+/**
+ * Signed contribution of a journal line to profit, in "increases profit is
+ * positive" terms.
+ *
+ * Contra accounts are the trap: 4900 Sales Returns is type REVENUE with
+ * normalBalance DEBIT. Branching on `type` alone and branching on
+ * `normalBalance` alone give opposite answers for it, which is exactly how the
+ * P&L and the balance sheet came to disagree by 2x the value of every customer
+ * return. Both reports now call this, so they cannot diverge.
+ */
+export function profitContribution(
+  account: { type: string; normalBalance: string },
+  line: { debit: number; credit: number }
+): number {
+  // A credit-normal account (revenue) adds to profit when credited; a
+  // debit-normal account (expense, COGS, contra-revenue) subtracts when debited.
+  return account.normalBalance === 'CREDIT'
+    ? round2(line.credit - line.debit)
+    : round2(line.debit - line.credit) * -1
+}
+
+/**
+ * Balance of an account in its own normal direction — the figure a report
+ * displays on its own line. Positive means "normal", so a contra-revenue
+ * account shows a positive number that nonetheless reduces total revenue.
+ */
+export function accountNormalBalance(
+  account: { normalBalance: string },
+  totals: { debit: number; credit: number }
+): number {
+  return account.normalBalance === 'CREDIT'
+    ? round2(totals.credit - totals.debit)
+    : round2(totals.debit - totals.credit)
+}
+
+/**
+ * Generate the next JE number for the tenant within the given transaction.
+ *
+ * `attempt` shifts the sequence forward so a caller can retry after a unique
+ * violation. Two concurrent posts otherwise read the same last number, both
+ * compute the same next one, and the loser hits the @@unique([tenantId,
+ * entryNumber]) constraint — which rolls back the *entire* enclosing
+ * transaction, so a concurrent sale or purchase failed outright with a generic
+ * 500 rather than merely renumbering.
+ */
 export async function nextEntryNumber(
   tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
   tenantId: string,
+  attempt = 0,
 ): Promise<string> {
+  // Ordered by entryNumber, not createdAt: two entries written in the same
+  // millisecond ordered arbitrarily, which could reuse a number.
   const last = await tx.journalEntry.findFirst({
     where: { tenantId },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { entryNumber: 'desc' },
     select: { entryNumber: true },
   })
-  const lastNum = last ? parseInt(last.entryNumber.replace('JE-', ''), 10) : 0
-  return `JE-${String(lastNum + 1).padStart(4, '0')}`
+  const lastNum = last ? parseInt(last.entryNumber.replace('JE-', ''), 10) || 0 : 0
+  return `JE-${String(lastNum + 1 + attempt).padStart(4, '0')}`
+}
+
+/** True when an error is a Prisma unique-constraint violation. */
+export function isUniqueViolation(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002'
 }

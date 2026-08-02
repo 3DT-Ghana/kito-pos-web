@@ -34,10 +34,20 @@ export default function NewJournalPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/accounting/accounts?activeOnly=true')
-      .then(r => r.json())
-      .then(d => setAccounts((d.accounts ?? []).filter((a: Account & { isSystemAccount: boolean }) => true)))
-      .catch(() => {})
+    // Was `.catch(() => {})` with a no-op `.filter(() => true)` — a failed load
+    // left an empty account dropdown with no way to tell whether the tenant had
+    // no accounts or the request had failed.
+    const load = async () => {
+      try {
+        const res = await fetch('/api/accounting/accounts?activeOnly=true')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to load accounts')
+        setAccounts(data.accounts ?? [])
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load accounts')
+      }
+    }
+    void load()
   }, [])
 
   const updateLine = (idx: number, field: keyof Line, value: string) => {

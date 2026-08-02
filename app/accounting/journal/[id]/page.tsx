@@ -33,11 +33,22 @@ export default function JournalEntryPage() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    fetch(`/api/accounting/journal/${id}`)
-      .then(r => r.json())
-      .then(d => setEntry(d))
-      .catch(() => setMessage('Failed to load journal entry'))
-      .finally(() => setLoading(false))
+    // res.ok was never checked, so an error body ({ error: ... }) was set as
+    // the entry — then `entry.lines.map` threw and the permission-denied path
+    // rendered as a client-side crash rather than a message.
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/accounting/journal/${id}`)
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Failed to load journal entry')
+        setEntry(data)
+      } catch (err) {
+        setMessage(err instanceof Error ? err.message : 'Failed to load journal entry')
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
   }, [id])
 
   const handleReverse = async () => {

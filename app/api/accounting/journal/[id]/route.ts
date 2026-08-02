@@ -83,6 +83,14 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json(reversal, { status: 201 })
   } catch (err) {
     console.error('Failed to reverse journal entry:', err)
-    return NextResponse.json({ error: 'Failed to reverse journal entry' }, { status: 500 })
+    // Surface the specific reason rather than a blanket 500 — the conditional
+    // claim inside the transaction is what rejects a concurrent double-reversal.
+    const message = err instanceof Error ? err.message : 'Failed to reverse journal entry'
+    const isConflict =
+      message.includes('already been reversed') || message.includes('cannot itself be reversed')
+    return NextResponse.json(
+      { error: isConflict ? message : 'Failed to reverse journal entry' },
+      { status: isConflict ? 409 : 500 }
+    )
   }
 }

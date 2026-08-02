@@ -113,6 +113,23 @@ export async function POST(req: Request) {
       if (isNaN(debit) || isNaN(credit) || (debit === 0 && credit === 0)) {
         return NextResponse.json({ error: 'Each line must have a non-zero debit or credit' }, { status: 400 })
       }
+      // Negatives were accepted, and a pair of them still satisfies the balance
+      // check — a contra-posting that silently inverts account balances and is
+      // invisible to every report that assumes non-negative columns.
+      if (debit < 0 || credit < 0) {
+        return NextResponse.json(
+          { error: 'Debit and credit amounts cannot be negative. To reduce an account, post to the opposite side.' },
+          { status: 400 }
+        )
+      }
+      // A line carrying both sides is not a double entry — it inflates the
+      // account on both sides of the ledger while still "balancing".
+      if (debit > 0 && credit > 0) {
+        return NextResponse.json(
+          { error: 'A line cannot have both a debit and a credit. Split it into two lines.' },
+          { status: 400 }
+        )
+      }
     }
 
     // Validate all accounts belong to this tenant

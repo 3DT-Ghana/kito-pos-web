@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/permissions/rbac'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
-import { round2 } from '@/lib/accounting/accounts'
+import { round2, accountNormalBalance, profitContribution } from '@/lib/accounting/accounts'
 import { requireTenantFeature } from '@/lib/tenant/features'
 
 /**
@@ -63,19 +63,23 @@ export async function GET(req: Request) {
       code:      r.account.code,
       name:      r.account.name,
       type:      r.account.type,
-      // Net balance in the account's normal direction
-      balance:   r.account.normalBalance === 'CREDIT'
-        ? round2(r.credit - r.debit)
-        : round2(r.debit - r.credit),
+      // Balance shown in the account's own normal direction
+      balance:   accountNormalBalance(r.account, { debit: r.debit, credit: r.credit }),
+      // Signed effect on profit. For a contra-revenue account (REVENUE type
+      // with a DEBIT normal balance, e.g. 4900 Sales Returns) these differ in
+      // sign — using `balance` for the total is what made a customer return
+      // *increase* reported revenue.
+      profitEffect: profitContribution(r.account, { debit: r.debit, credit: r.credit }),
     })).sort((a, b) => a.code.localeCompare(b.code))
 
     const revenue  = rows.filter(r => r.type === 'REVENUE')
     const cogs     = rows.filter(r => r.type === 'COGS')
     const expenses = rows.filter(r => r.type === 'EXPENSE')
 
-    const totalRevenue  = round2(revenue.reduce((s, r)  => s + r.balance, 0))
-    const totalCogs     = round2(cogs.reduce((s, r)     => s + r.balance, 0))
-    const totalExpenses = round2(expenses.reduce((s, r) => s + r.balance, 0))
+    // Totals are summed from the profit effect, so contra accounts subtract.
+    const totalRevenue  = round2(revenue.reduce((s, r)  => s + r.profitEffect, 0))
+    const totalCogs     = round2(cogs.reduce((s, r)     => s - r.profitEffect, 0))
+    const totalExpenses = round2(expenses.reduce((s, r) => s - r.profitEffect, 0))
     const grossProfit   = round2(totalRevenue - totalCogs)
     const netIncome     = round2(grossProfit - totalExpenses)
 
