@@ -8,7 +8,10 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are worth cancelling. A main run is not — cancelling it
+  # mid-`deploy` could abort the job between `migrate deploy` and the container
+  # swap, leaving a migrated database in front of the old build.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   verify:
@@ -71,3 +74,40 @@ jobs:
       # xlsx has no upstream fix on npm; see DEPLOYMENT.md for why it is accepted.
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=critical
+
+  deploy:
+    name: Deploy to Hetzner
+    needs: [verify, audit]
+
+    # This job runs on a self-hosted runner inside the production host, and this
+    # repository is public. The `if` below is the security boundary: a fork's
+    # pull request can never reach it, because the job only runs for a `push`
+    # (or a manual dispatch) on `main` — refs only a collaborator can write to.
+    # Do not add `pull_request` here, and do not move the verify/audit jobs off
+    # GitHub-hosted runners.
+    if: >-
+      github.repository == 'eyosolutionsgh/point-of-sale' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+
+    # Matches the labels on the `hetzner-pos` runner registered on 167.233.131.235.
+    runs-on: [self-hosted, Linux, X64, pos-hetzner]
+
+    # One deploy at a time, and never cancel one in flight.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build, migrate, swap and health-check, rolling back on failure.
+      # The logic lives in the repo so it can also be run by hand on the box.
+      - name: Build, migrate and release
+        run: bash scripts/deploy.sh
+        env:
+          GIT_SHA: ${{ github.sha }}
+
+      - name: Report what is live
+        if: always()
+        run: curl -sS --max-time 10 http://127.0.0.1:3000/api/health || true
