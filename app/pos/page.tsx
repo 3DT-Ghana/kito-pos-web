@@ -11,6 +11,7 @@ import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 import { isLowStock } from '@/lib/items/stock'
+import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -216,6 +217,7 @@ export default function PosPage() {
   const [splitMode, setSplitMode] = useState(false)   // cash + momo split
   const [, setMomoTxId] = useState<string | null>(null)
   const [momoStatus, setMomoStatus] = useState<'idle' | 'sending' | 'pending' | 'success' | 'failed'>('idle')
+  const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false)
   const [numpadBuffer, setNumpadBuffer] = useState('')
   const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'momoPaid' | 'cashPaid' | 'qty' | 'lineDiscount' | 'price'>('tendered')
 
@@ -1515,20 +1517,22 @@ export default function PosPage() {
         </button>
       </div>
 
-      {/* ── MoMo phone input — shown for MOMO method or in split mode ── */}
+      {/* ── MoMo phone — tap to open modal ── */}
       {(method === 'MOMO' || splitMode) && (
         <div className="px-3 pt-2">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
             Customer MoMo Number *
           </label>
           <div className="flex gap-1.5">
-            <input
-              type="tel"
-              value={momoPhone}
-              onChange={e => { setMomoPhone(e.target.value); setMomoStatus('idle'); setMomoTxId(null) }}
-              placeholder="e.g. 0244123456"
-              className="flex-1 px-3 py-1.5 border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => setMomoPhoneModalOpen(true)}
+              className={`flex-1 px-3 py-1.5 border-2 text-sm text-left ${
+                momoPhone ? 'border-indigo-400 text-gray-900 font-semibold' : 'border-indigo-200 text-gray-400'
+              } bg-white hover:border-indigo-500 transition-colors`}
+            >
+              {momoPhone || 'Tap to enter number…'}
+            </button>
             {momoStatus === 'pending' && (
               <span className="flex items-center gap-1 text-xs text-amber-700 font-semibold bg-amber-50 px-2 border border-amber-200 whitespace-nowrap">
                 ⏳ Waiting…
@@ -2268,6 +2272,13 @@ export default function PosPage() {
           </>
         )}
       </div>
+
+      <MomoPhoneModal
+        open={momoPhoneModalOpen}
+        initialValue={momoPhone}
+        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
+        onClose={() => setMomoPhoneModalOpen(false)}
+      />
     </>
   )
 }

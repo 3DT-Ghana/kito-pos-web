@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { paymentSchema, PaymentFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
+import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 
 type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
 type MomoStatus = 'idle' | 'sending' | 'pending' | 'success' | 'failed'
@@ -36,6 +37,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
   // MoMo prompt status
   const [momoStatus, setMomoStatus] = useState<MomoStatus>('idle')
   const [momoError, setMomoError] = useState('')
+  const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false)
 
   const label = type === 'customer' ? 'Customer' : 'Supplier'
   const fieldName: keyof PaymentFormData = type === 'customer' ? 'customerId' : 'supplierId'
@@ -393,27 +395,27 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           </button>
         </div>
 
-        {/* MoMo phone — shown for MOMO or split */}
+        {/* MoMo phone — tap to open modal */}
         {(method === 'MOMO' || splitMode) && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
               MoMo Phone Number <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="e.g. 0244123456"
-              value={momoPhone}
-              onChange={e => { setMomoPhone(e.target.value); setMomoStatus('idle'); setMomoError('') }}
-              className="w-full px-3 py-2.5 border-2 border-blue-200 focus:border-blue-500 focus:outline-none text-sm"
-            />
+            <button
+              type="button"
+              onClick={() => setMomoPhoneModalOpen(true)}
+              className={`w-full px-3 py-2.5 border-2 text-sm text-left transition-colors ${
+                momoPhone ? 'border-blue-400 text-gray-900 font-semibold' : 'border-blue-200 text-gray-400'
+              } bg-white hover:border-blue-500`}
+            >
+              {momoPhone || 'Tap to enter MoMo number…'}
+            </button>
             <p className="text-xs text-gray-400 mt-0.5">
               {momoStatus === 'idle' && momoPhoneValid && 'Ready — click Record Payment to send prompt to customer.'}
-              {momoStatus === 'idle' && !momoPhoneValid && 'Enter at least 9 digits.'}
+              {momoStatus === 'idle' && !momoPhoneValid && 'Tap above to enter the number.'}
               {momoStatus === 'sending' && '⏳ Sending MoMo request to customer...'}
               {momoStatus === 'pending' && '⏳ Waiting for customer to approve on their phone...'}
               {momoStatus === 'success' && '✓ Customer approved the payment.'}
-              {momoStatus === 'failed' && ''}
             </p>
             {momoError && (
               <p className="text-xs text-red-600 mt-0.5">✗ {momoError}</p>
@@ -510,6 +512,13 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           </button>
         )}
       </div>
+
+      <MomoPhoneModal
+        open={momoPhoneModalOpen}
+        initialValue={momoPhone}
+        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoError('') }}
+        onClose={() => setMomoPhoneModalOpen(false)}
+      />
     </form>
   )
 }
