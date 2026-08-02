@@ -17,6 +17,9 @@ export async function GET() {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_items')
+    if (!authorized) return permError!
+
     if (!isBranchFilterActive(context!)) {
       const categories = await prisma.category.findMany({
         where: { tenantId: context!.tenantId },

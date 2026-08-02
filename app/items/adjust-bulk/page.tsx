@@ -45,14 +45,22 @@ export default function BulkAdjustItemsPage() {
   const [items, setItems] = useState<Item[]>([])
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [isSavingAll, setIsSavingAll] = useState(false)
   const [expandedRow, setExpandedRow] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/items')
-      .then(r => r.json())
-      .then(data => {
+    // Previously .then().finally() with no .catch() and no res.ok check — a
+    // failed load was an unhandled rejection that rendered "No items found".
+    const load = async () => {
+      try {
+        const res = await fetch('/api/items')
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}))
+          throw new Error(errBody.error || 'Failed to load items')
+        }
+        const data = await res.json()
         const list: Item[] = (Array.isArray(data) ? data : data.data || []).filter((item: Item) =>
           isInventoryItemType(item.itemType)
         )
@@ -62,8 +70,13 @@ export default function BulkAdjustItemsPage() {
           initial[item.id] = { type: 'add', qty: '', category: '', reason: '', dirty: false, saving: false, error: '', saved: false, pending: false }
         })
         setRows(initial)
-      })
-      .finally(() => setLoading(false))
+      } catch (err) {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load items')
+      } finally {
+        setLoading(false)
+      }
+    }
+    void load()
   }, [])
 
   const setRow = (id: string, patch: Partial<RowState>) =>
@@ -147,6 +160,12 @@ export default function BulkAdjustItemsPage() {
   return (
     <AppLayout>
       <div className="space-y-5">
+
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {loadError}
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -372,7 +391,7 @@ export default function BulkAdjustItemsPage() {
                       <div className="flex justify-end">
                         <button
                           onClick={() => saveRow(item)}
-                          disabled={!rowReady || row.saving}
+                          disabled={!rowReady || row.saving || isSavingAll}
                           className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           {row.saving ? 'Saving…' : 'Save Adjustment'}

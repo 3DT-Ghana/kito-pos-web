@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
-    const { authorized, error: permError } = requirePermission(context!, 'update_items')
+    const { authorized, error: permError } = requirePermission(context!, 'adjust_stock')
     if (!authorized) return permError!
 
     const { branchId, error: branchError } = requireOperationalBranch(
@@ -47,68 +47,97 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Maximum 500 adjustments per request' }, { status: 400 })
     }
 
-    const results = { updated: 0, pending: 0, skipped: 0, errors: [] as string[] }
+    // A stocktake must be all-or-nothing. This previously applied row by row,
+    // each in its own transaction, so a bad row midway left a half-applied
+    // count that could not be rolled back — and a timeout left an arbitrary
+    // prefix applied with no response saying where it stopped.
+    //
+    // Phase 1: validate and resolve every row. Nothing is written.
+    const errors: string[] = []
+    const resolved: Array<{
+      itemId: string
+      type: 'add' | 'remove' | 'set'
+      quantity: number
+      category: string
+      reason: string
+    }> = []
 
     for (let i = 0; i < adjustments.length; i++) {
       const { name, type, quantity, category, reason } = adjustments[i]
       const rowNum = i + 1
 
       if (!name?.trim()) {
-        results.errors.push(`Row ${rowNum}: name is required`)
-        results.skipped++
+        errors.push(`Row ${rowNum}: name is required`)
         continue
       }
 
       if (!['add', 'remove', 'set'].includes(type)) {
-        results.errors.push(`Row ${rowNum} (${name}): type must be add, remove, or set`)
-        results.skipped++
+        errors.push(`Row ${rowNum} (${name}): type must be add, remove, or set`)
         continue
       }
 
       const qty = Number(quantity)
       if (isNaN(qty) || qty < 0) {
-        results.errors.push(`Row ${rowNum} (${name}): quantity must be a non-negative number`)
-        results.skipped++
+        errors.push(`Row ${rowNum} (${name}): quantity must be a non-negative number`)
         continue
       }
 
       if (type !== 'set' && qty === 0) {
-        results.errors.push(`Row ${rowNum} (${name}): quantity must be > 0 for add/remove`)
-        results.skipped++
+        errors.push(`Row ${rowNum} (${name}): quantity must be > 0 for add/remove`)
         continue
       }
 
+      const item = await prisma.item.findFirst({
+        where: {
+          name: { equals: name.trim(), mode: 'insensitive' },
+          tenantId: context!.tenantId,
+          ...(context!.branchesEnabled ? { branchId } : {}),
+        },
+        select: { id: true, itemType: true },
+      })
+
+      if (!item) {
+        errors.push(`Row ${rowNum}: item "${name}" not found`)
+        continue
+      }
+
+      if (item.itemType !== 'INVENTORY') {
+        errors.push(`Row ${rowNum} (${name}): stock adjustments only apply to inventory items`)
+        continue
+      }
+
+      resolved.push({
+        itemId: item.id,
+        type: type as 'add' | 'remove' | 'set',
+        quantity: qty,
+        category: category?.trim() || 'correction',
+        reason: reason?.trim() || 'Bulk stock adjustment',
+      })
+    }
+
+    // Reject the whole batch rather than apply it partially
+    if (errors.length > 0) {
+      return NextResponse.json(
+        {
+          error: `${errors.length} of ${adjustments.length} rows are invalid. No stock was changed — fix these and submit again.`,
+          errors,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Phase 2: apply. processStockAdjustment opens its own transaction per
+    // item, so failures still roll back that item; the pre-validation above is
+    // what makes a mid-batch abort unlikely rather than routine.
+    const results = { updated: 0, pending: 0, skipped: 0, errors: [] as string[] }
+    for (let i = 0; i < resolved.length; i++) {
       try {
-        const item = await prisma.item.findFirst({
-          where: {
-            name: { equals: name.trim(), mode: 'insensitive' },
-            tenantId: context!.tenantId,
-            ...(context!.branchesEnabled ? { branchId } : {}),
-          },
-        })
-
-        if (!item) {
-          results.errors.push(`Row ${rowNum}: item "${name}" not found`)
-          results.skipped++
-          continue
-        }
-
-        const result = await processStockAdjustment(context!, {
-          itemId: item.id,
-          type: type as 'add' | 'remove' | 'set',
-          quantity: qty,
-          category: category?.trim() || 'correction',
-          reason: reason?.trim() || 'Bulk stock adjustment',
-        })
-
-        if (result.status === 'pending') {
-          results.pending++
-        } else {
-          results.updated++
-        }
+        const result = await processStockAdjustment(context!, resolved[i])
+        if (result.status === 'pending') results.pending++
+        else results.updated++
       } catch (err) {
         const message = err instanceof Error ? err.message : 'error'
-        results.errors.push(`Row ${rowNum} (${name}): ${message}`)
+        results.errors.push(`Row ${i + 1}: ${message}`)
         results.skipped++
       }
     }

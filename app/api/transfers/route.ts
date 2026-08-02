@@ -1,4 +1,4 @@
-import { StockTransferStatus } from '@prisma/client'
+import { ItemType, StockTransferStatus } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import {
@@ -133,6 +133,7 @@ export async function POST(req: Request) {
       },
       select: {
         id: true,
+        itemType: true,
         manufacturerId: true,
         categoryId: true,
         name: true,
@@ -155,6 +156,16 @@ export async function POST(req: Request) {
       const sourceItem = sourceItemMap[requestedItem.itemId]
       if (!sourceItem) {
         return NextResponse.json({ error: `Item not found in the selected branch: ${requestedItem.itemId}` }, { status: 404 })
+      }
+
+      // Services and non-inventory items have no stock to move; transferring
+      // one drove its quantity negative and created a tracked INVENTORY item
+      // at the destination.
+      if (sourceItem.itemType !== ItemType.INVENTORY) {
+        return NextResponse.json(
+          { error: `"${sourceItem.name}" is not a stock-tracked item, so it cannot be transferred between branches.` },
+          { status: 400 }
+        )
       }
 
       if (sourceItem.quantity < requestedItem.quantity) {

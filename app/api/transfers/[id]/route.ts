@@ -1,4 +1,4 @@
-import { StockTransferStatus } from '@prisma/client'
+import { ItemType, StockTransferStatus } from '@prisma/client'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import {
@@ -104,13 +104,33 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       }
 
       const updated = await prisma.$transaction(async (tx) => {
+        // Claim the transfer first. The status check above runs outside this
+        // transaction, so two concurrent dispatches could both pass it and
+        // both decrement — destroying stock. This conditional write is what
+        // actually makes dispatch single-shot.
+        const claimed = await tx.stockTransfer.updateMany({
+          where: {
+            id: transfer.id,
+            tenantId: context!.tenantId,
+            status: StockTransferStatus.PENDING,
+          },
+          data: {
+            status: StockTransferStatus.IN_TRANSIT,
+            dispatchedAt: new Date(),
+            dispatchedByUserId: context!.user.id,
+          },
+        })
+        if (claimed.count !== 1) {
+          throw new Error('This transfer has already been dispatched.')
+        }
+
         const sourceItems = await tx.item.findMany({
           where: {
             tenantId: context!.tenantId,
             branchId: transfer.fromBranchId,
             id: { in: transfer.items.map((item) => item.sourceItemId) },
           },
-          select: { id: true, name: true, quantity: true },
+          select: { id: true, name: true, quantity: true, itemType: true },
         })
 
         const sourceItemMap = Object.fromEntries(sourceItems.map((item) => [item.id, item]))
@@ -120,28 +140,35 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           if (!sourceItem) {
             throw new Error(`Source item no longer exists for "${transferItem.itemName}"`)
           }
-
-          if (sourceItem.quantity < transferItem.quantity) {
+          // Only stock-tracked items can move between branches
+          if (sourceItem.itemType !== ItemType.INVENTORY) {
             throw new Error(
-              `Insufficient stock for "${sourceItem.name}". Available: ${sourceItem.quantity}, required: ${transferItem.quantity}`
+              `"${sourceItem.name}" is not a stock-tracked item, so it cannot be transferred between branches.`
             )
           }
         }
 
+        // Guarded decrement — the availability read above is not locked, so an
+        // unguarded decrement could drive quantity negative.
         for (const transferItem of transfer.items) {
-          await tx.item.update({
-            where: { id: transferItem.sourceItemId },
+          const moved = await tx.item.updateMany({
+            where: {
+              id: transferItem.sourceItemId,
+              tenantId: context!.tenantId,
+              quantity: { gte: transferItem.quantity },
+            },
             data: { quantity: { decrement: transferItem.quantity } },
           })
+          if (moved.count !== 1) {
+            const label = sourceItemMap[transferItem.sourceItemId]?.name ?? transferItem.itemName
+            throw new Error(
+              `Insufficient stock for "${label}". Another sale or transfer took it first — required ${transferItem.quantity}.`
+            )
+          }
         }
 
-        return tx.stockTransfer.update({
+        return tx.stockTransfer.findFirstOrThrow({
           where: { id: transfer.id },
-          data: {
-            status: StockTransferStatus.IN_TRANSIT,
-            dispatchedAt: new Date(),
-            dispatchedByUserId: context!.user.id,
-          },
           include: { items: true },
         })
       })
@@ -159,6 +186,24 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       }
 
       const updated = await prisma.$transaction(async (tx) => {
+        // Claim first — same reasoning as dispatch. Two concurrent receives
+        // would otherwise both increment, fabricating stock out of nothing.
+        const claimed = await tx.stockTransfer.updateMany({
+          where: {
+            id: transfer.id,
+            tenantId: context!.tenantId,
+            status: StockTransferStatus.IN_TRANSIT,
+          },
+          data: {
+            status: StockTransferStatus.COMPLETED,
+            receivedAt: new Date(),
+            receivedByUserId: context!.user.id,
+          },
+        })
+        if (claimed.count !== 1) {
+          throw new Error('This transfer has already been received.')
+        }
+
         const categoryIds = transfer.items
           .map((item) => item.categoryId)
           .filter(Boolean) as string[]
@@ -228,6 +273,11 @@ export async function PATCH(req: Request, { params }: RouteParams) {
                 ? { categoryId: transferItem.categoryId }
                 : {}),
               name: transferItem.itemName,
+              // Explicit rather than relying on the schema default — only
+              // INVENTORY items reach here (dispatch rejects the rest), and
+              // being implicit is how a service could have become a tracked
+              // product at the destination.
+              itemType: ItemType.INVENTORY,
               quantity: transferItem.quantity,
               costPrice: transferItem.costPrice,
               sellingPrice: transferItem.sellingPrice,
@@ -256,13 +306,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           )
         }
 
-        return tx.stockTransfer.update({
+        // Status was already set by the claim at the top of this transaction
+        return tx.stockTransfer.findFirstOrThrow({
           where: { id: transfer.id },
-          data: {
-            status: StockTransferStatus.COMPLETED,
-            receivedAt: new Date(),
-            receivedByUserId: context!.user.id,
-          },
           include: { items: true },
         })
       })
@@ -278,9 +324,26 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Only pending transfers can be cancelled' }, { status: 409 })
     }
 
-    const updated = await prisma.stockTransfer.update({
-      where: { id: transfer.id },
+    // Conditional so a cancel racing a dispatch cannot overwrite IN_TRANSIT —
+    // that would leave stock decremented on a cancelled transfer with no way
+    // to recover it.
+    const cancelled = await prisma.stockTransfer.updateMany({
+      where: {
+        id: transfer.id,
+        tenantId: context!.tenantId,
+        status: StockTransferStatus.PENDING,
+      },
       data: { status: StockTransferStatus.CANCELLED },
+    })
+    if (cancelled.count !== 1) {
+      return NextResponse.json(
+        { error: 'This transfer is no longer pending and can no longer be cancelled.' },
+        { status: 409 }
+      )
+    }
+
+    const updated = await prisma.stockTransfer.findFirst({
+      where: { id: transfer.id },
       include: { items: true },
     })
 

@@ -78,6 +78,7 @@ export default function StockAdjustmentsPage() {
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([])
   const [summary, setSummary] = useState<Summary>({ total: 0, totalIncrease: 0, totalDecrease: 0, netChange: 0 })
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -100,13 +101,19 @@ export default function StockAdjustmentsPage() {
       if (filters.startDate) params.set('startDate', filters.startDate)
       if (filters.endDate)   params.set('endDate', filters.endDate)
 
+      setLoadError('')
       const res = await fetch(`/api/adjustments?${params}`)
-      if (!res.ok) throw new Error('Failed to fetch')
+      if (!res.ok) {
+        // Was swallowed entirely, so a 403 or 500 rendered as "no adjustments
+        // found" — the user concluded there were none.
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to load adjustments')
+      }
       const data = await res.json()
       setAdjustments(data.adjustments || [])
       setSummary(data.summary || { total: 0, totalIncrease: 0, totalDecrease: 0, netChange: 0 })
-    } catch {
-      // silently fall through — table stays empty
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load adjustments')
     } finally {
       setIsLoading(false)
     }
@@ -191,6 +198,18 @@ export default function StockAdjustmentsPage() {
   return (
     <AppLayout>
       <div className="space-y-6">
+
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span>⚠ {loadError}</span>
+            <button
+              onClick={() => void fetchAdjustments()}
+              className="px-3 py-1 text-xs font-semibold border border-red-300 hover:bg-red-100 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* ── Header ──────────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

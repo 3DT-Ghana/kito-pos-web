@@ -30,6 +30,9 @@ export async function GET(req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_items')
+    if (!authorized) return permError!
+
     const { id } = await params
 
     const item = await prisma.item.findFirst({
@@ -158,6 +161,39 @@ export async function PUT(req: Request, { params }: RouteParams) {
       }
     }
 
+    // Changing an item away from INVENTORY while it still holds stock strands
+    // that stock: every report filters the item out, so its value silently
+    // disappears from the balance sheet with no journal entry — and it can
+    // never be corrected, because stock adjustments reject non-inventory items.
+    if (body.itemType !== undefined && body.itemType !== existing.itemType) {
+      if (existing.itemType === 'INVENTORY' && existing.quantity !== 0) {
+        return NextResponse.json(
+          {
+            error: `"${existing.name}" still has ${existing.quantity} in stock. Adjust the stock to zero before changing it to a ${body.itemType === 'SERVICE' ? 'service' : 'non-inventory'} item, otherwise that stock value would be lost with no record.`,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Barcodes have no unique constraint, so a duplicate makes POS scanning
+    // ambiguous — whichever item sorts first gets sold.
+    if (body.barcode) {
+      const barcodeValue = String(body.barcode).trim()
+      if (barcodeValue) {
+        const barcodeClash = await prisma.item.findFirst({
+          where: { tenantId: context!.tenantId, barcode: barcodeValue, id: { not: id } },
+          select: { name: true },
+        })
+        if (barcodeClash) {
+          return NextResponse.json(
+            { error: `Barcode "${barcodeValue}" is already used by "${barcodeClash.name}".` },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     // Update item
     const item = await prisma.$transaction(async (tx) => {
       await tx.item.update({
@@ -165,7 +201,11 @@ export async function PUT(req: Request, { params }: RouteParams) {
         data: {
           ...(body.name && { name: body.name.trim() }),
           ...(body.manufacturerId && { manufacturerId: body.manufacturerId }),
-          ...(body.quantity !== undefined && { quantity: parseFloat(body.quantity) }),
+          // quantity is deliberately NOT writable here. Editing it directly
+          // bypassed the StockAdjustment audit row, the reason, and the
+          // inventory GL journal — making the whole adjustment trail
+          // meaningless when the unguarded path sat one click away in the same
+          // form. All stock movement goes through processStockAdjustment.
           ...(body.reorderLevel !== undefined && body.reorderLevel !== null
             ? { reorderLevel: normalizeReorderLevel(Number(body.reorderLevel)) }
             : {}),
@@ -243,10 +283,16 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     const item = await prisma.item.findFirst({
       where: applyBranchScope({ id, tenantId: context!.tenantId }, context!),
       include: {
+        // All five relations, not just sales and purchases — returns and stock
+        // adjustments also reference the item and have no cascade, so deleting
+        // past them threw a raw FK error surfaced as a generic 500.
         _count: {
           select: {
             saleItems: true,
             purchaseItems: true,
+            customerReturns: true,
+            supplierReturns: true,
+            stockAdjustments: true,
           },
         },
       },
@@ -257,10 +303,21 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     // Check if item has transaction history
-    if (item._count.saleItems > 0 || item._count.purchaseItems > 0) {
+    const historyCounts = [
+      ['sales', item._count.saleItems],
+      ['purchases', item._count.purchaseItems],
+      ['customer returns', item._count.customerReturns],
+      ['supplier returns', item._count.supplierReturns],
+      ['stock adjustments', item._count.stockAdjustments],
+    ] as const
+    const blocking = historyCounts.filter(([, count]) => count > 0)
+
+    if (blocking.length > 0) {
       return NextResponse.json(
         {
-          error: 'Cannot delete item with transaction history',
+          error: `Cannot delete "${item.name}" — it has ${blocking
+            .map(([label, count]) => `${count} ${label}`)
+            .join(', ')}. Deactivate it instead so reports stay intact.`,
           salesCount: item._count.saleItems,
           purchasesCount: item._count.purchaseItems,
         },
@@ -268,9 +325,20 @@ export async function DELETE(req: Request, { params }: RouteParams) {
       )
     }
 
-    // Delete item
-    await prisma.item.delete({
-      where: { id },
+    // Deleting an item that still holds stock silently writes off its value
+    // with no journal entry and no record.
+    if (item.itemType === 'INVENTORY' && item.quantity !== 0) {
+      return NextResponse.json(
+        {
+          error: `"${item.name}" still has ${item.quantity} in stock. Adjust the stock to zero first so the write-off is recorded.`,
+        },
+        { status: 409 }
+      )
+    }
+
+    // Delete item — scoped by tenant rather than trusting the earlier read
+    await prisma.item.deleteMany({
+      where: { id, tenantId: context!.tenantId },
     })
 
     return NextResponse.json(

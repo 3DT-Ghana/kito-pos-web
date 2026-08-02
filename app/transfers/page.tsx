@@ -74,15 +74,24 @@ async function fetchTransfersData(status: string) {
 }
 
 async function fetchSourceItemsData() {
-  // Use the POS items endpoint which filters out zero-stock INVENTORY items
-  const res = await fetch('/api/pos/items?limit=200')
+  // Uses the items endpoint rather than the POS one: the POS route is gated on
+  // the enablePosTerminal feature, so a tenant with Branches but no POS got a
+  // 403 and an empty, unexplained dropdown. It was also capped at 200, hiding
+  // every item after the alphabetically-first 200 with no warning.
+  const res = await fetch('/api/items')
   const data = await res.json().catch(() => null)
 
   if (!res.ok) {
     throw new Error(data?.error || 'Failed to load source items')
   }
 
-  return (Array.isArray(data?.items) ? data.items : []) as SourceItemOption[]
+  const all = (Array.isArray(data) ? data : data?.items ?? []) as (SourceItemOption & {
+    itemType?: string
+  })[]
+  // Only stock-tracked items with stock can be transferred
+  return all.filter(
+    (item) => (item.itemType ?? 'INVENTORY') === 'INVENTORY' && item.quantity > 0
+  ) as SourceItemOption[]
 }
 
 export default function TransfersPage() {

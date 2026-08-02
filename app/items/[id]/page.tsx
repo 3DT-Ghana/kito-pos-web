@@ -351,6 +351,7 @@ export default function ItemDetailPage() {
           <div className="bg-white border border-gray-200 p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4">Edit Item</h2>
             <ItemForm
+              itemId={item.id}
               initialData={{
                 manufacturerId: item.manufacturerId,
                 name: item.name,

@@ -63,6 +63,7 @@ export function ItemsCatalog({
   const [items, setItems] = useState<Item[]>(initialItems)
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [isLoading, setIsLoading] = useState(!hasInitialData)
+  const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'INVENTORY' | 'NON_INVENTORY' | 'SERVICE'>('ALL')
@@ -104,18 +105,28 @@ export function ItemsCatalog({
           fetch('/api/categories'),
         ])
 
-        if (!itemsRes.ok) throw new Error('Failed')
+        if (!itemsRes.ok) {
+          // Was `throw new Error('Failed')` inside try/finally with no catch —
+          // an unhandled rejection that left the grid silently empty.
+          const errBody = await itemsRes.json().catch(() => ({}))
+          throw new Error(errBody.error || 'Failed to load items')
+        }
 
         const data = await itemsRes.json()
         if (cancelled) return
 
         setItems(Array.isArray(data) ? data : data.data || [])
+        setLoadError('')
 
         if (catsRes.ok) {
           const nextCategories = await catsRes.json()
           if (!cancelled) {
             setCategories(nextCategories)
           }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : 'Failed to load items')
         }
       } finally {
         if (!cancelled) {
@@ -213,6 +224,11 @@ export function ItemsCatalog({
       )}
 
       <div className="space-y-5">
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {loadError}
+          </div>
+        )}
         <PageHeader
           title="Items"
           subtitle={`${items.length} items in your catalog`}

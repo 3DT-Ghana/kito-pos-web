@@ -21,8 +21,15 @@ interface RouteParams {
  */
 export async function GET(req: Request, { params }: RouteParams) {
   try {
-    const { error, tenantId } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
+
+    // Returns per-item quantities and selling prices — gate the read
+    const { authorized, error: permError } = requirePermission(
+      { role: user!.role, rolePermissions },
+      'view_items'
+    )
+    if (!authorized) return permError!
 
     const { id } = await params
 
@@ -84,7 +91,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const body = await req.json()
 
     // Validate
-    if (!body.name || typeof body.name !== 'string') {
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
       return NextResponse.json(
         { error: 'Manufacturer name is required' },
         { status: 400 }

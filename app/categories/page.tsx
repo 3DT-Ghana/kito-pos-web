@@ -67,6 +67,7 @@ function IconPicker({ value, onChange }: { value: string; onChange: (i: string) 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   // Form state
   const [showForm, setShowForm] = useState(false)
@@ -83,9 +84,16 @@ export default function CategoriesPage() {
   const PAGE_SIZE = 20
 
   const fetchCategories = async () => {
+    setLoadError('')
     try {
       const res = await fetch('/api/categories')
-      if (res.ok) setCategories(await res.json())
+      if (res.ok) { setCategories(await res.json()); return }
+      // A failed load previously rendered the "no categories yet" empty state,
+      // so a 403 was indistinguishable from an empty tenant.
+      const data = await res.json().catch(() => ({}))
+      setLoadError(data.error || 'Failed to load categories')
+    } catch {
+      setLoadError('Could not reach the server. Check your connection and retry.')
     } finally {
       setIsLoading(false)
     }
@@ -137,9 +145,18 @@ export default function CategoriesPage() {
       if (!confirm(`Delete category "${cat.name}"?`)) return
     }
     setDeletingId(cat.id)
+    setLoadError('')
     try {
-      await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
-      fetchCategories()
+      const res = await fetch(`/api/categories/${cat.id}`, { method: 'DELETE' })
+      // The response was never checked, so a 403 or the carefully-worded
+      // cross-branch 409 was silently discarded — the click just looked dead.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete category')
+      }
+      await fetchCategories()
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to delete category')
     } finally {
       setDeletingId(null)
     }
@@ -148,6 +165,17 @@ export default function CategoriesPage() {
   return (
     <AppLayout>
       <div className="space-y-5">
+        {loadError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span>⚠ {loadError}</span>
+            <button
+              onClick={() => { setIsLoading(true); void fetchCategories() }}
+              className="px-3 py-1 text-xs font-semibold border border-red-300 hover:bg-red-100 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <PageHeader
           title="Product Categories"
           subtitle="Organise your inventory into departments — used for POS browsing and reports"

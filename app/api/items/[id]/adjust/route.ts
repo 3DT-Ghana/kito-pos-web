@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
-    const { authorized, error: permError } = requirePermission(context!, 'update_items')
+    const { authorized, error: permError } = requirePermission(context!, 'adjust_stock')
     if (!authorized) return permError!
 
     const { id } = await params

@@ -15,6 +15,9 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_items')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const itemId    = searchParams.get('itemId')
     const type      = searchParams.get('type')

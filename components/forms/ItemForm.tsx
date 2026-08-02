@@ -30,6 +30,8 @@ interface TaxRateOption {
 
 interface ItemFormProps {
   initialData?: Partial<ItemFormData>
+  /** Present when editing an existing item — stock then becomes read-only. */
+  itemId?: string
   manufacturers: { id: string; name: string }[]
   categories?: { id: string; name: string; color: string | null; icon: string | null }[]
   onSubmit: (data: ItemFormData) => Promise<void>
@@ -45,6 +47,7 @@ interface ItemFormProps {
 
 export function ItemForm({
   initialData,
+  itemId,
   manufacturers,
   categories = [],
   onSubmit,
@@ -279,22 +282,40 @@ export function ItemForm({
       {/* Initial Quantity / Stock Tracking */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          {isInventoryItem ? 'Initial Quantity' : 'Stock Tracking'}
+          {isInventoryItem ? (itemId ? 'Current Stock' : 'Opening Quantity') : 'Stock Tracking'}
         </label>
         {isInventoryItem ? (
           <>
-            <input
-              type="number"
-              {...register('quantity', { valueAsNumber: true })}
-              placeholder="0"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            {errors.quantity && (
+            {itemId ? (
+              /* Read-only when editing. Writing stock here bypassed the
+                 adjustment audit trail, the reason and the GL journal. */
+              <div className="flex items-center gap-3">
+                <div className="flex-1 px-4 py-2 border border-gray-200 bg-gray-50 text-gray-700 font-semibold">
+                  {initialData?.quantity ?? 0}
+                </div>
+                <a
+                  href={`/items/${itemId}/adjust`}
+                  className="px-4 py-2 border-2 border-indigo-200 text-indigo-700 text-sm font-semibold hover:bg-indigo-50 whitespace-nowrap"
+                >
+                  Adjust Stock
+                </a>
+              </div>
+            ) : (
+              <input
+                type="number"
+                {...register('quantity', { valueAsNumber: true })}
+                placeholder="0"
+                min="0"
+                className="w-full px-4 py-2 border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            )}
+            {errors.quantity && !itemId && (
               <p className="mt-1 text-sm text-red-600">{errors.quantity.message}</p>
             )}
             <p className="mt-1 text-xs text-gray-500">
-              Leave blank or set to 0 if adding via purchase
+              {itemId
+                ? 'Stock is changed through Adjust Stock so every movement is recorded with a reason.'
+                : 'Leave blank or set to 0 if adding via purchase'}
             </p>
 
             <div className="mt-4">

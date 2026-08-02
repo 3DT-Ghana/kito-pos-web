@@ -14,6 +14,11 @@ export async function GET(_req: Request, { params }: RouteParams) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    // Returns item names, quantities and selling prices — gate the read
+    const { authorized, error: permError } = requirePermission(context!, 'view_items')
+    if (!authorized) return permError!
+
     const { id } = await params
 
     const category = await prisma.category.findFirst({
@@ -120,14 +125,17 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       )
     }
 
-    if (visibleItemCount > 0) {
-      await prisma.item.updateMany({
-        where: visibleItemsWhere,
-        data: { categoryId: null },
-      })
-    }
-
-    await prisma.category.delete({ where: { id } })
+    // Both writes in one transaction — separately, a failure between them left
+    // items unassigned from a category that still existed.
+    await prisma.$transaction(async (tx) => {
+      if (visibleItemCount > 0) {
+        await tx.item.updateMany({
+          where: visibleItemsWhere,
+          data: { categoryId: null },
+        })
+      }
+      await tx.category.deleteMany({ where: { id, tenantId: context!.tenantId } })
+    })
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })

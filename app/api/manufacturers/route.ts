@@ -16,8 +16,14 @@ import { prisma } from '@/lib/db/prisma'
  */
 export async function GET() {
   try {
-    const { error, tenantId } = await requireTenant()
+    const { error, tenantId, user, rolePermissions } = await requireTenant()
     if (error) return error!
+
+    const { authorized, error: permError } = requirePermission(
+      { role: user!.role, rolePermissions },
+      'view_items'
+    )
+    if (!authorized) return permError!
 
     const manufacturers = await prisma.manufacturer.findMany({
       where: { tenantId: tenantId! },
@@ -59,19 +65,21 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     // Validate required fields
-    if (!body.name || typeof body.name !== 'string') {
+    if (!body.name || typeof body.name !== 'string' || !body.name.trim()) {
       return NextResponse.json(
         { error: 'Manufacturer name is required' },
         { status: 400 }
       )
     }
 
-    // Check for duplicate manufacturer name within tenant
+    // Compare the trimmed value — the row is stored trimmed, so checking the
+    // raw input let "Nestle " slip past a duplicate check against "Nestle" and
+    // then save as a second identical row.
     const existing = await prisma.manufacturer.findFirst({
       where: {
         tenantId,
         name: {
-          equals: body.name,
+          equals: body.name.trim(),
           mode: 'insensitive' as const,
         },
       },

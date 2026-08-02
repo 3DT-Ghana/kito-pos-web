@@ -25,6 +25,9 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_items')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const manufacturerId = searchParams.get('manufacturerId')
@@ -165,6 +168,24 @@ export async function POST(req: Request) {
         { error: 'An item with this name already exists for this brand / manufacturer' },
         { status: 409 }
       )
+    }
+
+    // Barcodes have no unique constraint, so a duplicate makes POS scanning
+    // ambiguous — whichever item sorts first gets sold and decremented.
+    if (body.barcode) {
+      const barcodeValue = String(body.barcode).trim()
+      if (barcodeValue) {
+        const barcodeClash = await prisma.item.findFirst({
+          where: { tenantId: context!.tenantId, barcode: barcodeValue },
+          select: { name: true },
+        })
+        if (barcodeClash) {
+          return NextResponse.json(
+            { error: `Barcode "${barcodeValue}" is already used by "${barcodeClash.name}".` },
+            { status: 409 }
+          )
+        }
+      }
     }
 
     // Create item
