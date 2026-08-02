@@ -2,15 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { ThermalReceipt, printReceipt } from '@/components/receipts/ThermalReceipt'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { Printer, Eye, EyeOff, Pencil, RotateCcw, Truck } from 'lucide-react'
+import { Printer, Eye, EyeOff, Pencil, RotateCcw, Truck, Trash2 } from 'lucide-react'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
+import { useUser } from '@/hooks/useUser'
+import { useRolePermissions } from '@/hooks/useTenant'
 
 interface SaleItem {
   id: string
   quantity: number
   price: number
+  discountAmount: number | null
   lineSubtotalAmount: number
   lineTaxAmount: number
   lineTotalAmount: number
@@ -38,6 +42,11 @@ interface Sale {
   totalAmount: number
   paidAmount: number
   paymentMethod: string
+  momoPhone: string | null
+  bankName: string | null
+  bankAccountName: string | null
+  bankReference: string | null
+  note: string | null
   createdAt: Date
   taxLines: {
     taxRateId: string | null
@@ -69,7 +78,30 @@ interface SaleReceiptViewProps {
 export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
   const [showPreview, setShowPreview] = useState(true)
   const [showReturnModal, setShowReturnModal] = useState(false)
+  const [isVoiding, setIsVoiding] = useState(false)
+  const [actionError, setActionError] = useState('')
   const router = useRouter()
+
+  const { user } = useUser()
+  const { hasTenantPermission, isLoading: permissionsLoading } = useRolePermissions()
+  const canVoid = !permissionsLoading && hasTenantPermission(user?.role, 'void_sales')
+
+  const voidSale = async () => {
+    if (!confirm(
+      'Void this sale?\n\nStock will be restored and the customer balance adjusted. This cannot be undone.'
+    )) return
+    setIsVoiding(true)
+    setActionError('')
+    try {
+      const res = await fetch(`/api/sales/${sale.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to void sale')
+      router.push('/sales')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to void sale')
+      setIsVoiding(false)
+    }
+  }
 
   const creditAmount = sale.totalAmount - sale.paidAmount
   const changeAmount = sale.paidAmount > sale.totalAmount ? sale.paidAmount - sale.totalAmount : 0
@@ -94,7 +126,9 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
       total: saleItem.lineTotalAmount ?? saleItem.price * saleItem.quantity,
     })),
     subtotal: sale.subtotalAmount ?? sale.totalAmount,
-    discount: 0,
+    // Was hardcoded to 0, so every discount was invisible on the printed
+    // receipt and the listed line prices never reconciled with the total.
+    discount: sale.items.reduce((sum, si) => sum + (si.discountAmount ?? 0), 0),
     taxLines: taxBreakdown,
     total: sale.totalAmount,
     paidAmount: sale.paidAmount,
@@ -103,7 +137,9 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
       ? 'CREDIT'
       : sale.paymentMethod === 'MOMO'
         ? 'MOMO'
-        : 'CASH',
+        : sale.paymentMethod === 'BANK'
+          ? 'BANK'
+          : 'CASH',
     showManufacturer: tenant.showManufacturerOnReceipt,
   }
 
@@ -148,6 +184,18 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
           <Truck className="w-4 h-4" />
           Create Waybill
         </button>
+        {/* The void endpoint existed but was unreachable from any screen, so the
+            void_sales permission was dead. */}
+        {canVoid && (
+          <button
+            onClick={voidSale}
+            disabled={isVoiding}
+            className="px-5 py-3 bg-red-50 text-red-700 border border-red-200 font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            {isVoiding ? 'Voiding…' : 'Void Sale'}
+          </button>
+        )}
         <button
           onClick={printReceipt}
           className="px-5 py-3 bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-lg"
@@ -156,6 +204,12 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
           Print Receipt
         </button>
       </div>
+
+      {actionError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+          ⚠ {actionError}
+        </div>
+      )}
 
       {/* Sale Summary Card */}
       <div className="bg-white shadow-sm border-2 border-gray-200 p-6">
@@ -180,7 +234,16 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
           <div>
             <span className="text-sm font-semibold text-gray-600">Customer:</span>
             <p className="text-base text-gray-900">
-              {sale.customer?.name || 'Walk-in Customer'}
+              {sale.customer ? (
+                <Link
+                  href={`/customers/${sale.customer.id}`}
+                  className="text-indigo-600 hover:text-indigo-800 hover:underline font-medium"
+                >
+                  {sale.customer.name}
+                </Link>
+              ) : (
+                'Walk-in Customer'
+              )}
             </p>
           </div>
           <div>
@@ -190,8 +253,19 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
           <div>
             <span className="text-sm font-semibold text-gray-600">Payment Method:</span>
             <p className="text-base text-gray-900">
-              {sale.paymentMethod === 'MOMO' ? '📱 Mobile Money' : '💵 Cash'}
+              {/* BANK previously fell through and displayed as "Cash" */}
+              {sale.paymentMethod === 'MOMO' ? '📱 Mobile Money'
+                : sale.paymentMethod === 'BANK' ? '🏦 Bank Transfer'
+                : '💵 Cash'}
             </p>
+            {sale.paymentMethod === 'MOMO' && sale.momoPhone && (
+              <p className="text-xs text-gray-500 mt-0.5">{sale.momoPhone}</p>
+            )}
+            {sale.paymentMethod === 'BANK' && (sale.bankName || sale.bankReference) && (
+              <p className="text-xs text-gray-500 mt-0.5">
+                {[sale.bankName, sale.bankReference].filter(Boolean).join(' · ')}
+              </p>
+            )}
           </div>
           <div>
             <span className="text-sm font-semibold text-gray-600">Subtotal:</span>
@@ -227,7 +301,22 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
               </p>
             </div>
           )}
+          {receiptData.discount > 0 && (
+            <div>
+              <span className="text-sm font-semibold text-gray-600">Discount:</span>
+              <p className="text-xl font-bold text-amber-600">
+                −{formatCurrency(receiptData.discount)}
+              </p>
+            </div>
+          )}
         </div>
+        {/* Captured at the till but previously never displayed anywhere */}
+        {sale.note && (
+          <div className="mt-5 border border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm font-bold text-gray-700 mb-1">Note</p>
+            <p className="text-sm text-gray-600 whitespace-pre-wrap">{sale.note}</p>
+          </div>
+        )}
         {taxBreakdown.length > 0 && (
           <div className="mt-5 border border-emerald-200 bg-emerald-50 p-4">
             <p className="text-sm font-bold text-emerald-900 mb-3">Tax Breakdown</p>

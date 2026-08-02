@@ -428,6 +428,7 @@ export async function createSaleFromInput(
         bankAccountName: paymentMethod === PaymentMethod.BANK && body.bankAccountName ? String(body.bankAccountName).trim() : null,
         bankReference: paymentMethod === PaymentMethod.BANK && body.bankReference ? String(body.bankReference).trim() : null,
         note: body.note ? String(body.note).trim() || null : null,
+        sourceQuotationId: body.sourceQuotationId ?? null,
         createdById: context.user.id,
         ...(needsApproval || inlineApproval
           ? {
@@ -471,13 +472,25 @@ export async function createSaleFromInput(
     }
 
     if (body.sourceQuotationId) {
-      await tx.quotation.update({
-        where: { id: body.sourceQuotationId },
+      // CONVERTED is terminal. Guarding on the prior status inside the
+      // transaction means two concurrent conversions cannot both win.
+      const converted = await tx.quotation.updateMany({
+        where: {
+          id: body.sourceQuotationId,
+          tenantId: context.tenantId,
+          status: { notIn: ['CONVERTED', 'REJECTED', 'EXPIRED'] },
+        },
         data: {
-          status: 'ACCEPTED',
+          status: 'CONVERTED',
           ...(context.branchesEnabled && branchId ? { branchId } : {}),
         },
       })
+      if (converted.count !== 1) {
+        throw new SaleOperationError(
+          'This quotation has already been converted to a sale.',
+          409
+        )
+      }
     }
 
     if (needsApproval) {

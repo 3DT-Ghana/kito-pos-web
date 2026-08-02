@@ -33,12 +33,14 @@ export async function GET(req: Request) {
     const endDate = searchParams.get('endDate')
     const search = searchParams.get('search')?.trim() ?? ''
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '500', 10) || 500, 500)
+    // Pending sales are hidden by default. Without this the cashier who
+    // submitted a flagged sale watched it vanish from the list entirely.
+    const includePending = searchParams.get('includePending') === 'true'
 
     // Build where clause
+    const branchScoped = applyBranchScope({ tenantId: context!.tenantId }, context!)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = approvedSaleWhere(
-      applyBranchScope({ tenantId: context!.tenantId }, context!)
-    )
+    const where: any = includePending ? { ...branchScoped } : approvedSaleWhere(branchScoped)
 
     if (customerId) {
       where.customerId = customerId

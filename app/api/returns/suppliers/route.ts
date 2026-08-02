@@ -24,6 +24,9 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'process_returns')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const purchaseId = searchParams.get('purchaseId')
     const startDate = searchParams.get('startDate')

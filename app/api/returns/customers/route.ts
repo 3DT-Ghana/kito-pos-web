@@ -27,6 +27,11 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    // Was unprotected — any authenticated user could read the full refund
+    // history including customer names and amounts.
+    const { authorized, error: permError } = requirePermission(context!, 'process_returns')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const saleId = searchParams.get('saleId')
     const startDate = searchParams.get('startDate')
@@ -215,6 +220,21 @@ export async function POST(req: Request) {
         { error: `Return amount exceeds the refundable value for this quantity (${maxReturnAmount.toFixed(2)})` },
         { status: 400 }
       )
+    }
+
+    // A CASH refund pays real money out of the drawer. On a credit sale that was
+    // never settled there is nothing to refund — the correct action is a CREDIT
+    // return, which reduces what the customer owes.
+    if (body.type === ReturnType.CASH) {
+      const refundCap = amount ?? maxReturnAmount
+      if (sale.paidAmount + 0.01 < refundCap) {
+        return NextResponse.json(
+          {
+            error: `Only ${sale.paidAmount.toFixed(2)} was actually paid on this sale, so a cash refund of ${refundCap.toFixed(2)} is not possible. Use a Credit return to reduce the customer's balance instead.`,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     const extraScale = amount !== null && maxReturnAmount > 0

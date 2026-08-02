@@ -56,8 +56,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     })
     if (!quotation) return NextResponse.json({ error: 'Quotation not found' }, { status: 404 })
 
+    if (quotation.status === 'CONVERTED') {
+      return NextResponse.json(
+        { error: 'This quotation has already been converted to a sale.' },
+        { status: 409 }
+      )
+    }
+
     if (quotation.status === 'REJECTED' || quotation.status === 'EXPIRED') {
       return NextResponse.json({ error: 'Cannot convert a rejected or expired quotation' }, { status: 400 })
+    }
+
+    // Expiry was previously decorative — validUntil was stored but never checked,
+    // and nothing ever set status to EXPIRED, so stale quotes converted freely.
+    if (quotation.validUntil && new Date(quotation.validUntil) < new Date()) {
+      return NextResponse.json(
+        {
+          error: `This quotation expired on ${new Date(quotation.validUntil).toLocaleDateString('en-GH')}. Create a new quotation with current prices.`,
+        },
+        { status: 400 }
+      )
     }
 
     const body = await req.json().catch(() => ({}))

@@ -42,6 +42,11 @@ export async function GET(req: Request) {
     )
     if (featureError) return featureError
 
+    // view_quotations was defined and granted to roles but never enforced —
+    // revoking it in the permission editor had no effect.
+    const { authorized, error: permError } = requirePermission(context!, 'view_quotations')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
 

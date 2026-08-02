@@ -468,6 +468,9 @@ model Sale {
   bankAccountName   String?       // account holder name
   bankReference     String?       // transaction / reference number
   note              String?       // free-text note captured at the till
+  // Set when this sale was created by converting a quotation. Unique, so a
+  // quotation can never be converted into a second sale.
+  sourceQuotationId String?       @unique
   createdAt         DateTime      @default(now())
   items         SaleItem[]
   returns       CustomerReturn[]
@@ -754,6 +757,7 @@ enum QuotationStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+  CONVERTED // terminal — a sale has been created from this quotation
 }
 
 model Quotation {

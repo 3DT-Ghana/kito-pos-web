@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
-import { requireBranchAccess } from '@/lib/branch/server'
+import { applyBranchScope, requireBranchAccess } from '@/lib/branch/server'
+import { requirePermission } from '@/lib/permissions/rbac'
 import { getNextWaybillNumber, waybillSelect } from '@/lib/waybills/server'
 
 export async function GET(req: Request) {
@@ -8,13 +9,17 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'manage_waybills')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status') ?? undefined
     const search = searchParams.get('search')?.trim() ?? ''
 
     const waybills = await prisma.waybill.findMany({
+      // Was tenant-only — every branch could read every other branch's waybills
       where: {
-        tenantId: context!.tenantId,
+        ...applyBranchScope({ tenantId: context!.tenantId }, context!),
         ...(status ? { status: status as never } : {}),
         ...(search
           ? {
@@ -38,10 +43,39 @@ export async function GET(req: Request) {
   }
 }
 
+/**
+ * getNextWaybillNumber reads-then-writes outside a transaction, so two
+ * concurrent creates can pick the same number. The unique constraint catches
+ * it, but the caller previously got a 500 and lost the whole form. Retry on
+ * P2002 instead.
+ */
+async function createWaybillWithNumber(
+  tenantId: string,
+  args: { data: Omit<Parameters<typeof prisma.waybill.create>[0]['data'], 'waybillNumber'>; select: typeof waybillSelect }
+) {
+  const MAX_ATTEMPTS = 5
+  for (let attempt = 1; ; attempt++) {
+    const waybillNumber = await getNextWaybillNumber(tenantId)
+    try {
+      return await prisma.waybill.create({
+        data: { ...args.data, waybillNumber } as Parameters<typeof prisma.waybill.create>[0]['data'],
+        select: args.select,
+      })
+    } catch (err) {
+      const isDuplicateNumber =
+        typeof err === 'object' && err !== null && (err as { code?: string }).code === 'P2002'
+      if (!isDuplicateNumber || attempt >= MAX_ATTEMPTS) throw err
+    }
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_waybills')
+    if (!authorized) return permError!
 
     const body = await req.json()
 
@@ -65,14 +99,31 @@ export async function POST(req: Request) {
       }
     }
 
-    const waybillNumber = await getNextWaybillNumber(context!.tenantId)
+    // saleId was previously accepted as free text — an ID from another tenant
+    // would be stored and printed on the delivery note.
+    let saleId: string | null = null
+    if (body.saleId) {
+      const candidate = String(body.saleId).trim()
+      if (candidate) {
+        const sale = await prisma.sale.findFirst({
+          where: { id: candidate, tenantId: context!.tenantId },
+          select: { id: true },
+        })
+        if (!sale) {
+          return NextResponse.json(
+            { error: 'The linked sale could not be found in your business.' },
+            { status: 400 }
+          )
+        }
+        saleId = sale.id
+      }
+    }
 
-    const waybill = await prisma.waybill.create({
+    const waybill = await createWaybillWithNumber(context!.tenantId, {
       data: {
         tenantId:         context!.tenantId,
         branchId:         context!.currentBranchId ?? undefined,
-        waybillNumber,
-        saleId:           body.saleId ? String(body.saleId) : null,
+        saleId,
         shipperName,
         shipperAddress:   String(body.shipperAddress ?? '').trim() || null,
         shipperPhone:     String(body.shipperPhone ?? '').trim() || null,

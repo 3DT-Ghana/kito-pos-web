@@ -100,8 +100,35 @@ export default async function SaleDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Receipt View */}
-        <SaleReceiptView sale={sale} tenant={tenant} />
+        {/* A pending sale has not deducted stock or taken money yet — printing a
+            receipt for it would hand the customer proof of an uncommitted sale. */}
+        {sale.approvalStatus === 'PENDING' ? (
+          <div className="bg-amber-50 border-2 border-amber-200 p-6 text-center space-y-3">
+            <p className="text-4xl">⏳</p>
+            <p className="text-lg font-bold text-amber-900">Awaiting manager approval</p>
+            <p className="text-sm text-amber-700 max-w-md mx-auto">
+              This sale has not been completed yet. Stock has not been deducted and no
+              payment has been recorded. The receipt becomes available once a manager
+              approves it on the Approvals page.
+            </p>
+            <Link
+              href="/approvals"
+              className="inline-block px-5 py-2.5 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700"
+            >
+              Go to Approvals
+            </Link>
+          </div>
+        ) : sale.approvalStatus === 'REJECTED' ? (
+          <div className="bg-red-50 border-2 border-red-200 p-6 text-center space-y-2">
+            <p className="text-4xl">✗</p>
+            <p className="text-lg font-bold text-red-900">This sale was rejected</p>
+            <p className="text-sm text-red-700">
+              A manager rejected this transaction, so no receipt is available.
+            </p>
+          </div>
+        ) : (
+          <SaleReceiptView sale={sale} tenant={tenant} />
+        )}
       </div>
     </AppLayout>
   )

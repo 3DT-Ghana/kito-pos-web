@@ -91,6 +91,10 @@ export const PERMISSIONS = {
     'view_quotations',
     'delete_quotation',
 
+    // Waybills
+    'manage_waybills',
+    'delete_waybills',
+
     // Purchase Orders
     'create_purchase_order',
     'view_purchase_orders',
@@ -163,6 +167,10 @@ export const PERMISSIONS = {
     'create_quotation',
     'view_quotations',
     'delete_quotation',
+
+    // Waybills
+    'manage_waybills',
+    'delete_waybills',
 
     // Purchase Orders
     'create_purchase_order',
@@ -242,6 +250,10 @@ export const PERMISSIONS = {
     'view_quotations',
     'delete_quotation',
 
+    // Waybills
+    'manage_waybills',
+    'delete_waybills',
+
     // Purchase Orders
     'create_purchase_order',
     'view_purchase_orders',
@@ -280,6 +292,9 @@ export const PERMISSIONS = {
     'create_quotation',
     'view_quotations',
 
+    // Waybills
+    'manage_waybills',
+
     // Limited customer management
     'create_customers',
     'update_customers',
@@ -306,6 +321,9 @@ export const PERMISSIONS = {
     // Purchase Orders
     'create_purchase_order',
     'view_purchase_orders',
+
+    // Waybills
+    'manage_waybills',
 
     // View
     'view_basic_reports',
@@ -363,6 +381,9 @@ export const PERMISSIONS = {
     'create_suppliers',
     'update_suppliers',
 
+    // Waybills
+    'manage_waybills',
+
     // View
     'view_basic_reports',
     'view_items',
@@ -388,6 +409,7 @@ export const PERMISSION_GROUPS: { label: string; permissions: Permission[] }[] =
   { label: 'Expenses',           permissions: ['view_expenses','create_expenses','delete_expenses'] as Permission[] },
   { label: 'Till',               permissions: ['manage_till'] as Permission[] },
   { label: 'Quotations',         permissions: ['view_quotations','create_quotation','delete_quotation'] as Permission[] },
+  { label: 'Waybills',           permissions: ['manage_waybills','delete_waybills'] as Permission[] },
   { label: 'Purchase Orders',    permissions: ['view_purchase_orders','create_purchase_order','delete_purchase_order'] as Permission[] },
   { label: 'Accounting',         permissions: ['view_chart_of_accounts','manage_chart_of_accounts','view_journal','post_manual_journal','view_accounting_reports','record_transfers'] as Permission[] },
   { label: 'Payroll',            permissions: ['view_payroll','manage_employees','run_payroll','approve_payroll'] as Permission[] },

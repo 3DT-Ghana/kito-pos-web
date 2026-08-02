@@ -17,7 +17,7 @@ import {
   Clock, Send, Plus, ChevronRight,
 } from 'lucide-react'
 
-type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED'
 type StatusFilter = QuotationStatus | 'all'
 
 interface Quotation {
@@ -33,12 +33,13 @@ interface Quotation {
 }
 
 
-const STATUS_BADGE: Record<QuotationStatus, { variant: 'slate' | 'blue' | 'green' | 'red' | 'amber'; label: string }> = {
+const STATUS_BADGE: Record<QuotationStatus, { variant: 'slate' | 'blue' | 'green' | 'red' | 'amber' | 'violet'; label: string }> = {
   DRAFT:    { variant: 'slate',  label: 'Draft'    },
   SENT:     { variant: 'blue',   label: 'Sent'     },
   ACCEPTED: { variant: 'green',  label: 'Accepted' },
   REJECTED: { variant: 'red',    label: 'Rejected' },
   EXPIRED:  { variant: 'amber',  label: 'Expired'  },
+  CONVERTED:{ variant: 'violet', label: 'Converted'},
 }
 
 const STATUS_ICONS: Record<QuotationStatus, React.ElementType> = {
@@ -47,6 +48,7 @@ const STATUS_ICONS: Record<QuotationStatus, React.ElementType> = {
   ACCEPTED: CheckCircle,
   REJECTED: XCircle,
   EXPIRED:  Clock,
+  CONVERTED: CheckCircle,
 }
 
 const STATUS_ACCENT: Record<QuotationStatus, { bg: string; icon: string; text: string; border: string }> = {
@@ -55,6 +57,7 @@ const STATUS_ACCENT: Record<QuotationStatus, { bg: string; icon: string; text: s
   ACCEPTED: { bg: 'bg-emerald-50',icon: 'text-emerald-500',text: 'text-emerald-900',border: 'border-emerald-200' },
   REJECTED: { bg: 'bg-red-50',    icon: 'text-red-500',    text: 'text-red-900',   border: 'border-red-200' },
   EXPIRED:  { bg: 'bg-amber-50',  icon: 'text-amber-500',  text: 'text-amber-900', border: 'border-amber-200' },
+  CONVERTED:{ bg: 'bg-violet-50', icon: 'text-violet-500',  text: 'text-violet-900',border: 'border-violet-200' },
 }
 
 export default function QuotationsPage() {
@@ -64,16 +67,28 @@ export default function QuotationsPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [page, setPage] = useState(1)
+  const [error, setError] = useState('')
   const PAGE_SIZE = 20
+
+  // Honour ?status=SENT deep links (the sales page links here with one)
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get('status')
+    if (param) setStatusFilter(param as StatusFilter)
+  }, [])
 
   useEffect(() => { fetchQuotations() }, [])
 
   const fetchQuotations = async () => {
+    setError('')
     try {
       const res = await fetch('/api/quotations')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) throw new Error('Failed to load quotations')
       const data = await res.json()
       setQuotations(data.quotations || [])
+    } catch (err) {
+      // Was try/finally with no catch — a 500 rendered the "no quotations yet"
+      // empty state and threw an unhandled rejection.
+      setError(err instanceof Error ? err.message : 'Failed to load quotations')
     } finally {
       setIsLoading(false)
     }
@@ -109,6 +124,8 @@ export default function QuotationsPage() {
     { value: 'SENT' as StatusFilter, label: 'Sent', count: statusCounts['SENT'] || 0, countVariant: 'blue' as const },
     { value: 'ACCEPTED' as StatusFilter, label: 'Accepted', count: statusCounts['ACCEPTED'] || 0, countVariant: 'green' as const },
     { value: 'REJECTED' as StatusFilter, label: 'Rejected', count: statusCounts['REJECTED'] || 0, countVariant: 'red' as const },
+    { value: 'EXPIRED' as StatusFilter, label: 'Expired', count: statusCounts['EXPIRED'] || 0, countVariant: 'amber' as const },
+    { value: 'CONVERTED' as StatusFilter, label: 'Converted', count: statusCounts['CONVERTED'] || 0, countVariant: 'green' as const },
   ]
 
   return (
@@ -135,9 +152,21 @@ export default function QuotationsPage() {
           }
         />
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span>⚠ {error}</span>
+            <button
+              onClick={() => { setIsLoading(true); fetchQuotations() }}
+              className="px-3 py-1 text-xs font-semibold border border-red-300 hover:bg-red-100 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Status summary cards — clickable filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED'] as QuotationStatus[]).map(status => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {(['DRAFT', 'SENT', 'ACCEPTED', 'REJECTED', 'EXPIRED', 'CONVERTED'] as QuotationStatus[]).map(status => {
             const accent = STATUS_ACCENT[status]
             const Icon = STATUS_ICONS[status]
             const isActive = statusFilter === status

@@ -13,6 +13,7 @@ interface CartItem {
   manufacturer: string
   quantity: number
   price: number
+  discountAmount: number
   maxStock: number
 }
 
@@ -26,6 +27,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
   const [formError, setFormError] = useState('')
 
   const [paymentType, setPaymentType] = useState<'CASH' | 'CREDIT'>('CASH')
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'MOMO' | 'BANK'>('CASH')
   const [cart, setCart] = useState<CartItem[]>([])
   const [amountPaid, setAmountPaid] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<{ id: string; name: string; balance: number } | null>(null)
@@ -51,12 +53,16 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
         if (sale.customer) {
           setSelectedCustomer({ id: sale.customer.id, name: sale.customer.name, balance: sale.customer.balance })
         }
-        setCart(sale.items.map((si: { itemId: string; quantity: number; price: number; item: { name: string; quantity: number; manufacturer?: { name: string } } }) => ({
+        setPaymentMethod(sale.paymentMethod ?? 'CASH')
+        setCart(sale.items.map((si: { itemId: string; quantity: number; price: number; discountAmount?: number; item: { name: string; quantity: number; manufacturer?: { name: string } } }) => ({
           itemId: si.itemId,
           name: si.item.name,
           manufacturer: si.item.manufacturer?.name || 'Unknown',
           quantity: si.quantity,
           price: si.price,
+          // Carried through so saving an edit does not silently wipe the
+          // discount and inflate the total back to full price.
+          discountAmount: si.discountAmount ?? 0,
           maxStock: si.item.quantity + si.quantity, // restore qty + current for max
         })))
       })
@@ -98,6 +104,7 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
         manufacturer: item.manufacturer?.name || 'Unknown',
         quantity: 1,
         price: item.sellingPrice,
+        discountAmount: 0,
         maxStock: item.quantity,
       }]
     })
@@ -126,7 +133,19 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
     if (cart.length === 0) { setFormError('Add at least one item'); return }
     if (paymentType === 'CREDIT' && !selectedCustomer) { setFormError('Credit sales require a customer'); return }
 
-    const paid = paymentType === 'CASH' ? totalAmount : (paidNum >= 0 && paidNum <= totalAmount ? paidNum : 0)
+    const overStock = cart.find(c => c.quantity > c.maxStock)
+    if (overStock) {
+      setFormError(`Only ${overStock.maxStock} of "${overStock.name}" available`)
+      return
+    }
+
+    // Previously an out-of-range credit amount silently became 0, recording the
+    // whole sale as unpaid debt without telling anyone.
+    if (paymentType === 'CREDIT' && (paidNum < 0 || paidNum > totalAmount)) {
+      setFormError(`Amount paid must be between 0 and ${formatCurrency(totalAmount)}`)
+      return
+    }
+    const paid = paymentType === 'CASH' ? totalAmount : paidNum
 
     setIsSubmitting(true)
     try {
@@ -136,8 +155,15 @@ export default function EditSalePage({ params }: { params: Promise<{ id: string 
         body: JSON.stringify({
           customerId: selectedCustomer?.id || null,
           paymentType,
+          paymentMethod,
           paidAmount: paid,
-          items: cart.map(c => ({ itemId: c.itemId, quantity: c.quantity, price: c.price })),
+          // discountAmount must round-trip or the saved sale reverts to full price
+          items: cart.map(c => ({
+            itemId: c.itemId,
+            quantity: c.quantity,
+            price: c.price,
+            discountAmount: c.discountAmount || 0,
+          })),
         }),
       })
       const data = await res.json()

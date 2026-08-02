@@ -104,6 +104,27 @@ export async function PUT(req: Request, { params }: RouteParams) {
     const body = await req.json()
     const { customerId, paymentType, paidAmount, items } = body
 
+    // Optional — when omitted the existing values on the sale are preserved
+    const ALLOWED_METHODS = ['CASH', 'MOMO', 'BANK'] as const
+    const paymentMethodInput = ALLOWED_METHODS.includes(body.paymentMethod)
+      ? (body.paymentMethod as typeof ALLOWED_METHODS[number])
+      : null
+    if (body.paymentMethod !== undefined && !paymentMethodInput) {
+      return NextResponse.json(
+        { error: 'Payment method must be CASH, MOMO or BANK' },
+        { status: 400 }
+      )
+    }
+    const momoPhoneInput       = body.momoPhone       != null ? String(body.momoPhone).trim()       : ''
+    const bankNameInput        = body.bankName        != null ? String(body.bankName).trim()        : ''
+    const bankAccountNameInput = body.bankAccountName != null ? String(body.bankAccountName).trim() : ''
+    const bankReferenceInput   = body.bankReference   != null ? String(body.bankReference).trim()   : ''
+    const noteInput            = body.note            !== undefined ? String(body.note ?? '').trim() : undefined
+
+    if (paymentMethodInput === 'MOMO' && !momoPhoneInput) {
+      return NextResponse.json({ error: 'MoMo phone number is required for MoMo payments' }, { status: 400 })
+    }
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json({ error: 'At least one item is required' }, { status: 400 })
     }
@@ -139,6 +160,29 @@ export async function PUT(req: Request, { params }: RouteParams) {
         {
           error: `This sale already has accounting history (${saleJournal.entryNumber}, ${saleJournal.status}). Posted sales must be corrected with reversing entries and replacement transactions instead of editing the source document.`,
         },
+        { status: 409 }
+      )
+    }
+
+    // A sale awaiting approval has not moved stock or money yet — editing it
+    // would desync the pending approval record from what gets committed.
+    if (sale.approvalStatus === 'PENDING') {
+      return NextResponse.json(
+        { error: 'This sale is awaiting manager approval and cannot be edited. Approve or reject it first.' },
+        { status: 409 }
+      )
+    }
+
+    // Returns are calculated against the original sale lines. Editing the lines
+    // afterwards would make the already-processed return reference quantities
+    // that no longer exist.
+    const existingReturn = await prisma.customerReturn.findFirst({
+      where: { saleId: id },
+      select: { id: true },
+    })
+    if (existingReturn) {
+      return NextResponse.json(
+        { error: 'This sale has returns processed against it and can no longer be edited. Use a further return to correct it.' },
         { status: 409 }
       )
     }
@@ -268,7 +312,19 @@ export async function PUT(req: Request, { params }: RouteParams) {
     subtotalAmount = Number(subtotalAmount.toFixed(2))
     totalTaxAmount = Number(totalTaxAmount.toFixed(2))
     totalAmount = Number(totalAmount.toFixed(2))
-    const paid = Math.min(parseFloat(String(paidAmount)) || 0, totalAmount)
+    // Previously Math.min(...) silently clamped the paid amount down to the new
+    // total. If an edit shrank the cart below what had already been collected,
+    // the difference simply vanished — not refunded, not credited, unrecorded.
+    const requestedPaid = parseFloat(String(paidAmount)) || 0
+    if (requestedPaid > totalAmount + 0.001) {
+      return NextResponse.json(
+        {
+          error: `Paid amount (${requestedPaid.toFixed(2)}) exceeds the new total (${totalAmount.toFixed(2)}). Reduce the amount paid, or process a return to refund the difference.`,
+        },
+        { status: 400 }
+      )
+    }
+    const paid = requestedPaid
 
     // Validate new stock (items that aren't already in old sale get their existing qty checked)
     for (const newItem of items) {
@@ -320,13 +376,22 @@ export async function PUT(req: Request, { params }: RouteParams) {
         })),
       })
 
-      // 4. Deduct new stock
+      // 4. Deduct new stock — guarded, because the availability check above ran
+      // outside this transaction and another sale may have taken the stock since.
       for (const item of computedItems) {
         if (item.itemType !== ItemType.INVENTORY) continue
-        await tx.item.update({
-          where: { id: item.itemId },
+        const stockUpdate = await tx.item.updateMany({
+          where: {
+            id: item.itemId,
+            tenantId: context!.tenantId,
+            quantity: { gte: item.quantity },
+          },
           data: { quantity: { decrement: item.quantity } },
         })
+        if (stockUpdate.count !== 1) {
+          const label = itemMap.get(item.itemId)?.name ?? 'item'
+          throw new Error(`Insufficient stock for "${label}" — another sale took it while this edit was open.`)
+        }
       }
 
       const transactionTaxLines = computedItems.flatMap((item) =>
@@ -373,6 +438,25 @@ export async function PUT(req: Request, { params }: RouteParams) {
           taxAmount: totalTaxAmount,
           totalAmount,
           paidAmount: paid,
+          // These were previously never written, so a MOMO sale edited into a
+          // cash sale kept paymentMethod: MOMO and a stale momoPhone on its
+          // receipt. Only update when the caller actually supplies them.
+          ...(paymentMethodInput ? { paymentMethod: paymentMethodInput } : {}),
+          ...(paymentMethodInput === 'MOMO'
+            ? { momoPhone: momoPhoneInput || null, bankName: null, bankAccountName: null, bankReference: null }
+            : {}),
+          ...(paymentMethodInput === 'BANK'
+            ? {
+                momoPhone: null,
+                bankName: bankNameInput || null,
+                bankAccountName: bankAccountNameInput || null,
+                bankReference: bankReferenceInput || null,
+              }
+            : {}),
+          ...(paymentMethodInput === 'CASH'
+            ? { momoPhone: null, bankName: null, bankAccountName: null, bankReference: null }
+            : {}),
+          ...(noteInput !== undefined ? { note: noteInput || null } : {}),
         },
       })
     })

@@ -7,7 +7,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 
-type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED'
+type QuotationStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED' | 'CONVERTED'
 
 interface Quotation {
   id: string
@@ -52,6 +52,7 @@ const STATUS_COLORS: Record<QuotationStatus, string> = {
   ACCEPTED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700',
   EXPIRED: 'bg-orange-100 text-orange-700',
+  CONVERTED: 'bg-indigo-100 text-indigo-700',
 }
 
 export default function QuotationDetailPage() {
@@ -65,6 +66,7 @@ export default function QuotationDetailPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [convertError, setConvertError] = useState('')
+  const [actionError, setActionError] = useState('')
 
   const fetchQuotation = useCallback(async () => {
     try {
@@ -85,14 +87,19 @@ export default function QuotationDetailPage() {
   const updateStatus = async (status: QuotationStatus) => {
     if (!quotation) return
     setIsUpdatingStatus(true)
+    setActionError('')
     try {
       const res = await fetch(`/api/quotations/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      if (!res.ok) throw new Error('Failed to update status')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to update status')
       setQuotation(q => q ? { ...q, status } : q)
+    } catch (err) {
+      // Previously try/finally with no catch — a 403/409 vanished silently
+      setActionError(err instanceof Error ? err.message : 'Failed to update status')
     } finally {
       setIsUpdatingStatus(false)
     }
@@ -123,10 +130,19 @@ export default function QuotationDetailPage() {
 
   const deleteQuotation = async () => {
     if (!confirm('Delete this quotation? This cannot be undone.')) return
+    setActionError('')
     try {
-      await fetch(`/api/quotations/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/quotations/${id}`, { method: 'DELETE' })
+      // The response status was previously never checked, so a 403 still
+      // navigated away as though the delete had succeeded.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete quotation')
+      }
       router.push('/quotations')
-    } catch {}
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete quotation')
+    }
   }
 
   if (isLoading) return (
@@ -143,8 +159,15 @@ export default function QuotationDetailPage() {
     </AppLayout>
   )
 
-  const canConvert = quotation.status !== 'REJECTED' && quotation.status !== 'EXPIRED'
-  const isExpiredNow = quotation.validUntil && new Date(quotation.validUntil) < new Date() && quotation.status === 'SENT'
+  // Expiry applies to any quotation still awaiting conversion, not just SENT ones
+  const isExpiredNow = !!quotation.validUntil
+    && new Date(quotation.validUntil) < new Date()
+    && !['CONVERTED', 'REJECTED', 'EXPIRED'].includes(quotation.status)
+  const canConvert =
+    quotation.status !== 'REJECTED' &&
+    quotation.status !== 'EXPIRED' &&
+    quotation.status !== 'CONVERTED' &&
+    !isExpiredNow
   const taxBreakdown = summariseTaxBreakdown(quotation.taxLines ?? [])
 
   return (
@@ -200,6 +223,16 @@ export default function QuotationDetailPage() {
                 {isConverting ? 'Converting...' : '✓ Convert to Sale'}
               </button>
             )}
+            {quotation.status === 'CONVERTED' && (
+              <span className="px-4 py-2 text-sm font-semibold bg-indigo-50 text-indigo-700 border-2 border-indigo-200">
+                ✓ Converted to a sale
+              </span>
+            )}
+            {isExpiredNow && quotation.status !== 'CONVERTED' && (
+              <span className="px-4 py-2 text-sm font-semibold bg-red-50 text-red-700 border-2 border-red-200">
+                Expired — cannot convert
+              </span>
+            )}
             <button
               onClick={() => smartPrint('report')}
               className="px-4 py-2 text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
@@ -220,6 +253,11 @@ export default function QuotationDetailPage() {
         {convertError && (
           <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
             ⚠ {convertError}
+          </div>
+        )}
+        {actionError && (
+          <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {actionError}
           </div>
         )}
       </div>

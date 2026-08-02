@@ -15,8 +15,8 @@ import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Pagination } from '@/components/ui/Pagination'
 import {
-  ShoppingCart, Search, X, TrendingUp, CreditCard,
-  AlertCircle, CheckCircle, Plus, Download, Bell
+  ShoppingCart, Search, X, TrendingUp,
+  AlertCircle, CheckCircle, Plus, Bell
 } from 'lucide-react'
 
 type FilterStatus = 'all' | 'paid' | 'partial'
@@ -53,7 +53,8 @@ export default function SalesPage() {
   const fetchSales = async () => {
     try {
       setIsLoading(true)
-      const res = await fetch('/api/sales')
+      // includePending so a flagged sale stays visible to the cashier who rang it
+      const res = await fetch('/api/sales?includePending=true')
       if (!res.ok) throw new Error('Failed')
       const data = await res.json()
       setSales(data.sales || data.data || [])
@@ -213,7 +214,7 @@ export default function SalesPage() {
           <>
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
-              {paginated.map((sale, idx) => {
+              {paginated.map((sale) => {
                 const credit = sale.totalAmount - sale.paidAmount
                 const name = sale.customer?.name || 'Walk-in Customer'
                 return (
@@ -234,12 +235,20 @@ export default function SalesPage() {
                         <div className="mt-2 flex items-center justify-between">
                           <p className="text-xs text-gray-400">{formatDate(sale.createdAt)} · {sale.items?.length || 0} items</p>
                           <div className="flex gap-1">
-                            <Badge variant={sale.paymentType === 'CASH' ? 'green' : 'blue'}>
-                              {sale.paymentType === 'CASH' ? 'Cash' : 'Credit'}
-                            </Badge>
-                            <Badge variant={credit === 0 ? 'green' : 'amber'}>
-                              {credit === 0 ? 'Paid' : 'Partial'}
-                            </Badge>
+                            {sale.approvalStatus === 'PENDING' ? (
+                              <Badge variant="amber">⏳ Awaiting approval</Badge>
+                            ) : sale.approvalStatus === 'REJECTED' ? (
+                              <Badge variant="red">Rejected</Badge>
+                            ) : (
+                              <>
+                                <Badge variant={sale.paymentType === 'CASH' ? 'green' : 'blue'}>
+                                  {sale.paymentType === 'CASH' ? 'Cash' : 'Credit'}
+                                </Badge>
+                                <Badge variant={credit === 0 ? 'green' : 'amber'}>
+                                  {credit === 0 ? 'Paid' : 'Partial'}
+                                </Badge>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -300,9 +309,15 @@ export default function SalesPage() {
                           }
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <Badge variant={credit === 0 ? 'green' : 'amber'} dot>
-                            {credit === 0 ? 'Paid' : 'Partial'}
-                          </Badge>
+                          {sale.approvalStatus === 'PENDING' ? (
+                            <Badge variant="amber" dot>Awaiting approval</Badge>
+                          ) : sale.approvalStatus === 'REJECTED' ? (
+                            <Badge variant="red" dot>Rejected</Badge>
+                          ) : (
+                            <Badge variant={credit === 0 ? 'green' : 'amber'} dot>
+                              {credit === 0 ? 'Paid' : 'Partial'}
+                            </Badge>
+                          )}
                         </td>
                       </tr>
                     )

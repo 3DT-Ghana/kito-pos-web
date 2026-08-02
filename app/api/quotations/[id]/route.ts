@@ -23,6 +23,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     )
     if (featureError) return featureError
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_quotations')
+    if (!authorized) return permError!
+
     const { id } = await params
     const where = buildVisibleQuotationWhere(context!, { id })
     if (!where) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -99,15 +102,52 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const existing = await prisma.quotation.findFirst({ where })
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const updated = await prisma.quotation.update({
-      where: { id },
+    // A converted quotation is the source document for a real sale — freezing it
+    // stops the status being walked back to re-enable conversion.
+    if (existing.status === 'CONVERTED') {
+      return NextResponse.json(
+        { error: 'This quotation has been converted to a sale and can no longer be changed.' },
+        { status: 409 }
+      )
+    }
+
+    // Only these transitions make sense; CONVERTED is set by the convert route alone.
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      DRAFT:    ['SENT', 'REJECTED', 'EXPIRED'],
+      SENT:     ['ACCEPTED', 'REJECTED', 'EXPIRED'],
+      ACCEPTED: ['REJECTED', 'EXPIRED'],
+      REJECTED: ['SENT'],   // allow reopening a rejected quote
+      EXPIRED:  ['SENT'],   // allow reissuing an expired quote
+    }
+    if (body.status !== undefined && body.status !== existing.status) {
+      if (body.status === 'CONVERTED') {
+        return NextResponse.json(
+          { error: 'Use the Convert to Sale action to convert a quotation.' },
+          { status: 400 }
+        )
+      }
+      const allowed = ALLOWED_TRANSITIONS[existing.status] ?? []
+      if (!allowed.includes(body.status)) {
+        return NextResponse.json(
+          { error: `Cannot change a ${existing.status} quotation to ${body.status}.` },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Scope the write by tenant/branch too — `where: { id }` alone would trust
+    // the prior read across the gap.
+    const result = await prisma.quotation.updateMany({
+      where,
       data: {
         status: body.status ?? existing.status,
         note: body.note !== undefined ? body.note : existing.note,
         validUntil: body.validUntil !== undefined ? (body.validUntil ? new Date(body.validUntil) : null) : existing.validUntil,
       },
     })
+    if (result.count !== 1) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    const updated = await prisma.quotation.findFirst({ where })
     return NextResponse.json(updated)
   } catch (err) {
     console.error('Failed to update quotation:', err)

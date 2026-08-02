@@ -161,12 +161,21 @@ export default function WaybillDetailPage() {
   const [loading, setLoading]     = useState(true)
   const [modal,   setModal]       = useState<'dispatch' | 'deliver' | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [loadError, setLoadError]   = useState('')
+  const [actionError, setActionError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const res = await fetch(`/api/waybills/${id}`)
-      if (res.ok) setWaybill(await res.json())
+      if (res.ok) { setWaybill(await res.json()); return }
+      // A 403/500 previously fell through to the "Waybill not found" empty
+      // state, making a permission error look like a missing record.
+      const data = await res.json().catch(() => ({}))
+      setLoadError(data.error || (res.status === 404 ? '' : 'Failed to load waybill'))
+    } catch {
+      setLoadError('Could not reach the server. Check your connection and retry.')
     } finally { setLoading(false) }
   }, [id])
 
@@ -176,21 +185,38 @@ export default function WaybillDetailPage() {
     if (!waybill) return
     if (!confirm('Cancel this waybill?')) return
     setCancelling(true)
+    setActionError('')
     try {
       const res = await fetch(`/api/waybills/${waybill.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'cancel' }),
       })
-      if (res.ok) setWaybill(await res.json())
+      if (res.ok) { setWaybill(await res.json()); return }
+      const data = await res.json().catch(() => ({}))
+      // Was `if (res.ok)` with no else — a 409 did nothing at all visibly
+      setActionError(data.error || 'Could not cancel this waybill')
+    } catch {
+      setActionError('Could not reach the server. Please try again.')
     } finally { setCancelling(false) }
   }
 
   async function deleteWaybill() {
     if (!waybill) return
     if (!confirm('Permanently delete this waybill? This cannot be undone.')) return
-    await fetch(`/api/waybills/${waybill.id}`, { method: 'DELETE' })
-    router.push('/waybills')
+    setActionError('')
+    try {
+      const res = await fetch(`/api/waybills/${waybill.id}`, { method: 'DELETE' })
+      // The status was never checked, so a rejected delete still navigated
+      // away as though it had worked.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete waybill')
+      }
+      router.push('/waybills')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to delete waybill')
+    }
   }
 
   if (loading) {
@@ -207,8 +233,20 @@ export default function WaybillDetailPage() {
     return (
       <AppLayout>
         <div className="text-center py-20">
-          <p className="text-gray-500">Waybill not found.</p>
-          <Link href="/waybills" className="text-blue-600 text-sm mt-2 inline-block">← Back to waybills</Link>
+          <p className={loadError ? 'text-red-600' : 'text-gray-500'}>
+            {loadError || 'Waybill not found.'}
+          </p>
+          {loadError && (
+            <button
+              onClick={() => void load()}
+              className="mt-3 px-4 py-2 text-sm font-semibold border-2 border-gray-200 hover:bg-gray-50"
+            >
+              Retry
+            </button>
+          )}
+          <div>
+            <Link href="/waybills" className="text-blue-600 text-sm mt-2 inline-block">← Back to waybills</Link>
+          </div>
         </div>
       </AppLayout>
     )
@@ -219,6 +257,12 @@ export default function WaybillDetailPage() {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-5">
+
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {actionError}
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">

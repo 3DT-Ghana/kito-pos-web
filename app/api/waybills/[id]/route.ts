@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { WaybillStatus } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import { requireBranchAccess } from '@/lib/branch/server'
+import { requirePermission } from '@/lib/permissions/rbac'
 import { waybillSelect } from '@/lib/waybills/server'
 import { sendWhatsApp, buildWhatsAppWaybillDispatch } from '@/lib/whatsapp/meta'
 
@@ -11,6 +12,9 @@ export async function GET(_req: Request, { params }: RouteParams) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_waybills')
+    if (!authorized) return permError!
 
     const { id } = await params
     const waybill = await prisma.waybill.findFirst({
@@ -30,6 +34,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   try {
     const { error, context } = await requireBranchAccess()
     if (error) return error
+
+    const { authorized, error: permError } = requirePermission(context!, 'manage_waybills')
+    if (!authorized) return permError!
 
     const { id } = await params
     const body = await req.json()
@@ -152,6 +159,9 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'delete_waybills')
+    if (!authorized) return permError!
+
     const { id } = await params
     const waybill = await prisma.waybill.findFirst({
       where: { id, tenantId: context!.tenantId },
@@ -162,7 +172,8 @@ export async function DELETE(_req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Only draft or cancelled waybills can be deleted' }, { status: 409 })
     }
 
-    await prisma.waybill.delete({ where: { id } })
+    // Scope the delete by tenant too rather than trusting the prior read
+    await prisma.waybill.deleteMany({ where: { id, tenantId: context!.tenantId } })
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error('[waybills/:id DELETE]', err)

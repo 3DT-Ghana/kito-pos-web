@@ -59,6 +59,8 @@ export interface SaleWithDetails {
   paidAmount: number
   paymentType: string
   paymentMethod: string
+  /** null when the sale needed no approval */
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null
   createdAt: Date
   customer?: {
     id: string
