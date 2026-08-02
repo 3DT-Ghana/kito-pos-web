@@ -22,6 +22,8 @@ interface RunningTotals {
   cashSales: number
   cashPaymentsReceived: number
   cashExpenses: number
+  cashRefunds: number
+  cashSupplierPayments: number
   cashIn: number
   cashOut: number
   expectedCash: number
@@ -57,23 +59,35 @@ export default function TillPage() {
   // Separate effect with openShift in deps so the interval always sees the current value.
   useEffect(() => {
     if (!openShift) return
-    const interval = setInterval(() => fetchTill(), 60000)
+    // Background refresh — must not toggle isLoading, which replaces the whole
+    // page and threw away a half-typed cash count every 60 seconds.
+    const interval = setInterval(() => fetchTill({ background: true }), 60000)
     return () => clearInterval(interval)
   }, [openShift?.id])
 
-  const fetchTill = async () => {
+  const fetchTill = async ({ background = false }: { background?: boolean } = {}) => {
     try {
-      setIsLoading(true)
+      if (!background) setIsLoading(true)
       const res = await fetch('/api/till')
-      if (!res.ok) throw new Error('Failed to load till data')
+      if (!res.ok) {
+        // The body carries the specific reason — "select a branch", a
+        // permission denial, the feature flag — all previously flattened into
+        // one generic string.
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to load till data')
+      }
       const data = await res.json()
       setOpenShift(data.openShift)
       setTodayShifts(data.todayShifts || [])
       setRunningTotals(data.runningTotals)
+      setError('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load till')
+      // A failed background poll must not blank a working screen
+      if (!background) {
+        setError(err instanceof Error ? err.message : 'Failed to load till')
+      }
     } finally {
-      setIsLoading(false)
+      if (!background) setIsLoading(false)
     }
   }
 
@@ -90,7 +104,9 @@ export default function TillPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to open shift')
       setOpeningFloat('')
-      fetchTill()
+      // Background so a refetch hiccup cannot paint a load error over a shift
+      // that opened successfully.
+      await fetchTill({ background: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open shift')
     } finally {
@@ -114,7 +130,7 @@ export default function TillPage() {
       setClosingCount('')
       setCloseNote('')
       setShowCloseForm(false)
-      fetchTill()
+      await fetchTill({ background: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to close shift')
     } finally {
@@ -215,12 +231,27 @@ export default function TillPage() {
 
                 <div className="border-t border-gray-100" />
 
-                {/* Cash out */}
+                {/* Cash out — refunds and supplier payments also leave the
+                    drawer and were previously not shown or counted at all */}
                 <div>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Cash Out</p>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Expenses</span>
-                    <span className="font-semibold text-red-600">−{formatCurrency(runningTotals.cashExpenses)}</span>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Expenses (Cash)</span>
+                      <span className="font-semibold text-red-600">−{formatCurrency(runningTotals.cashExpenses)}</span>
+                    </div>
+                    {runningTotals.cashRefunds > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Customer Refunds (Cash)</span>
+                        <span className="font-semibold text-red-600">−{formatCurrency(runningTotals.cashRefunds)}</span>
+                      </div>
+                    )}
+                    {runningTotals.cashSupplierPayments > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Supplier Payments (Cash)</span>
+                        <span className="font-semibold text-red-600">−{formatCurrency(runningTotals.cashSupplierPayments)}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

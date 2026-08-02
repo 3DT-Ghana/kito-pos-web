@@ -50,6 +50,7 @@ export async function GET(req: Request) {
 
     const payments = await prisma.supplierPayment.findMany({
       where,
+      include: { supplier: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     })
 

@@ -102,10 +102,18 @@ export async function POST(req: Request) {
     })
     const accountingEnabled = tenantSettings?.enableAccounting ?? false
 
+    // Reject an unrecognised method rather than silently booking it against
+    // Cash on Hand — a typo previously credited the wrong GL account with no
+    // indication anything was wrong.
     const validMethods: string[] = Object.values(PaymentMethod)
-    const paymentMethod: PaymentMethod = validMethods.includes(body.paymentMethod)
-      ? (body.paymentMethod as PaymentMethod)
-      : PaymentMethod.CASH
+    if (body.paymentMethod !== undefined && !validMethods.includes(body.paymentMethod)) {
+      return NextResponse.json(
+        { error: 'Payment method must be CASH, MOMO or BANK' },
+        { status: 400 }
+      )
+    }
+    const paymentMethod: PaymentMethod =
+      (body.paymentMethod as PaymentMethod) ?? PaymentMethod.CASH
 
     const expense = await prisma.$transaction(async (tx) => {
       const newExpense = await tx.expense.create({
@@ -115,6 +123,9 @@ export async function POST(req: Request) {
           amount: parseFloat(amount),
           category: category as ExpenseCategory,
           description: description.trim(),
+          // Persisted so the till only deducts cash-paid expenses from the
+          // drawer, and so the record matches the GL account that was credited.
+          method: paymentMethod,
           paidBy: paidBy?.trim() || null,
         },
       })

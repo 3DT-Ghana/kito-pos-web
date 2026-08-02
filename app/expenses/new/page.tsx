@@ -20,6 +20,7 @@ export default function NewExpensePage() {
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [paidBy, setPaidBy] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'MOMO' | 'BANK'>('CASH')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,7 +37,9 @@ export default function NewExpensePage() {
       const res = await fetch('/api/expenses', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(amount), category, description, paidBy }),
+        // paymentMethod was never sent, so every expense created here was
+        // hardcoded to CASH in the GL and deducted from the till drawer.
+        body: JSON.stringify({ amount: parseFloat(amount), category, description, paidBy, paymentMethod }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to save expense')
@@ -122,6 +125,31 @@ export default function NewExpensePage() {
               placeholder="e.g. Monthly shop rent, Driver salary for January..."
               className="w-full px-4 py-3 border-2 border-gray-200 text-sm focus:border-red-500 focus:outline-none resize-none"
             />
+          </div>
+
+          {/* Payment method — determines which account is credited and whether
+              the till deducts this from the cash drawer */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">Paid With</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['CASH', 'MOMO', 'BANK'] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setPaymentMethod(m)}
+                  className={`py-3 border-2 font-semibold text-sm transition-colors ${
+                    paymentMethod === m
+                      ? 'bg-red-600 text-white border-red-600'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-red-300'
+                  }`}
+                >
+                  {m === 'CASH' ? '💵 Cash' : m === 'MOMO' ? '📱 MoMo' : '🏦 Bank'}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              Only cash-paid expenses are deducted from the till drawer.
+            </p>
           </div>
 
           {/* Paid By */}

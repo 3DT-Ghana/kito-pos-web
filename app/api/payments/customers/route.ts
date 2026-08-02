@@ -29,6 +29,11 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    // Was unprotected — any role could read the full payment ledger including
+    // MoMo phone numbers, bank account names and references.
+    const { authorized, error: permError } = requirePermission(context!, 'record_payments')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const customerId = searchParams.get('customerId')
     const startDate = searchParams.get('startDate')
@@ -49,6 +54,9 @@ export async function GET(req: Request) {
 
     const payments = await prisma.customerPayment.findMany({
       where,
+      // Without the relation the payments history page rendered "Unknown" for
+      // every row and could not search by name.
+      include: { customer: { select: { id: true, name: true } } },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -178,15 +186,26 @@ export async function POST(req: Request) {
         },
       })
 
-      // 2. Reduce customer balance
-      await tx.customer.update({
-        where: { id: body.customerId },
+      // 2. Reduce customer balance. Conditional on the balance still covering
+      // the amount — the check above runs outside this transaction, so two
+      // concurrent payments could each pass it and drive the balance negative.
+      const balanceUpdate = await tx.customer.updateMany({
+        where: {
+          id: body.customerId,
+          tenantId: context!.tenantId,
+          balance: { gte: amount },
+        },
         data: {
           balance: {
             decrement: amount,
           },
         },
       })
+      if (balanceUpdate.count !== 1) {
+        throw new Error(
+          'The customer balance changed while this payment was being recorded. Please check the balance and try again.'
+        )
+      }
 
       // 3. Post journal entry (if accounting enabled)
       if (accountingEnabled) {
@@ -253,7 +272,9 @@ export async function POST(req: Request) {
           customerName: customer.name,
           amount,
           balance: newBalance,
-          paymentMethod: body.paymentMethod,
+          // The field is `method` everywhere else in this route; body.paymentMethod
+          // is never sent, so every WhatsApp receipt showed "undefined".
+          paymentMethod: body.method,
         })
         sendWhatsApp(
           { token: tenant.metaWabaToken, phoneNumberId: tenant.metaWabaPhoneNumberId },

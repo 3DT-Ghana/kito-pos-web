@@ -25,11 +25,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       where: {
         id,
         tenantId: context!.tenantId,
-        ...(context!.branchesEnabled && branchId
-          ? {
-              OR: [{ branchId }, { branchId: null }],
-            }
-          : {}),
+        // Strict branch equality. The previous `OR: [{branchId}, {branchId: null}]`
+        // let a branch user delete tenant-wide expenses that `applyBranchScope`
+        // hides from their own list — the delete reached further than the read.
+        ...(context!.branchesEnabled && branchId ? { branchId } : {}),
       },
     })
 
@@ -37,21 +36,24 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
     }
 
+    // Only a live POSTED entry blocks deletion. A REVERSED or VOID entry has no
+    // accounting impact left, so blocking on it stranded the expense forever
+    // with a message telling the user to do what they had already done.
     const expenseJournal = await prisma.journalEntry.findFirst({
-      where: { tenantId: context!.tenantId, expenseId: id },
+      where: { tenantId: context!.tenantId, expenseId: id, status: 'POSTED' },
       orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
       select: { entryNumber: true, status: true },
     })
     if (expenseJournal) {
       return NextResponse.json(
         {
-          error: `This expense already has accounting history (${expenseJournal.entryNumber}, ${expenseJournal.status}). Posted expenses must be reversed instead of deleted.`,
+          error: `This expense is posted to the accounts (${expenseJournal.entryNumber}). Reverse that journal entry first, then delete the expense.`,
         },
         { status: 409 }
       )
     }
 
-    await prisma.expense.delete({ where: { id } })
+    await prisma.expense.deleteMany({ where: { id, tenantId: context!.tenantId } })
 
     return NextResponse.json({ success: true })
   } catch (err) {

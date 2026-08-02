@@ -88,8 +88,13 @@ export default function ExpensesPage() {
     setDeletingId(id)
     try {
       const res = await fetch(`/api/expenses/${id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error('Failed to delete expense')
-      fetchExpenses()
+      if (!res.ok) {
+        // The 409 body explains *why* (posted to the accounts) and what to do
+        // about it; a generic string threw that away and left a dead end.
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to delete expense')
+      }
+      await fetchExpenses()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Delete failed')
     } finally {

@@ -428,6 +428,7 @@ model Customer {
   phone    String?
   balance  Float   @default(0)
   sales    Sale[]
+  payments CustomerPayment[]
   debitTransfers  LedgerTransfer[] @relation("TransferDebitCustomer")
   creditTransfers LedgerTransfer[] @relation("TransferCreditCustomer")
 }
@@ -443,6 +444,7 @@ model Supplier {
   phone     String?
   balance   Float      @default(0)
   purchases Purchase[]
+  payments  SupplierPayment[]
   debitTransfers  LedgerTransfer[] @relation("TransferDebitSupplier")
   creditTransfers LedgerTransfer[] @relation("TransferCreditSupplier")
 }
@@ -541,6 +543,9 @@ model CustomerPayment {
   tenantId        String
   branchId        String?
   customerId      String
+  // Without this relation the payments history page could never resolve a
+  // name and rendered "Unknown" for every row.
+  customer        Customer      @relation(fields: [customerId], references: [id])
   amount          Float
   method          PaymentMethod
   momoPhone       String?       // captured when method = MOMO
@@ -555,6 +560,7 @@ model SupplierPayment {
   tenantId        String
   branchId        String?
   supplierId      String
+  supplier        Supplier      @relation(fields: [supplierId], references: [id])
   amount          Float
   method          PaymentMethod
   momoPhone       String?       // captured when method = MOMO
@@ -676,6 +682,9 @@ model Expense {
   amount      Float
   category    ExpenseCategory
   description String
+  // How the expense was paid. Without this the till deducted every expense
+  // from the physical drawer, so a bank-paid bill created a false shortage.
+  method      PaymentMethod   @default(CASH)
   paidBy      String?
   createdAt   DateTime        @default(now())
 }
@@ -702,6 +711,8 @@ model CashRegister {
   note         String?
   openedAt     DateTime    @default(now())
   closedAt     DateTime?
+
+  @@index([tenantId, branchId, userId, status])
 }
 
 // =====================
