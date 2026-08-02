@@ -604,8 +604,20 @@ async function endOfDayReport(
     0
   )
   const totalTaxCollected = sales.reduce((sum, s) => sum + (s.taxAmount ?? 0), 0)
-  const cashSales = sales.filter(s => s.paymentType === 'CASH')
+  const cashSales   = sales.filter(s => s.paymentType === 'CASH')
   const creditSales = sales.filter(s => s.paymentType === 'CREDIT')
+
+  // Sales broken down by payment method (CASH / MOMO / BANK)
+  const salesByMethod = {
+    CASH: sales.filter(s => s.paymentMethod === 'CASH'),
+    MOMO: sales.filter(s => s.paymentMethod === 'MOMO'),
+    BANK: sales.filter(s => s.paymentMethod === 'BANK'),
+  }
+  const salesAmountByMethod = {
+    CASH: salesByMethod.CASH.reduce((s, sale) => s + sale.paidAmount, 0),
+    MOMO: salesByMethod.MOMO.reduce((s, sale) => s + sale.paidAmount, 0),
+    BANK: salesByMethod.BANK.reduce((s, sale) => s + sale.paidAmount, 0),
+  }
 
   // Top 5 selling items
   const itemSalesMap: Record<string, { name: string; quantity: number; revenue: number }> = {}
@@ -623,10 +635,10 @@ async function endOfDayReport(
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 5)
 
-  // Cash & Payments
-  const cashPayments = customerPayments.filter(p => p.method === 'CASH').reduce((s, p) => s + p.amount, 0)
-  const momoPayments = customerPayments.filter(p => p.method === 'MOMO').reduce((s, p) => s + p.amount, 0)
-  const bankPayments = customerPayments.filter(p => p.method === 'BANK').reduce((s, p) => s + p.amount, 0)
+  // Debt payments by method (from CustomerPayment table — debt repayments only)
+  const cashPayments  = customerPayments.filter(p => p.method === 'CASH').reduce((s, p) => s + p.amount, 0)
+  const momoPayments  = customerPayments.filter(p => p.method === 'MOMO').reduce((s, p) => s + p.amount, 0)
+  const bankPayments  = customerPayments.filter(p => p.method === 'BANK').reduce((s, p) => s + p.amount, 0)
   const totalCustomerPayments = customerPayments.reduce((s, p) => s + p.amount, 0)
   const newCreditIssued = creditSales.reduce((s, sale) => s + (sale.totalAmount - sale.paidAmount), 0)
 
@@ -673,7 +685,20 @@ async function endOfDayReport(
     },
 
     cashAndPayments: {
-      cashSalesReceived: cashSales.reduce((s, sale) => s + sale.paidAmount, 0),
+      // Direct sale receipts by method (what came in at point of sale)
+      salesReceivedByMethod: {
+        CASH: salesAmountByMethod.CASH,
+        MOMO: salesAmountByMethod.MOMO,
+        BANK: salesAmountByMethod.BANK,
+      },
+      salesCountByMethod: {
+        CASH: salesByMethod.CASH.length,
+        MOMO: salesByMethod.MOMO.length,
+        BANK: salesByMethod.BANK.length,
+      },
+      // Legacy field kept for backward compat — same as salesReceivedByMethod.CASH
+      cashSalesReceived: salesAmountByMethod.CASH,
+      // Debt repayments collected today (from CustomerPayment table)
       customerPaymentsByMethod: { CASH: cashPayments, MOMO: momoPayments, BANK: bankPayments },
       totalCustomerPayments,
       newCreditIssued,

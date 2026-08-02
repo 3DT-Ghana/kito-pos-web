@@ -78,19 +78,12 @@ interface AdminSidebarProps {
 
 export function AdminSidebar({ mobileOpen = false, onMobileClose }: AdminSidebarProps) {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  useSession()
 
   const isActive = (href: string) =>
     href === '/admin'
       ? pathname === '/admin'
       : pathname === href || pathname?.startsWith(href + '/')
-
-  const initials = session?.user?.name
-    ?.split(' ')
-    .map(w => w[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() ?? 'SA'
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(NAV_GROUPS.map(g => [g.label, true]))

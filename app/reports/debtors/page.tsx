@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -59,7 +60,7 @@ export default function DebtorsReportPage() {
               }))}
             />
             <button
-              onClick={() => window.print()}
+              onClick={() => smartPrint('report')}
               className="px-4 py-2 bg-red-600 text-white font-semibold text-sm hover:bg-red-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF

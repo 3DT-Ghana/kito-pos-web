@@ -11,6 +11,7 @@ import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 import { isLowStock } from '@/lib/items/stock'
+import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,7 +178,7 @@ export default function PosPage() {
     setBranchId,
   } = useBranch()
   const { features } = useTenantFeatures()
-  const { hasTenantPermission } = useRolePermissions()
+  useRolePermissions()
   const { tenantName } = useTenant()
 
   // Catalog
@@ -210,9 +211,15 @@ export default function PosPage() {
   // Payment
   const [method, setMethod] = useState<PaymentMethod>('CASH')
   const [momoPhone, setMomoPhone] = useState('')
-  const [tendered, setTendered] = useState('')
+  const [tendered, setTendered] = useState('')        // cash tendered
+  const [momoPaid, setMomoPaid] = useState('')        // momo amount in split
+  const [cashPaid, setCashPaid] = useState('')        // cash amount in split
+  const [splitMode, setSplitMode] = useState(false)   // cash + momo split
+  const [, setMomoTxId] = useState<string | null>(null)
+  const [momoStatus, setMomoStatus] = useState<'idle' | 'sending' | 'pending' | 'success' | 'failed'>('idle')
+  const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false)
   const [numpadBuffer, setNumpadBuffer] = useState('')
-  const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'qty' | 'lineDiscount' | 'price'>('tendered')
+  const [numpadTarget, setNumpadTarget] = useState<'tendered' | 'momoPaid' | 'cashPaid' | 'qty' | 'lineDiscount' | 'price'>('tendered')
 
   // Line-discount editing
   const [editingDiscountIdx, setEditingDiscountIdx] = useState<number | null>(null)
@@ -444,7 +451,22 @@ export default function PosPage() {
 
   const grandTotal = Math.max(0, cartSubtotal - orderDiscountNum)
   const tenderedNum = parseFloat(tendered) || 0
+  const momoPaidNum = parseFloat(momoPaid) || 0
+  const cashPaidNum = parseFloat(cashPaid) || 0
   const change = tenderedNum - grandTotal
+  // Split mode totals
+  const splitTotal = momoPaidNum + cashPaidNum
+  const splitReady = splitMode
+    ? Math.abs(splitTotal - grandTotal) < 0.001 && momoPaidNum > 0
+    : false
+  // Whether charge button should be enabled
+  const paymentComplete = (() => {
+    if (cart.length === 0) return false
+    if (splitMode) return splitReady && momoPhone.trim().length >= 9
+    if (method === 'CASH') return features.enableCreditSales ? tenderedNum > 0 : tenderedNum >= grandTotal
+    if (method === 'MOMO') return momoPhone.trim().length >= 9
+    return true // BANK
+  })()
 
   // ── Cart helpers ────────────────────────────────────────────────────────────
 
@@ -452,7 +474,7 @@ export default function PosPage() {
     return (item[tier] as number | null) ?? item.sellingPrice
   }
 
-  const addToCart = (item: PosItem) => {
+  const addToCart = useCallback((item: PosItem) => {
     const price = resolvePrice(item, globalTier)
     const maxStock = isStockTracked(item) ? item.quantity : UNTRACKED_MAX_STOCK
     setCart(prev => {
@@ -482,7 +504,7 @@ export default function PosPage() {
     })
     setSearch('')
     searchRef.current?.focus()
-  }
+  }, [globalTier])
 
   // Stable ref so the scanner effect always calls the latest addToCart without re-registering.
   const addToCartRef = useRef(addToCart)
@@ -527,7 +549,11 @@ export default function PosPage() {
     ))
   }
 
-  const clearCart = () => { setCart([]); setSelectedCartIdx(null); setNote('') }
+  const clearCart = () => {
+    setCart([]); setSelectedCartIdx(null); setNote('')
+    setMomoPaid(''); setCashPaid(''); setSplitMode(false)
+    setMomoTxId(null); setMomoStatus('idle'); setMomoPhone('')
+  }
 
   const addAllToCart = (items: PosItem[]) => {
     items.forEach(item => addToCart(item))
@@ -586,19 +612,79 @@ export default function PosPage() {
       } else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setPriceBuffer(buf)
+    } else if (numpadTarget === 'momoPaid') {
+      let buf = momoPaid
+      if (key === '←') buf = buf.slice(0, -1)
+      else if (key === 'C') buf = ''
+      else if (key === '✓') { setNumpadTarget('cashPaid'); return }
+      else if (key === '.' && buf.includes('.')) { /* skip */ }
+      else buf = buf + key
+      setMomoPaid(buf)
+    } else if (numpadTarget === 'cashPaid') {
+      let buf = cashPaid
+      if (key === '←') buf = buf.slice(0, -1)
+      else if (key === 'C') buf = ''
+      else if (key === '✓') { setShowNumpadDrawer(false); return }
+      else if (key === '.' && buf.includes('.')) { /* skip */ }
+      else buf = buf + key
+      setCashPaid(buf)
     } else {
       let buf = tendered
       if (key === '←') buf = buf.slice(0, -1)
       else if (key === 'C') buf = ''
       else if (key === '✓') {
         setShowNumpadDrawer(false)
-        handleCheckout()
         return
       }
       else if (key === '.' && buf.includes('.')) { /* skip */ }
       else buf = buf + key
       setTendered(buf)
     }
+  }
+
+  // ── MoMo collect via Hubtel ─────────────────────────────────────────────────
+  const sendMomoRequest = async (amountToCharge: number, phone: string, ref: string) => {
+    setMomoStatus('sending')
+    setMomoTxId(null)
+    const res = await fetch('/api/momo/collect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: amountToCharge,
+        phoneNumber: phone,
+        description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
+        clientReference: ref,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok || !data.transactionId) {
+      setMomoStatus('failed')
+      setErrorMsg(data.error || 'Failed to send MoMo request')
+      return null
+    }
+    setMomoTxId(data.transactionId)
+    setMomoStatus('pending')
+    return data.transactionId as string
+  }
+
+  const pollMomoStatus = (txId: string, onSuccess: () => void, onFail: () => void) => {
+    let attempts = 0
+    const max = 24 // 2 minutes at 5s intervals
+    const interval = setInterval(async () => {
+      attempts++
+      const res = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
+      const data = await res.json()
+      if (data.status === 'success') {
+        clearInterval(interval)
+        setMomoStatus('success')
+        onSuccess()
+      } else if (data.status === 'failed' || attempts >= max) {
+        clearInterval(interval)
+        setMomoStatus('failed')
+        onFail()
+      }
+    }, 5000)
+    return () => clearInterval(interval)
   }
 
   // ── Holds ───────────────────────────────────────────────────────────────────
@@ -635,17 +721,6 @@ export default function PosPage() {
   }
 
   // ── Checkout ────────────────────────────────────────────────────────────────
-
-  // Returns true if the current cart has flags that require approval
-  const cartNeedsApproval = () => {
-    if (!features.requireApproval) return false
-    const canSelf = hasTenantPermission(user?.role, 'approve_transactions')
-    if (canSelf) return false
-    const hasDiscount = cart.some(c => c.lineDiscount > 0) || orderDiscountNum > 0
-    const hasPriceOverride = cart.some(c => c.basePrice < c.tiers.sellingPrice - 0.001)
-    const isCredit = (grandTotal - (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)) > 0.001
-    return hasDiscount || hasPriceOverride || isCredit
-  }
 
   // Called once a sale is confirmed approved (via PIN grant or manager page polling)
   const onSaleApproved = (total: number, saleId: string) => {
@@ -693,9 +768,18 @@ export default function PosPage() {
   }
 
   const buildSaleBody = () => {
-    const paidAmount = method === 'CASH'
-      ? (tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal)
-      : grandTotal
+    let paidAmount: number
+    let paymentMethod: PaymentMethod
+    if (splitMode) {
+      paidAmount = grandTotal
+      paymentMethod = 'CASH' // sale recorded as CASH; MoMo portion is pre-collected
+    } else if (method === 'CASH') {
+      paidAmount = tenderedNum > 0 ? Math.min(tenderedNum, grandTotal) : grandTotal
+      paymentMethod = 'CASH'
+    } else {
+      paidAmount = grandTotal
+      paymentMethod = method
+    }
     return {
       customerId: selectedCustomer?.id ?? null,
       items: cart.map(c => ({
@@ -707,8 +791,8 @@ export default function PosPage() {
           : 0),
       })),
       paidAmount,
-      paymentMethod: method,
-      momoPhone: method === 'MOMO' ? momoPhone.trim() || undefined : undefined,
+      paymentMethod,
+      momoPhone: method === 'MOMO' && !splitMode ? momoPhone.trim() || undefined : undefined,
       note,
     }
   }
@@ -735,6 +819,7 @@ export default function PosPage() {
       total: (result.totalAmount as number | undefined) ?? grandTotal,
       paidAmount: (result.paidAmount as number | undefined) ?? paidAmount,
       change:
+        !splitMode &&
         ((result.paymentMethod ?? method) as string) === 'CASH' &&
         tenderedNum > ((result.totalAmount as number | undefined) ?? grandTotal)
           ? tenderedNum - ((result.totalAmount as number | undefined) ?? grandTotal)
@@ -762,10 +847,36 @@ export default function PosPage() {
 
   const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return
-    if (method === 'MOMO' && !momoPhone.trim()) {
+
+    // Validate MoMo payment before proceeding
+    if ((method === 'MOMO' || (splitMode && momoPaidNum > 0)) && !momoPhone.trim()) {
       setErrorMsg('Please enter the MoMo phone number before charging.')
       return
     }
+
+    // For split / pure-MOMO: send MoMo request first and wait for approval
+    const momoAmount = splitMode ? momoPaidNum : method === 'MOMO' ? grandTotal : 0
+    if (momoAmount > 0 && momoStatus !== 'success') {
+      if (momoStatus === 'pending') {
+        setErrorMsg('Waiting for customer to approve MoMo payment.')
+        return
+      }
+      const saleRef = `POS-${Date.now()}`
+      const txId = await sendMomoRequest(momoAmount, momoPhone.trim(), saleRef)
+      if (!txId) return // error already set by sendMomoRequest
+      // Poll and complete checkout on success
+      pollMomoStatus(
+        txId,
+        () => void completeCheckout(),
+        () => setErrorMsg('MoMo payment was declined or timed out. Please try again.'),
+      )
+      return
+    }
+
+    await completeCheckout()
+  }
+
+  const completeCheckout = async () => {
     setErrorMsg('')
     setNoticeMsg('')
     setIsSubmitting(true)
@@ -780,7 +891,6 @@ export default function PosPage() {
       const result = await res.json()
 
       if (res.status === 202 && result.requiresApproval) {
-        // Sale submitted as pending — show PIN modal and start polling for manager approval
         setPendingApprovalSaleId(result.saleId)
         setPinDigits('')
         setPinError('')
@@ -918,6 +1028,9 @@ export default function PosPage() {
             </div>
             {lastSaleData.note && <div className="text-xs text-gray-500 border-t pt-2">Note: {lastSaleData.note}</div>}
             <div className="text-center text-xs text-gray-400 border-t pt-2">Thank you for your business!</div>
+            <div className="text-center border-t border-dashed border-gray-200 pt-2 mt-1" style={{ fontSize: '10px', color: '#aaa' }}>
+              System Developed EYO Solutions | 0246462398
+            </div>
           </div>
           <div className="px-4 pb-4 flex gap-2">
             <button
@@ -1026,8 +1139,11 @@ export default function PosPage() {
     const isQty      = numpadTarget === 'qty'
     const isPrice    = numpadTarget === 'price'
     const isDiscount = numpadTarget === 'lineDiscount'
+    // Payment targets are handled by PaymentNumpad — only show cart-edit targets here
+    const isPayment  = numpadTarget === 'tendered' || numpadTarget === 'momoPaid' || numpadTarget === 'cashPaid'
     const displayVal = isQty ? numpadBuffer : isPrice ? priceBuffer : isDiscount ? discountBuffer : tendered
     const label      = isQty ? 'QTY' : isPrice ? 'PRICE' : isDiscount ? 'DISC' : 'CASH'
+    if (isPayment && mobile) return null // PaymentPanel has its own inline numpad
 
     return (
       <div className="bg-white select-none">
@@ -1237,8 +1353,80 @@ export default function PosPage() {
     )
   }
 
+  // ── Inline numpad for payment panel ────────────────────────────────────────
+  const PaymentNumpad = () => {
+    const keys = ['7','8','9','4','5','6','1','2','3','.','0','←']
+    const label = splitMode
+      ? numpadTarget === 'momoPaid' ? 'MoMo Amount' : 'Cash Amount'
+      : method === 'CASH' ? 'Cash Tendered' : method === 'MOMO' ? 'MoMo Amount' : 'Amount'
+
+    const displayValue = splitMode
+      ? numpadTarget === 'momoPaid' ? momoPaid : cashPaid
+      : tendered
+
+    return (
+      <div className="px-2 pb-2">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">{label}</span>
+          {splitMode && (
+            <div className="flex gap-1">
+              <button
+                onClick={() => setNumpadTarget('momoPaid')}
+                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${numpadTarget === 'momoPaid' ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+              >MoMo</button>
+              <button
+                onClick={() => setNumpadTarget('cashPaid')}
+                className={`px-2 py-0.5 text-[10px] font-bold transition-colors ${numpadTarget === 'cashPaid' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}`}
+              >Cash</button>
+            </div>
+          )}
+        </div>
+        <div className={`px-3 py-2 mb-1.5 text-right border-2 ${
+          splitMode && numpadTarget === 'momoPaid' ? 'border-purple-400 bg-purple-50' :
+          splitMode && numpadTarget === 'cashPaid' ? 'border-indigo-400 bg-indigo-50' :
+          'border-gray-300 bg-gray-50'
+        }`}>
+          <span className={`text-2xl font-black tracking-tight ${displayValue ? 'text-gray-900' : 'text-gray-300'}`}>
+            {displayValue ? `GHS ${displayValue}` : 'GHS 0.00'}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-0.5">
+          {keys.map(k => (
+            <button
+              key={k}
+              onClick={() => numpadPress(k)}
+              className={`py-3 text-base font-bold transition-colors active:scale-95 touch-manipulation ${
+                k === '←'
+                  ? 'bg-red-50 text-red-500 hover:bg-red-100'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
+            >{k}</button>
+          ))}
+        </div>
+        {/* Quick amount shortcuts for Cash */}
+        {!splitMode && method === 'CASH' && grandTotal > 0 && (
+          <div className="grid grid-cols-3 gap-0.5 mt-0.5">
+            {[grandTotal, Math.ceil(grandTotal / 5) * 5, Math.ceil(grandTotal / 10) * 10]
+              .filter((v, i, arr) => arr.indexOf(v) === i)
+              .slice(0, 3)
+              .map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => setTendered(String(amount))}
+                  className="py-1.5 text-xs font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                >
+                  {formatCurrency(amount)}
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ── Payment panel (shared) ──────────────────────────────────────────────────
-  const PaymentPanel = ({ mobile = false }: { mobile?: boolean }) => (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const PaymentPanel = (_props: { mobile?: boolean }) => (
     <div className="flex flex-col">
       {/* ── Order discount ── */}
       {features.enableDiscounts && (
@@ -1269,12 +1457,33 @@ export default function PosPage() {
           <span className="text-sm font-bold text-gray-600">TOTAL</span>
           <span className="text-2xl font-black text-gray-900 tracking-tight">{formatCurrency(grandTotal)}</span>
         </div>
-        {method === 'CASH' && tenderedNum > 0 && change >= 0 && (
+        {/* Split breakdown */}
+        {splitMode && (momoPaidNum > 0 || cashPaidNum > 0) && (
+          <div className="mt-1 space-y-0.5">
+            {momoPaidNum > 0 && (
+              <div className="flex justify-between text-xs text-purple-700 font-semibold">
+                <span>MoMo</span><span>{formatCurrency(momoPaidNum)}</span>
+              </div>
+            )}
+            {cashPaidNum > 0 && (
+              <div className="flex justify-between text-xs text-indigo-700 font-semibold">
+                <span>Cash</span><span>{formatCurrency(cashPaidNum)}</span>
+              </div>
+            )}
+            {Math.abs(splitTotal - grandTotal) > 0.001 && (
+              <div className="flex justify-between text-xs font-bold text-red-600">
+                <span>{splitTotal < grandTotal ? 'Remaining' : 'Excess'}</span>
+                <span>{formatCurrency(Math.abs(grandTotal - splitTotal))}</span>
+              </div>
+            )}
+          </div>
+        )}
+        {!splitMode && method === 'CASH' && tenderedNum > 0 && change >= 0 && (
           <div className="flex justify-between text-sm font-bold text-green-700 mt-0.5">
             <span>Change</span><span>{formatCurrency(change)}</span>
           </div>
         )}
-        {method === 'CASH' && tenderedNum > 0 && change < 0 && (
+        {!splitMode && method === 'CASH' && tenderedNum > 0 && change < 0 && (
           <div className="flex justify-between text-sm font-bold text-red-600 mt-0.5">
             <span>Short</span><span>{formatCurrency(Math.abs(change))}</span>
           </div>
@@ -1285,47 +1494,74 @@ export default function PosPage() {
       </div>
 
       {/* ── Payment method tabs ── */}
-      <div className="grid grid-cols-3 border-t border-b border-gray-200">
+      <div className="grid grid-cols-4 border-t border-b border-gray-200">
         {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
-          <button key={m} onClick={() => { setMethod(m); setTendered(''); setMomoPhone('') }}
-            className={`py-2.5 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
-              method === m ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
+          <button key={m}
+            onClick={() => { setMethod(m); setTendered(''); setMomoPhone(''); setSplitMode(false); setMomoStatus('idle'); setMomoTxId(null) }}
+            className={`py-2 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
+              method === m && !splitMode ? 'border-indigo-600 text-indigo-700 bg-indigo-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
             }`}>
-            {m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'}{' '}
-            {m === 'CASH' ? 'Cash' : m === 'MOMO' ? 'MoMo' : 'Bank'}
+            {m === 'CASH' ? '💵 Cash' : m === 'MOMO' ? '📱 MoMo' : '🏦 Bank'}
           </button>
         ))}
+        <button
+          onClick={() => {
+            setSplitMode(s => !s)
+            if (!splitMode) { setNumpadTarget('momoPaid'); setMomoPaid(''); setCashPaid('') }
+            else { setMomoStatus('idle'); setMomoTxId(null) }
+          }}
+          className={`py-2 text-xs font-bold transition-colors touch-manipulation border-b-2 ${
+            splitMode ? 'border-purple-600 text-purple-700 bg-purple-50' : 'border-transparent text-gray-500 bg-white hover:bg-gray-50'
+          }`}>
+          ✂️ Split
+        </button>
       </div>
 
-      {/* ── MoMo phone input ── */}
-      {method === 'MOMO' && (
+      {/* ── MoMo phone — tap to open modal ── */}
+      {(method === 'MOMO' || splitMode) && (
         <div className="px-3 pt-2">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">MoMo Phone Number *</label>
-          <input
-            type="tel"
-            value={momoPhone}
-            onChange={e => setMomoPhone(e.target.value)}
-            placeholder="e.g. 0244123456"
-            className="w-full px-3 py-2 border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-sm"
-          />
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
+            Customer MoMo Number *
+          </label>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setMomoPhoneModalOpen(true)}
+              className={`flex-1 px-3 py-1.5 border-2 text-sm text-left ${
+                momoPhone ? 'border-indigo-400 text-gray-900 font-semibold' : 'border-indigo-200 text-gray-400'
+              } bg-white hover:border-indigo-500 transition-colors`}
+            >
+              {momoPhone || 'Tap to enter number…'}
+            </button>
+            {momoStatus === 'pending' && (
+              <span className="flex items-center gap-1 text-xs text-amber-700 font-semibold bg-amber-50 px-2 border border-amber-200 whitespace-nowrap">
+                ⏳ Waiting…
+              </span>
+            )}
+            {momoStatus === 'success' && (
+              <span className="flex items-center gap-1 text-xs text-green-700 font-semibold bg-green-50 px-2 border border-green-200">
+                ✓ Paid
+              </span>
+            )}
+            {momoStatus === 'failed' && (
+              <span className="flex items-center gap-1 text-xs text-red-700 font-semibold bg-red-50 px-2 border border-red-200">
+                ✗ Failed
+              </span>
+            )}
+          </div>
+          {momoStatus === 'pending' && (
+            <p className="text-[10px] text-amber-600 mt-0.5">Prompt sent — waiting for customer to approve on their phone.</p>
+          )}
         </div>
       )}
 
-      {/* ── Cash tendered display — tap to open numpad drawer ── */}
-      {method === 'CASH' && (
-        <button
-          onClick={() => { setNumpadTarget('tendered'); setShowNumpadDrawer(true) }}
-          className="mx-3 mt-2 px-3 py-2.5 border-2 border-dashed border-gray-300 hover:border-indigo-400 active:border-indigo-500 text-left touch-manipulation transition-colors"
-        >
-          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide block">Cash Tendered</span>
-          <span className={`text-lg font-black tracking-tight ${tenderedNum > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-            {tenderedNum > 0 ? formatCurrency(tenderedNum) : 'Tap to enter amount'}
-          </span>
-        </button>
-      )}
+      {/* ── Always-visible inline numpad ── */}
+      <div className="border-t border-gray-100 mt-1.5">
+        <PaymentNumpad />
+      </div>
 
       {/* ── Note + errors ── */}
-      <div className="px-3 pt-2 pb-1 space-y-1.5">
+      <div className="px-3 pb-1 space-y-1.5">
         <input type="text" value={note} onChange={e => setNote(e.target.value)}
           placeholder="Sale note (optional)"
           className="w-full px-2.5 py-1.5 border border-gray-200 text-xs focus:border-indigo-400 focus:outline-none" />
@@ -1333,22 +1569,19 @@ export default function PosPage() {
         {noticeMsg && <p className="text-xs text-amber-700 bg-amber-50 px-2 py-1">{noticeMsg}</p>}
       </div>
 
-      {/* ── Charge button ── */}
+      {/* ── Charge button — only active when payment amounts equal the total ── */}
       <button
-        onClick={() => {
-          if (cart.length === 0 || isSubmitting) return
-          if (method === 'CASH' && !tenderedNum) {
-            // Open numpad drawer to enter cash amount first
-            setNumpadTarget('tendered')
-            setShowNumpadDrawer(true)
-            return
-          }
-          handleCheckout()
-        }}
-        disabled={cart.length === 0 || isSubmitting}
-        className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
+        onClick={() => { if (!paymentComplete || isSubmitting || momoStatus === 'sending' || momoStatus === 'pending') return; void handleCheckout() }}
+        disabled={!paymentComplete || isSubmitting || momoStatus === 'sending' || momoStatus === 'pending'}
+        className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
       >
-        {isSubmitting ? 'Processing…' : `CHARGE  ${formatCurrency(grandTotal)}`}
+        {momoStatus === 'sending'
+          ? 'Sending MoMo request…'
+          : momoStatus === 'pending'
+          ? 'Waiting for customer…'
+          : isSubmitting
+          ? 'Processing…'
+          : `CHARGE  ${formatCurrency(grandTotal)}`}
       </button>
     </div>
   )
@@ -2039,6 +2272,13 @@ export default function PosPage() {
           </>
         )}
       </div>
+
+      <MomoPhoneModal
+        open={momoPhoneModalOpen}
+        initialValue={momoPhone}
+        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
+        onClose={() => setMomoPhoneModalOpen(false)}
+      />
     </>
   )
 }

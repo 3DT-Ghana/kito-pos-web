@@ -138,6 +138,8 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.status && { status: body.status as TenantStatus }),
         ...(body.showManufacturerOnReceipt !== undefined && { showManufacturerOnReceipt: body.showManufacturerOnReceipt }),
         ...(body.receiptPrinterWidth !== undefined && { receiptPrinterWidth: body.receiptPrinterWidth }),
+        ...(body.receiptPrinterName !== undefined && { receiptPrinterName: body.receiptPrinterName || null }),
+        ...(body.reportPrinterName !== undefined && { reportPrinterName: body.reportPrinterName || null }),
         ...(body.useUnitSystem !== undefined && { useUnitSystem: Boolean(body.useUnitSystem) }),
         ...(body.enableRetailPrice !== undefined && { enableRetailPrice: Boolean(body.enableRetailPrice) }),
         ...(body.enableWholesalePrice !== undefined && { enableWholesalePrice: Boolean(body.enableWholesalePrice) }),

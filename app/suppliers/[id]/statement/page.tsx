@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -13,7 +14,7 @@ import { ExportButton } from '@/components/ExportButton'
  * - All purchases and payments in chronological order
  * - Running balance after each transaction
  * - Date range filter
- * - Export to PDF via window.print()
+ * - Export to PDF via smartPrint('report')
  */
 
 type PurchaseItem = { item?: { name?: string } }
@@ -203,7 +204,7 @@ export default function SupplierStatementPage() {
               }))}
             />
             <button
-              onClick={() => window.print()}
+              onClick={() => smartPrint('report')}
               className="px-4 py-2 bg-amber-600 text-white font-semibold text-sm hover:bg-amber-700 flex items-center gap-2"
             >
               🖨️ Print / PDF

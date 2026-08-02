@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { smartPrint } from '@/lib/print/print'
 import { AppLayout } from '@/components/layout/AppLayout'
 import {
   TrendingUp,
@@ -43,7 +44,7 @@ function exportToExcel(rows: Record<string, any>[], filename: string, sheetName 
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
 
-function exportToPdf(title: string) {
+async function exportToPdf(title: string) {
   const style = document.createElement('style')
   style.id = '__print_style__'
   style.textContent = `
@@ -56,7 +57,7 @@ function exportToPdf(title: string) {
   document.head.appendChild(style)
 
   const src = document.getElementById('report-panel-content')
-  if (!src) { document.head.removeChild(style); window.print(); return }
+  if (!src) { document.head.removeChild(style); smartPrint('report'); return }
 
   const wrap = document.createElement('div')
   wrap.id = '__print_root__'
@@ -69,7 +70,7 @@ function exportToPdf(title: string) {
   wrap.appendChild(src.cloneNode(true))
   document.body.appendChild(wrap)
 
-  window.print()
+  await smartPrint('report', wrap)
 
   document.body.removeChild(wrap)
   document.head.removeChild(style)

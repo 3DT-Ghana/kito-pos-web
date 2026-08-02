@@ -1,10 +1,14 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { paymentSchema, PaymentFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
+import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
+
+type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
+type MomoStatus = 'idle' | 'sending' | 'pending' | 'success' | 'failed'
 
 interface PaymentFormProps {
   type: 'customer' | 'supplier'
@@ -18,11 +22,22 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
 
-  // Search state
+  // Entity search
   const [search, setSearch] = useState('')
   const [showDropdown, setShowDropdown] = useState(false)
   const [selectedEntity, setSelectedEntity] = useState<{ id: string; name: string; balance: number } | null>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
+
+  // Payment method & split
+  const [method, setMethod] = useState<PaymentMethod>('CASH')
+  const [splitMode, setSplitMode] = useState(false)
+  const [momoPhone, setMomoPhone] = useState('')
+  const [splitMomoAmount, setSplitMomoAmount] = useState('')
+  const [splitCashAmount, setSplitCashAmount] = useState('')
+
+  // MoMo prompt status
+  const [momoStatus, setMomoStatus] = useState<MomoStatus>('idle')
+  const [momoError, setMomoError] = useState('')
+  const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false)
 
   const label = type === 'customer' ? 'Customer' : 'Supplier'
   const fieldName: keyof PaymentFormData = type === 'customer' ? 'customerId' : 'supplierId'
@@ -35,11 +50,13 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
     formState: { errors },
   } = useForm<PaymentFormData>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      amount: undefined,
-      method: 'CASH',
-    },
+    defaultValues: { amount: undefined, method: 'CASH' },
   })
+
+  const amount = watch('amount') || 0
+  const splitMomoNum = parseFloat(splitMomoAmount) || 0
+  const splitCashNum = parseFloat(splitCashAmount) || 0
+  const splitReady = splitMode && Math.abs(splitMomoNum + splitCashNum - amount) < 0.01 && splitMomoNum > 0 && splitCashNum > 0
 
   // Pre-select entity if id provided
   useEffect(() => {
@@ -50,24 +67,21 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         setValue(fieldName, found.id)
       }
     }
-  }, [preselectedId, entities])
+  }, [preselectedId, entities]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close dropdown on outside click
+  // No global mousedown listener needed — dropdown closes via onBlur on the search input
+
+  // Auto-fill cash portion when momo amount changes in split mode
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
-        setShowDropdown(false)
-      }
+    if (splitMode && amount > 0 && splitMomoNum > 0) {
+      const cash = amount - splitMomoNum
+      setSplitCashAmount(cash > 0 ? cash.toFixed(2) : '')
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
+  }, [splitMomoAmount, splitMode, amount]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredEntities = search.trim()
     ? entities.filter(e => e.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
     : entities.slice(0, 8)
-
-  const amount = watch('amount') || 0
 
   const handleSelect = (entity: typeof entities[0]) => {
     setSelectedEntity(entity)
@@ -76,15 +90,119 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
     setShowDropdown(false)
   }
 
+  const handleMethodChange = (m: PaymentMethod) => {
+    setMethod(m)
+    setValue('method', m)
+    setSplitMode(false)
+    setMomoPhone('')
+    setMomoStatus('idle')
+    setMomoError('')
+    setSplitMomoAmount('')
+    setSplitCashAmount('')
+  }
+
+  // Send Hubtel MoMo collect request and poll for approval
+  const runMomoCollect = async (amountToCharge: number, phone: string, ref: string): Promise<boolean> => {
+    setMomoStatus('sending')
+    setMomoError('')
+    try {
+      const res = await fetch('/api/momo/collect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: amountToCharge,
+          phoneNumber: phone,
+          description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
+          clientReference: ref,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.transactionId) {
+        setMomoStatus('failed')
+        setMomoError(data.error || 'Failed to send MoMo request')
+        return false
+      }
+
+      const txId = data.transactionId
+      setMomoStatus('pending')
+
+      // Poll for approval — every 5 s, up to 2 min
+      return await new Promise<boolean>((resolve) => {
+        let attempts = 0
+        const interval = setInterval(async () => {
+          attempts++
+          try {
+            const sr = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
+            const sd = await sr.json()
+            if (sd.status === 'success') {
+              clearInterval(interval)
+              setMomoStatus('success')
+              resolve(true)
+            } else if (sd.status === 'failed' || sd.status === 'cancelled') {
+              clearInterval(interval)
+              setMomoStatus('failed')
+              setMomoError('Customer declined or payment failed. Try again.')
+              resolve(false)
+            } else if (attempts >= 24) {
+              clearInterval(interval)
+              setMomoStatus('failed')
+              setMomoError('MoMo request timed out. Ask the customer to try again.')
+              resolve(false)
+            }
+          } catch {
+            // network hiccup — keep polling
+          }
+        }, 5000)
+      })
+    } catch {
+      setMomoStatus('failed')
+      setMomoError('Network error sending MoMo request.')
+      return false
+    }
+  }
+
   const handleFormSubmit = async (data: PaymentFormData) => {
     if (!selectedEntity) {
       setFormError(`Please select a ${label.toLowerCase()}`)
       return
     }
-    setIsSubmitting(true)
     setFormError('')
+    setMomoError('')
+
+    const ref = `PAY-${type.toUpperCase()}-${Date.now()}`
+
+    // MoMo-only: send prompt first, wait for approval
+    if (method === 'MOMO' && !splitMode) {
+      if (momoPhone.trim().length < 9) {
+        setFormError('Enter the customer MoMo phone number first')
+        return
+      }
+      const approved = await runMomoCollect(amount, momoPhone.trim(), ref)
+      if (!approved) return
+    }
+
+    // Split (Cash + MoMo): send MoMo for the momo portion
+    if (splitMode) {
+      if (!splitReady) {
+        setFormError('Cash and MoMo amounts must add up to the total')
+        return
+      }
+      if (momoPhone.trim().length < 9) {
+        setFormError('Enter the MoMo phone number for the mobile portion')
+        return
+      }
+      const approved = await runMomoCollect(splitMomoNum, momoPhone.trim(), `${ref}-MOMO`)
+      if (!approved) return
+    }
+
+    setIsSubmitting(true)
     try {
-      await onSubmit(data)
+      const payload: PaymentFormData = {
+        ...data,
+        method: splitMode ? 'CASH' : method,
+        momoPhone: (method === 'MOMO' || splitMode) ? momoPhone.trim() : undefined,
+      }
+      await onSubmit(payload)
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to record payment')
     } finally {
@@ -92,14 +210,29 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
     }
   }
 
+  const momoPhoneValid = momoPhone.trim().length >= 9
+  const paymentReady = (() => {
+    if (!selectedEntity || selectedEntity.balance === 0 || amount <= 0) return false
+    if (method === 'MOMO' && !splitMode) return momoPhoneValid
+    if (splitMode) return momoPhoneValid && splitReady
+    return true
+  })()
+
+  const buttonLabel = (() => {
+    if (momoStatus === 'sending') return 'Sending MoMo request...'
+    if (momoStatus === 'pending') return 'Waiting for customer approval...'
+    if (isSubmitting) return 'Recording...'
+    return `Record Payment — ${formatCurrency(amount)}`
+  })()
+
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-5">
 
       {/* Hidden field */}
       <input type="hidden" {...register(fieldName)} />
 
-      {/* Entity Search */}
-      <div ref={searchRef} className="relative">
+      {/* ── Entity Search ── */}
+      <div className="relative">
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           {label} <span className="text-red-500">*</span>
         </label>
@@ -123,11 +256,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
             </div>
             <button
               type="button"
-              onClick={() => {
-                setSelectedEntity(null)
-                setValue(fieldName, '')
-                setSearch('')
-              }}
+              onClick={() => { setSelectedEntity(null); setValue(fieldName, ''); setSearch('') }}
               className="text-gray-400 hover:text-gray-700 text-2xl leading-none shrink-0"
             >
               ×
@@ -145,6 +274,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                 value={search}
                 onChange={e => { setSearch(e.target.value); setShowDropdown(true) }}
                 onFocus={() => setShowDropdown(true)}
+                onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
                 className="w-full pl-9 pr-4 py-3 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-base"
               />
             </div>
@@ -154,6 +284,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                   <button
                     key={entity.id}
                     type="button"
+                    onMouseDown={e => e.preventDefault()}
                     onClick={() => handleSelect(entity)}
                     className="w-full px-4 py-3 text-left hover:bg-blue-50 flex items-center gap-3 border-b border-gray-100 last:border-0"
                   >
@@ -170,9 +301,6 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
                         <p className="text-xs text-red-500">Balance: {formatCurrency(entity.balance)}</p>
                       )}
                     </div>
-                    {entity.balance === 0 && (
-                      <span className="text-xs text-green-600 font-semibold shrink-0">Cleared</span>
-                    )}
                   </button>
                 ))}
               </div>
@@ -186,14 +314,13 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         )}
       </div>
 
-      {/* Warning if entity has no balance */}
       {selectedEntity && selectedEntity.balance === 0 && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 text-sm font-medium">
           ⚠ This {label.toLowerCase()} has no outstanding balance
         </div>
       )}
 
-      {/* Payment Amount */}
+      {/* ── Payment Amount ── */}
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           Payment Amount (GH₵) <span className="text-red-500">*</span>
@@ -211,13 +338,11 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
         )}
         {selectedEntity && selectedEntity.balance > 0 && (
-          <p className="mt-1 text-xs text-gray-500">
-            Maximum: {formatCurrency(selectedEntity.balance)}
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Maximum: {formatCurrency(selectedEntity.balance)}</p>
         )}
       </div>
 
-      {/* Balance Preview */}
+      {/* Balance preview */}
       {selectedEntity && selectedEntity.balance > 0 && amount > 0 && (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-red-50 border border-red-100 p-3 text-center">
@@ -233,80 +358,134 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         </div>
       )}
 
-      {/* Payment Method */}
-      <div className="space-y-2">
+      {/* ── Payment Method tabs ── */}
+      <div className="space-y-3">
         <label className="block text-sm font-semibold text-gray-700">
           Payment Method <span className="text-red-500">*</span>
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {(['CASH', 'MOMO', 'BANK'] as const).map(method => (
-            <label
-              key={method}
-              className={`flex items-center justify-center gap-2 py-3 border-2 cursor-pointer font-semibold text-sm transition-all ${
-                watch('method') === method
+
+        {/* 4-tab row: Cash / MoMo / Bank / Split */}
+        <div className="grid grid-cols-4 gap-1.5">
+          {(['CASH', 'MOMO', 'BANK'] as PaymentMethod[]).map(m => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => handleMethodChange(m)}
+              className={`py-2.5 border-2 font-semibold text-xs transition-all ${
+                method === m && !splitMode
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'
               }`}
             >
-              <input type="radio" value={method} {...register('method')} className="sr-only" />
-              <span>{method === 'CASH' ? '💵' : method === 'MOMO' ? '📱' : '🏦'}</span>
-              <span>{method === 'CASH' ? 'Cash' : method === 'MOMO' ? 'Mobile Money' : 'Bank'}</span>
-            </label>
+              <span className="block text-base leading-none mb-0.5">{m === 'CASH' ? '💵' : m === 'MOMO' ? '📱' : '🏦'}</span>
+              {m === 'CASH' ? 'Cash' : m === 'MOMO' ? 'MoMo' : 'Bank'}
+            </button>
           ))}
+          <button
+            type="button"
+            onClick={() => { setSplitMode(true); setMethod('CASH'); setValue('method', 'CASH'); setMomoStatus('idle'); setMomoError('') }}
+            className={`py-2.5 border-2 font-semibold text-xs transition-all ${
+              splitMode
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300'
+            }`}
+          >
+            <span className="block text-base leading-none mb-0.5">✂</span>
+            Split
+          </button>
         </div>
-        {errors.method && (
-          <p className="mt-1 text-sm text-red-600">{errors.method.message}</p>
-        )}
-        {watch('method') === 'MOMO' && (
+
+        {/* MoMo phone — tap to open modal */}
+        {(method === 'MOMO' || splitMode) && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
               MoMo Phone Number <span className="text-red-500">*</span>
             </label>
-            <input
-              type="tel"
-              placeholder="e.g. 0244123456"
-              {...register('momoPhone')}
-              className="w-full px-3 py-2.5 border-2 border-blue-200 focus:border-blue-500 focus:outline-none text-sm"
-            />
-            {errors.momoPhone && (
-              <p className="mt-1 text-sm text-red-600">{errors.momoPhone.message}</p>
+            <button
+              type="button"
+              onClick={() => setMomoPhoneModalOpen(true)}
+              className={`w-full px-3 py-2.5 border-2 text-sm text-left transition-colors ${
+                momoPhone ? 'border-blue-400 text-gray-900 font-semibold' : 'border-blue-200 text-gray-400'
+              } bg-white hover:border-blue-500`}
+            >
+              {momoPhone || 'Tap to enter MoMo number…'}
+            </button>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {momoStatus === 'idle' && momoPhoneValid && 'Ready — click Record Payment to send prompt to customer.'}
+              {momoStatus === 'idle' && !momoPhoneValid && 'Tap above to enter the number.'}
+              {momoStatus === 'sending' && '⏳ Sending MoMo request to customer...'}
+              {momoStatus === 'pending' && '⏳ Waiting for customer to approve on their phone...'}
+              {momoStatus === 'success' && '✓ Customer approved the payment.'}
+            </p>
+            {momoError && (
+              <p className="text-xs text-red-600 mt-0.5">✗ {momoError}</p>
             )}
           </div>
         )}
-        {watch('method') === 'BANK' && (
+
+        {/* Split breakdown */}
+        {splitMode && amount > 0 && (
+          <div className="border border-purple-200 bg-purple-50 p-3 space-y-2">
+            <p className="text-xs font-bold text-purple-700 uppercase tracking-wide">Split breakdown — total: {formatCurrency(amount)}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">📱 MoMo amount</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0.01"
+                  max={amount}
+                  value={splitMomoAmount}
+                  onChange={e => setSplitMomoAmount(e.target.value)}
+                  className="w-full px-2 py-2 border border-purple-300 focus:border-purple-500 focus:outline-none text-sm font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">💵 Cash amount</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0.01"
+                  value={splitCashAmount}
+                  onChange={e => setSplitCashAmount(e.target.value)}
+                  className="w-full px-2 py-2 border border-purple-300 focus:border-purple-500 focus:outline-none text-sm font-semibold"
+                />
+              </div>
+            </div>
+            {splitMomoNum + splitCashNum > 0 && (
+              <p className={`text-xs font-semibold ${splitReady ? 'text-green-700' : 'text-red-600'}`}>
+                {splitReady
+                  ? `✓ ${formatCurrency(splitMomoNum)} MoMo + ${formatCurrency(splitCashNum)} Cash = ${formatCurrency(amount)}`
+                  : `Total mismatch: ${formatCurrency(splitMomoNum + splitCashNum)} ≠ ${formatCurrency(amount)}`}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Bank fields */}
+        {method === 'BANK' && !splitMode && (
           <div className="space-y-2 border border-blue-100 bg-blue-50/50 p-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Bank Name</label>
-              <input
-                type="text"
-                placeholder="e.g. GCB Bank, Ecobank, Fidelity"
-                {...register('bankName')}
-                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
-              />
+              <input type="text" placeholder="e.g. GCB Bank, Ecobank" {...register('bankName')} className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Account Holder Name</label>
-              <input
-                type="text"
-                placeholder="Name on the bank account"
-                {...register('bankAccountName')}
-                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
-              />
+              <input type="text" placeholder="Name on the bank account" {...register('bankAccountName')} className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Transaction / Reference No.</label>
-              <input
-                type="text"
-                placeholder="Bank transaction or reference number"
-                {...register('bankReference')}
-                className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white"
-              />
+              <input type="text" placeholder="Bank transaction or reference number" {...register('bankReference')} className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm bg-white" />
             </div>
           </div>
         )}
       </div>
 
-      {/* Error */}
+      {/* Errors */}
       {formError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm font-medium">
           ⚠ {formError}
@@ -317,22 +496,29 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={isSubmitting || !selectedEntity || selectedEntity.balance === 0}
+          disabled={isSubmitting || momoStatus === 'sending' || momoStatus === 'pending' || !paymentReady}
           className="flex-1 py-4 bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-md"
         >
-          {isSubmitting ? 'Recording...' : `Record Payment — ${formatCurrency(amount)}`}
+          {buttonLabel}
         </button>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            disabled={isSubmitting}
+            disabled={isSubmitting || momoStatus === 'sending' || momoStatus === 'pending'}
             className="w-28 py-4 border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
         )}
       </div>
+
+      <MomoPhoneModal
+        open={momoPhoneModalOpen}
+        initialValue={momoPhone}
+        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoError('') }}
+        onClose={() => setMomoPhoneModalOpen(false)}
+      />
     </form>
   )
 }

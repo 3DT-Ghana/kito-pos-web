@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -18,7 +19,9 @@ interface EndOfDayData {
     topSellingItems: { name: string; quantity: number; revenue: number }[]
   }
   cashAndPayments: {
-    cashSalesReceived: number
+    salesReceivedByMethod: { CASH: number; MOMO: number; BANK: number }
+    salesCountByMethod: { CASH: number; MOMO: number; BANK: number }
+    cashSalesReceived: number // legacy
     customerPaymentsByMethod: { CASH: number; MOMO: number; BANK: number }
     totalCustomerPayments: number
     newCreditIssued: number
@@ -131,10 +134,13 @@ export default function EndOfDayReportPage() {
                   { Section: 'Sales', Metric: 'Cash Sales Amount (GHS)', Value: data.salesSummary.cashSalesAmount.toFixed(2) },
                   { Section: 'Sales', Metric: 'Credit Sales Amount (GHS)', Value: data.salesSummary.creditSalesAmount.toFixed(2) },
                   { Section: 'Sales', Metric: 'Average Sale Value (GHS)', Value: data.salesSummary.averageSaleValue.toFixed(2) },
-                  { Section: 'Payments', Metric: 'Cash Received (GHS)', Value: data.cashAndPayments.cashSalesReceived.toFixed(2) },
-                  { Section: 'Payments', Metric: 'MOMO Received (GHS)', Value: data.cashAndPayments.customerPaymentsByMethod.MOMO.toFixed(2) },
-                  { Section: 'Payments', Metric: 'Bank Received (GHS)', Value: data.cashAndPayments.customerPaymentsByMethod.BANK.toFixed(2) },
-                  { Section: 'Payments', Metric: 'Debt Collected (GHS)', Value: data.cashAndPayments.totalCustomerPayments.toFixed(2) },
+                  { Section: 'Sales by Method', Metric: 'Cash Sales (GHS)', Value: data.cashAndPayments.salesReceivedByMethod.CASH.toFixed(2) },
+                  { Section: 'Sales by Method', Metric: 'MoMo Sales (GHS)', Value: data.cashAndPayments.salesReceivedByMethod.MOMO.toFixed(2) },
+                  { Section: 'Sales by Method', Metric: 'Bank Sales (GHS)', Value: data.cashAndPayments.salesReceivedByMethod.BANK.toFixed(2) },
+                  { Section: 'Debt Repayments', Metric: 'Cash Collected (GHS)', Value: data.cashAndPayments.customerPaymentsByMethod.CASH.toFixed(2) },
+                  { Section: 'Debt Repayments', Metric: 'MoMo Collected (GHS)', Value: data.cashAndPayments.customerPaymentsByMethod.MOMO.toFixed(2) },
+                  { Section: 'Debt Repayments', Metric: 'Bank Collected (GHS)', Value: data.cashAndPayments.customerPaymentsByMethod.BANK.toFixed(2) },
+                  { Section: 'Debt Repayments', Metric: 'Total Debt Collected (GHS)', Value: data.cashAndPayments.totalCustomerPayments.toFixed(2) },
                   { Section: 'Payments', Metric: 'New Credit Issued (GHS)', Value: data.cashAndPayments.newCreditIssued.toFixed(2) },
                   { Section: 'Purchases', Metric: 'Total Purchases', Value: data.purchasesSummary.totalCount },
                   { Section: 'Purchases', Metric: 'Total Amount (GHS)', Value: data.purchasesSummary.totalAmount.toFixed(2) },
@@ -150,7 +156,7 @@ export default function EndOfDayReportPage() {
               }}
             />
             <button
-              onClick={() => window.print()}
+              onClick={() => smartPrint('report')}
               className="px-4 py-2 bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 self-start sm:self-auto"
             >
               🖨️ Print / PDF
@@ -257,26 +263,54 @@ export default function EndOfDayReportPage() {
         {/* Section 2: Cash & Payments */}
         <div className="bg-white shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:break-inside-avoid">
           <div className="bg-green-600 px-4 py-3">
-            <h2 className="text-lg font-semibold text-white">Cash & Payments</h2>
+            <h2 className="text-lg font-semibold text-white">Cash &amp; Payments</h2>
           </div>
           <div className="p-4 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-500">Cash Sales Received</div>
-                <div className="text-xl font-bold text-green-600">{formatCurrency(data.cashAndPayments.cashSalesReceived)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">MOMO Payments</div>
-                <div className="text-xl font-bold text-yellow-600">{formatCurrency(data.cashAndPayments.customerPaymentsByMethod.MOMO)}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Bank Payments</div>
-                <div className="text-xl font-bold text-blue-600">{formatCurrency(data.cashAndPayments.customerPaymentsByMethod.BANK)}</div>
+
+            {/* Sales receipts by method */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sales Collected Today (by method)</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-green-50 border border-green-200 p-3">
+                  <div className="text-xs text-green-700 font-semibold uppercase tracking-wide mb-0.5">💵 Cash</div>
+                  <div className="text-xl font-bold text-green-700">{formatCurrency(data.cashAndPayments.salesReceivedByMethod.CASH)}</div>
+                  <div className="text-xs text-green-600">{data.cashAndPayments.salesCountByMethod.CASH} sale{data.cashAndPayments.salesCountByMethod.CASH !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-yellow-50 border border-yellow-200 p-3">
+                  <div className="text-xs text-yellow-700 font-semibold uppercase tracking-wide mb-0.5">📱 MoMo</div>
+                  <div className="text-xl font-bold text-yellow-700">{formatCurrency(data.cashAndPayments.salesReceivedByMethod.MOMO)}</div>
+                  <div className="text-xs text-yellow-600">{data.cashAndPayments.salesCountByMethod.MOMO} sale{data.cashAndPayments.salesCountByMethod.MOMO !== 1 ? 's' : ''}</div>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 p-3">
+                  <div className="text-xs text-blue-700 font-semibold uppercase tracking-wide mb-0.5">🏦 Bank</div>
+                  <div className="text-xl font-bold text-blue-700">{formatCurrency(data.cashAndPayments.salesReceivedByMethod.BANK)}</div>
+                  <div className="text-xs text-blue-600">{data.cashAndPayments.salesCountByMethod.BANK} sale{data.cashAndPayments.salesCountByMethod.BANK !== 1 ? 's' : ''}</div>
+                </div>
               </div>
             </div>
+
+            {/* Debt repayments */}
+            <div className="border-t border-gray-100 pt-3">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Debt Repayments Collected</h3>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">💵 Cash</div>
+                  <div className="text-lg font-bold text-gray-800">{formatCurrency(data.cashAndPayments.customerPaymentsByMethod.CASH)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">📱 MoMo</div>
+                  <div className="text-lg font-bold text-gray-800">{formatCurrency(data.cashAndPayments.customerPaymentsByMethod.MOMO)}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">🏦 Bank</div>
+                  <div className="text-lg font-bold text-gray-800">{formatCurrency(data.cashAndPayments.customerPaymentsByMethod.BANK)}</div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
               <div>
-                <div className="text-sm text-gray-500">Debt Payments Collected</div>
+                <div className="text-sm text-gray-500">Total Debt Collected</div>
                 <div className="text-xl font-bold text-green-600">{formatCurrency(data.cashAndPayments.totalCustomerPayments)}</div>
               </div>
               <div>

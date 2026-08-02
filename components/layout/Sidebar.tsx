@@ -239,9 +239,6 @@ export function Sidebar() {
     )
   }
 
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-  const roleLabel = user?.role?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) ?? ''
-
   return (
     <aside
       className={`hidden md:flex flex-col fixed inset-y-0 z-30 transition-all duration-200 ease-in-out ${
@@ -406,7 +403,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* User footer */}
+        {/* Bottom bar */}
         <div className={`shrink-0 border-t border-slate-800 ${collapsed ? 'p-2 space-y-1' : 'p-3'}`}>
           {collapsed ? (
             <>
@@ -420,33 +417,29 @@ export function Sidebar() {
                   <HelpCircle className="w-4 h-4" />
                 </Link>
               </Tooltip>
-              <Tooltip text={`${user?.name} · ${roleLabel}`} enabled={tooltipsEnabled} side="right" wrapperClassName="block">
-                <div className="w-9 h-9 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs mx-auto">
-                  {initials}
-                </div>
+              <Tooltip text="Sign out" enabled={tooltipsEnabled} side="right" wrapperClassName="block">
+                <button
+                  onClick={openSignOut}
+                  className="w-9 h-9 flex items-center justify-center mx-auto text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                </button>
               </Tooltip>
             </>
           ) : (
             <>
-              <Link
-                href="/help"
-                className={`flex items-center gap-2.5 px-2 py-2 text-sm transition-colors mb-2 ${
-                  isActive('/help')
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                }`}
-              >
-                <HelpCircle className="w-4 h-4 shrink-0" />
-                <span className="font-medium">Help &amp; Support</span>
-              </Link>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 bg-slate-700 flex items-center justify-center text-slate-200 font-bold text-xs shrink-0">
-                  {initials}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-200 truncate">{user?.name}</p>
-                  <p className="text-xs text-slate-500 truncate">{roleLabel}</p>
-                </div>
+              <div className="flex items-center justify-between mb-2">
+                <Link
+                  href="/help"
+                  className={`flex items-center gap-2 px-2 py-1.5 text-sm transition-colors ${
+                    isActive('/help')
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                  }`}
+                >
+                  <HelpCircle className="w-4 h-4 shrink-0" />
+                  <span className="font-medium">Help &amp; Support</span>
+                </Link>
                 <Tooltip text="Sign out" enabled={tooltipsEnabled}>
                   <button
                     onClick={openSignOut}
@@ -456,6 +449,9 @@ export function Sidebar() {
                   </button>
                 </Tooltip>
               </div>
+              <p className="text-[10px] text-slate-600 text-center leading-tight">
+                System Developed EYO Solutions | 0246462398
+              </p>
             </>
           )}
         </div>

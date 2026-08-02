@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -152,7 +153,7 @@ export default function PurchaseOrderDetailPage() {
                 Cancel
               </button>
             )}
-            <button onClick={() => window.print()}
+            <button onClick={() => smartPrint('report')}
               className="px-3 py-2 bg-purple-600 text-white font-semibold text-sm hover:bg-purple-700">
               Print PO
             </button>

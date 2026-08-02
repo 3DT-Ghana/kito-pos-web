@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -110,7 +111,7 @@ export default function InvoiceDetailPage() {
               <span className={`text-xs px-2.5 py-1 -full font-semibold ${STATUS_STYLE[invoice.status]}`}>
                 {invoice.status}
               </span>
-              <button onClick={() => window.print()} className="p-2 border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+              <button onClick={() => smartPrint('report')} className="p-2 border border-gray-300 text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
                 <Printer className="w-4 h-4" />
               </button>
             </div>

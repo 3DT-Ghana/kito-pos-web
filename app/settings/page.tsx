@@ -97,6 +97,8 @@ export default async function SettingsPage() {
       rolePermissions: true,
       showManufacturerOnReceipt: true,
       receiptPrinterWidth: true,
+      receiptPrinterName: true,
+      reportPrinterName: true,
       useUnitSystem: true,
       enableRetailPrice: true,
       enableWholesalePrice: true,
@@ -185,6 +187,8 @@ export default async function SettingsPage() {
           initialSettings={{
             showManufacturerOnReceipt: tenant.showManufacturerOnReceipt,
             receiptPrinterWidth: tenant.receiptPrinterWidth,
+            receiptPrinterName: tenant.receiptPrinterName,
+            reportPrinterName: tenant.reportPrinterName,
           }}
           tenantId={tenant.id}
         />

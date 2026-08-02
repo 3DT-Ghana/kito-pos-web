@@ -33,8 +33,6 @@ export function BottomNav() {
   ]
 
   const moreActive = !tabs.some(t => isActive(t.href))
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() ?? '?'
-  const roleLabel = user?.role?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) ?? ''
 
   const moreGroups = [
     {
@@ -145,15 +143,7 @@ export function BottomNav() {
 
             {/* Handle + header */}
             <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                  {initials}
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-gray-900">{user?.name}</p>
-                  <p className="text-xs text-gray-500">{roleLabel}</p>
-                </div>
-              </div>
+              <span className="text-sm font-semibold text-gray-700">Menu</span>
               <button
                 onClick={() => setDrawerOpen(false)}
                 className="p-2 text-gray-400 hover:bg-gray-100 transition-colors"
@@ -202,6 +192,9 @@ export function BottomNav() {
                   <LogOut className="w-4 h-4" />
                   Sign out
                 </Link>
+                <p className="text-[10px] text-gray-300 text-center mt-3 pb-1">
+                  System Developed EYO Solutions | 0246462398
+                </p>
               </div>
             </div>
           </div>

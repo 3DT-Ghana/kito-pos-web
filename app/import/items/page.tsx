@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { formatCurrency } from '@/lib/utils/format'
 
 /**
  * Import Items Page
@@ -15,18 +14,34 @@ import { formatCurrency } from '@/lib/utils/format'
  *   name, manufacturer, costPrice, sellingPrice, quantity
  */
 
-const REQUIRED_COLS = ['name', 'manufacturer', 'costprice', 'sellingprice']
-const TEMPLATE_CSV = `name,manufacturer,costPrice,sellingPrice,quantity
-Paracetamol 500mg,PharmaCo,2.50,4.00,100
-Ibuprofen 400mg,PharmaCo,3.00,5.50,50
-Amoxicillin 250mg,MedLabs,5.00,9.00,200`
+const REQUIRED_COLS = ['name', 'costprice', 'sellingprice']
+const TEMPLATE_CSV = `name,manufacturer,costPrice,sellingPrice,quantity,barcode,reorderLevel,itemType
+Paracetamol 500mg,PharmaCo,2.50,4.00,100,,10,INVENTORY
+Ibuprofen 400mg,PharmaCo,3.00,5.50,50,,5,INVENTORY
+Amoxicillin 250mg,MedLabs,5.00,9.00,200,8901234567890,20,INVENTORY
+Consultation Fee,,50.00,80.00,,,, SERVICE
+Delivery Charge,,0,15.00,,,,NON_INVENTORY`
+
+// Handles quoted fields so values with commas work correctly
+function parseCSVLine(line: string): string[] {
+  const result: string[] = []
+  let cur = '', inQuote = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (ch === '"') { inQuote = !inQuote }
+    else if (ch === ',' && !inQuote) { result.push(cur.trim()); cur = '' }
+    else { cur += ch }
+  }
+  result.push(cur.trim())
+  return result
+}
 
 function parseCSV(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim())
   if (lines.length < 2) return { headers: [], rows: [] }
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+  const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase())
   const rows = lines.slice(1).map(line => {
-    const vals = line.split(',').map(v => v.trim())
+    const vals = parseCSVLine(line)
     const obj: Record<string, string> = {}
     headers.forEach((h, i) => { obj[h] = vals[i] ?? '' })
     return obj
@@ -82,6 +97,7 @@ export default function ImportItemsPage() {
       setResult(data)
       setParsed(null)
       setCsvText('')
+      if (fileRef.current) fileRef.current.value = ''
     } catch (err) {
       setParseError(err instanceof Error ? err.message : 'Import failed')
     } finally {
@@ -122,13 +138,17 @@ export default function ImportItemsPage() {
 
         {/* CSV format info */}
         <div className="bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
-          <p className="font-semibold mb-1">Required CSV columns:</p>
-          <p className="font-mono text-xs bg-blue-100  px-2 py-1 inline-block">
-            name, manufacturer, costPrice, sellingPrice, quantity
+          <p className="font-semibold mb-1">CSV columns:</p>
+          <p className="font-mono text-xs bg-blue-100 px-2 py-1 inline-block">
+            name*, costPrice*, sellingPrice*, manufacturer, quantity, barcode, reorderLevel, itemType
           </p>
-          <p className="mt-1 text-xs text-blue-600">
-            • <strong>quantity</strong> is optional (defaults to 0) · Manufacturers are created automatically
-          </p>
+          <ul className="mt-2 text-xs text-blue-600 space-y-0.5">
+            <li>• <strong>name, costPrice, sellingPrice</strong> are required (marked *)</li>
+            <li>• <strong>itemType</strong>: <code className="bg-blue-100 px-0.5">INVENTORY</code> (default) · <code className="bg-blue-100 px-0.5">SERVICE</code> · <code className="bg-blue-100 px-0.5">NON_INVENTORY</code></li>
+            <li>• <strong>quantity</strong> and <strong>reorderLevel</strong> only apply to INVENTORY items (ignored for SERVICE/NON_INVENTORY)</li>
+            <li>• <strong>manufacturer</strong> is optional — auto-created if provided, defaults to &quot;General&quot;</li>
+            <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">&quot;Phone, Samsung&quot;</code></li>
+          </ul>
           <button
             onClick={() => {
               const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv' })
@@ -201,6 +221,25 @@ export default function ImportItemsPage() {
                 {isSubmitting ? 'Importing…' : `Import ${parsed.rows.length} items`}
               </button>
             </div>
+            {(() => {
+              const badRows = parsed.rows.filter(r => !r.name || !r.costprice || !r.sellingprice)
+              return badRows.length > 0 ? (
+                <div className="mx-5 mt-3 p-3 bg-amber-50 border border-amber-200 text-xs text-amber-800">
+                  ⚠ {badRows.length} row{badRows.length !== 1 ? 's' : ''} missing required fields (name / costPrice / sellingPrice) — these will be skipped.
+                </div>
+              ) : null
+            })()}
+            {(() => {
+              const serviceRows = parsed.rows.filter(r => {
+                const t = (r.itemtype || r.type || '').toUpperCase()
+                return t === 'SERVICE' || t === 'NON_INVENTORY' || t === 'NONINVENTORY'
+              }).length
+              return serviceRows > 0 ? (
+                <div className="mx-5 mt-1 p-3 bg-purple-50 border border-purple-200 text-xs text-purple-800">
+                  ℹ {serviceRows} service/non-inventory item{serviceRows !== 1 ? 's' : ''} — quantity and reorder level will be ignored for these.
+                </div>
+              ) : null
+            })()}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -211,19 +250,37 @@ export default function ImportItemsPage() {
                     <th className="text-right px-4 py-2 text-xs font-bold text-gray-500 uppercase">Cost</th>
                     <th className="text-right px-4 py-2 text-xs font-bold text-gray-500 uppercase">Sell</th>
                     <th className="text-right px-4 py-2 text-xs font-bold text-gray-500 uppercase">Qty</th>
+                    <th className="text-left px-4 py-2 text-xs font-bold text-gray-500 uppercase">Barcode</th>
+                    <th className="text-right px-4 py-2 text-xs font-bold text-gray-500 uppercase">Reorder</th>
+                    <th className="text-left px-4 py-2 text-xs font-bold text-gray-500 uppercase">Type</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {parsed.rows.slice(0, 50).map((row, i) => (
-                    <tr key={i} className="hover:bg-gray-50">
+                  {parsed.rows.slice(0, 50).map((row, i) => {
+                    const hasError = !row.name || !row.costprice || !row.sellingprice
+                    return (
+                    <tr key={i} className={hasError ? 'bg-red-50' : 'hover:bg-gray-50'}>
                       <td className="px-4 py-2 text-gray-400 text-xs">{i + 2}</td>
-                      <td className="px-4 py-2 font-semibold text-gray-900">{row.name || <span className="text-red-500">missing</span>}</td>
-                      <td className="px-4 py-2 text-gray-600">{row.manufacturer || <span className="text-red-500">missing</span>}</td>
-                      <td className="px-4 py-2 text-right text-gray-700">{row.costprice || row.costPrice || '—'}</td>
-                      <td className="px-4 py-2 text-right text-blue-600">{row.sellingprice || row.sellingPrice || '—'}</td>
+                      <td className="px-4 py-2 font-semibold text-gray-900">{row.name || <span className="text-red-500 font-normal">missing</span>}</td>
+                      <td className="px-4 py-2 text-gray-600">{row.manufacturer || <span className="text-gray-400">—</span>}</td>
+                      <td className="px-4 py-2 text-right text-gray-700">{row.costprice || <span className="text-red-500">missing</span>}</td>
+                      <td className="px-4 py-2 text-right text-blue-600">{row.sellingprice || <span className="text-red-500">missing</span>}</td>
                       <td className="px-4 py-2 text-right text-gray-700">{row.quantity || '0'}</td>
+                      <td className="px-4 py-2 text-gray-500 text-xs">{row.barcode || '—'}</td>
+                      <td className="px-4 py-2 text-right text-gray-500">{row.reorderlevel || '10'}</td>
+                      <td className="px-4 py-2">
+                        {(() => {
+                          const t = (row.itemtype || row.type || 'INVENTORY').toUpperCase()
+                          return t === 'SERVICE'
+                            ? <span className="px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700">SERVICE</span>
+                            : t === 'NON_INVENTORY' || t === 'NONINVENTORY'
+                            ? <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700">NON-INV</span>
+                            : <span className="px-1.5 py-0.5 text-[10px] font-bold bg-green-100 text-green-700">INVENTORY</span>
+                        })()}
+                      </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
               {parsed.rows.length > 50 && (

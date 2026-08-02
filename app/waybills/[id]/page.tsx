@@ -1,4 +1,5 @@
 'use client'
+import { smartPrint } from '@/lib/print/print'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -260,7 +261,7 @@ export default function WaybillDetailPage() {
                 Delete
               </button>
             )}
-            <button onClick={() => window.print()}
+            <button onClick={() => smartPrint('report')}
               className="inline-flex items-center gap-2 border border-gray-200 text-gray-700 hover:bg-gray-50 px-4 py-2 text-sm font-semibold transition-colors">
               <Printer className="w-4 h-4" /> Print
             </button>
