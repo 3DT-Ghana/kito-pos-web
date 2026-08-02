@@ -13,39 +13,45 @@
 -- column is nullable or has a default, so it is safe on tables with existing rows.
 
 -- CreateEnum
-CREATE TYPE "WaybillStatus" AS ENUM ('DRAFT', 'DISPATCHED', 'DELIVERED', 'CANCELLED');
+-- Postgres has no CREATE TYPE IF NOT EXISTS, so the guard is explicit.
+DO $$
+BEGIN
+    CREATE TYPE "WaybillStatus" AS ENUM ('DRAFT', 'DISPATCHED', 'DELIVERED', 'CANCELLED');
+EXCEPTION
+    WHEN duplicate_object THEN NULL;
+END $$;
 
 -- AlterTable
-ALTER TABLE "CustomerPayment" ADD COLUMN     "bankAccountName" TEXT,
-ADD COLUMN     "bankName" TEXT,
-ADD COLUMN     "bankReference" TEXT,
-ADD COLUMN     "momoPhone" TEXT;
+ALTER TABLE "CustomerPayment" ADD COLUMN IF NOT EXISTS     "bankAccountName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankReference" TEXT,
+ADD COLUMN IF NOT EXISTS     "momoPhone" TEXT;
 
 -- AlterTable
-ALTER TABLE "CustomerReturn" ADD COLUMN     "note" TEXT;
+ALTER TABLE "CustomerReturn" ADD COLUMN IF NOT EXISTS     "note" TEXT;
 
 -- AlterTable
-ALTER TABLE "Sale" ADD COLUMN     "bankAccountName" TEXT,
-ADD COLUMN     "bankName" TEXT,
-ADD COLUMN     "bankReference" TEXT,
-ADD COLUMN     "momoPhone" TEXT;
+ALTER TABLE "Sale" ADD COLUMN IF NOT EXISTS     "bankAccountName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankReference" TEXT,
+ADD COLUMN IF NOT EXISTS     "momoPhone" TEXT;
 
 -- AlterTable
-ALTER TABLE "SupplierPayment" ADD COLUMN     "bankAccountName" TEXT,
-ADD COLUMN     "bankName" TEXT,
-ADD COLUMN     "bankReference" TEXT,
-ADD COLUMN     "momoPhone" TEXT;
+ALTER TABLE "SupplierPayment" ADD COLUMN IF NOT EXISTS     "bankAccountName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankName" TEXT,
+ADD COLUMN IF NOT EXISTS     "bankReference" TEXT,
+ADD COLUMN IF NOT EXISTS     "momoPhone" TEXT;
 
 -- AlterTable
-ALTER TABLE "SupplierReturn" ADD COLUMN     "note" TEXT;
+ALTER TABLE "SupplierReturn" ADD COLUMN IF NOT EXISTS     "note" TEXT;
 
 -- AlterTable
-ALTER TABLE "Tenant" ADD COLUMN     "enableWhatsApp" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "metaWabaPhoneNumberId" TEXT,
-ADD COLUMN     "metaWabaToken" TEXT;
+ALTER TABLE "Tenant" ADD COLUMN IF NOT EXISTS     "enableWhatsApp" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN IF NOT EXISTS     "metaWabaPhoneNumberId" TEXT,
+ADD COLUMN IF NOT EXISTS     "metaWabaToken" TEXT;
 
 -- CreateTable
-CREATE TABLE "Waybill" (
+CREATE TABLE IF NOT EXISTS "Waybill" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "branchId" TEXT,
@@ -75,7 +81,7 @@ CREATE TABLE "Waybill" (
 );
 
 -- CreateTable
-CREATE TABLE "WaybillItem" (
+CREATE TABLE IF NOT EXISTS "WaybillItem" (
     "id" TEXT NOT NULL,
     "waybillId" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -88,20 +94,29 @@ CREATE TABLE "WaybillItem" (
 );
 
 -- CreateIndex
-CREATE INDEX "Waybill_tenantId_idx" ON "Waybill"("tenantId");
+CREATE INDEX IF NOT EXISTS "Waybill_tenantId_idx" ON "Waybill"("tenantId");
 
 -- CreateIndex
-CREATE INDEX "Waybill_tenantId_status_idx" ON "Waybill"("tenantId", "status");
+CREATE INDEX IF NOT EXISTS "Waybill_tenantId_status_idx" ON "Waybill"("tenantId", "status");
 
 -- CreateIndex
-CREATE INDEX "Waybill_saleId_idx" ON "Waybill"("saleId");
+CREATE INDEX IF NOT EXISTS "Waybill_saleId_idx" ON "Waybill"("saleId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Waybill_tenantId_waybillNumber_key" ON "Waybill"("tenantId", "waybillNumber");
+CREATE UNIQUE INDEX IF NOT EXISTS "Waybill_tenantId_waybillNumber_key" ON "Waybill"("tenantId", "waybillNumber");
 
 -- CreateIndex
-CREATE INDEX "WaybillItem_waybillId_idx" ON "WaybillItem"("waybillId");
+CREATE INDEX IF NOT EXISTS "WaybillItem_waybillId_idx" ON "WaybillItem"("waybillId");
 
 -- AddForeignKey
-ALTER TABLE "WaybillItem" ADD CONSTRAINT "WaybillItem_waybillId_fkey" FOREIGN KEY ("waybillId") REFERENCES "Waybill"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'WaybillItem_waybillId_fkey'
+    ) THEN
+        ALTER TABLE "WaybillItem" ADD CONSTRAINT "WaybillItem_waybillId_fkey"
+            FOREIGN KEY ("waybillId") REFERENCES "Waybill"("id")
+            ON DELETE CASCADE ON UPDATE CASCADE;
+    END IF;
+END $$;
 

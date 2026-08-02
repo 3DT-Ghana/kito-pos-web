@@ -1,4 +1,6 @@
-CREATE TABLE "PlatformAdmin" (
+-- Guarded so this converges whether the schema was built from migrations or
+-- with `prisma db push`. See prisma/migrations/README.md.
+CREATE TABLE IF NOT EXISTS "PlatformAdmin" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -10,4 +12,4 @@ CREATE TABLE "PlatformAdmin" (
     CONSTRAINT "PlatformAdmin_pkey" PRIMARY KEY ("id")
 );
 
-CREATE UNIQUE INDEX "PlatformAdmin_email_key" ON "PlatformAdmin"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "PlatformAdmin_email_key" ON "PlatformAdmin"("email");
