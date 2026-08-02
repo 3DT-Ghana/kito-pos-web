@@ -25,6 +25,10 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    // Purchase records expose supplier spend; gate reads like other financial data.
+    const { authorized, error: permError } = requirePermission(context!, 'view_basic_reports')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const supplierId = searchParams.get('supplierId')
     const paymentType = searchParams.get('paymentType')

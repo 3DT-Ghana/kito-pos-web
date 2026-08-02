@@ -29,6 +29,9 @@ export async function GET(req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_suppliers')
+    if (!authorized) return permError!
+
     const { id } = await params
 
     const { searchParams } = new URL(req.url)

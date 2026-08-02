@@ -514,6 +514,9 @@ model Purchase {
   totalAmount Float
   paidAmount  Float
   paymentType PaymentType
+  // Set when this purchase was created by receiving a purchase order. Unique,
+  // so a PO can never be received into a second purchase.
+  sourcePurchaseOrderId String? @unique
   createdAt   DateTime         @default(now())
   items       PurchaseItem[]
   returns     SupplierReturn[]

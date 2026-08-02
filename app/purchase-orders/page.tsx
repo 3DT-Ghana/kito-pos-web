@@ -30,16 +30,23 @@ export default function PurchaseOrdersPage() {
   const router = useRouter()
   const [orders, setOrders] = useState<PurchaseOrder[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState<POStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
   useEffect(() => { fetchOrders() }, [])
 
   const fetchOrders = async () => {
+    setError('')
     try {
       const res = await fetch('/api/purchase-orders')
-      if (!res.ok) throw new Error()
-      setOrders(await res.json())
+      if (res.ok) { setOrders(await res.json()); return }
+      // Was `throw new Error()` with no catch — an unhandled rejection that
+      // left the page showing the "create your first PO" empty state on a 403.
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || 'Failed to load purchase orders')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load purchase orders')
     } finally {
       setIsLoading(false)
     }
@@ -66,6 +73,17 @@ export default function PurchaseOrdersPage() {
   return (
     <AppLayout>
       <div className="space-y-5">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span>⚠ {error}</span>
+            <button
+              onClick={() => { setIsLoading(true); void fetchOrders() }}
+              className="px-3 py-1 text-xs font-semibold border border-red-300 hover:bg-red-100 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex-1">

@@ -181,6 +181,29 @@ export async function createPurchaseFromInput(
     : PaymentMethod.CASH
 
   const purchase = await prisma.$transaction(async (tx) => {
+    // Claim the purchase order first. The caller's status check happens outside
+    // this transaction, so two concurrent receives could both pass it — this
+    // conditional write is what actually makes conversion single-shot.
+    if (body.sourcePurchaseOrderId) {
+      const claimed = await tx.purchaseOrder.updateMany({
+        where: {
+          id: body.sourcePurchaseOrderId,
+          tenantId: context.tenantId,
+          status: { notIn: ['RECEIVED', 'CANCELLED'] },
+        },
+        data: {
+          status: 'RECEIVED',
+          ...(context.branchesEnabled && branchId ? { branchId } : {}),
+        },
+      })
+      if (claimed.count !== 1) {
+        throw new PurchaseOperationError(
+          'This purchase order has already been received.',
+          409
+        )
+      }
+    }
+
     const createdPurchase = await tx.purchase.create({
       data: {
         tenantId: context.tenantId,
@@ -189,6 +212,7 @@ export async function createPurchaseFromInput(
         totalAmount,
         paidAmount,
         paymentType: creditAmount > 0 ? PaymentType.CREDIT : PaymentType.CASH,
+        sourcePurchaseOrderId: body.sourcePurchaseOrderId ?? null,
       },
     })
 
@@ -220,17 +244,7 @@ export async function createPurchaseFromInput(
       })
     }
 
-    if (body.sourcePurchaseOrderId) {
-      await tx.purchaseOrder.update({
-        where: { id: body.sourcePurchaseOrderId },
-        data: {
-          status: 'RECEIVED',
-          ...(context.branchesEnabled && branchId
-            ? { branchId }
-            : {}),
-        },
-      })
-    }
+    // (The purchase order was claimed at the top of this transaction.)
 
     if (accountingEnabled) {
       await postPurchaseJournal(tx, {

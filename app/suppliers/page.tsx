@@ -29,6 +29,7 @@ export default function SuppliersPage() {
   const router = useRouter()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<Tab>('all')
   const [page, setPage] = useState(1)
@@ -37,11 +38,18 @@ export default function SuppliersPage() {
   useEffect(() => { fetchSuppliers() }, [])
 
   const fetchSuppliers = async () => {
+    setError('')
     try {
       const res = await fetch('/api/suppliers')
-      if (!res.ok) throw new Error('Failed')
+      if (!res.ok) {
+        // Was try/finally with no catch — a 403 rendered the empty state
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to load suppliers')
+      }
       const data = await res.json()
       setSuppliers(data.suppliers || data.data || data || [])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load suppliers')
     } finally {
       setIsLoading(false)
     }
@@ -71,6 +79,17 @@ export default function SuppliersPage() {
   return (
     <AppLayout>
       <div className="space-y-5">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm flex items-center justify-between gap-3">
+            <span>⚠ {error}</span>
+            <button
+              onClick={() => { setIsLoading(true); void fetchSuppliers() }}
+              className="px-3 py-1 text-xs font-semibold border border-red-300 hover:bg-red-100 shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <PageHeader
           title="Suppliers"
           subtitle={`${suppliers.length} suppliers registered`}

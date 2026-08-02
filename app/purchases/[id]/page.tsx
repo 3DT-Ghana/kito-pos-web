@@ -4,7 +4,9 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
-import { ArrowLeft, Pencil, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { useUser } from '@/hooks/useUser'
+import { useRolePermissions } from '@/hooks/useTenant'
 
 interface PurchaseItem {
   id: string
@@ -36,6 +38,30 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showReturnModal, setShowReturnModal] = useState(false)
+  const [isVoiding, setIsVoiding] = useState(false)
+  const [actionError, setActionError] = useState('')
+
+  const { user } = useUser()
+  const { hasTenantPermission, isLoading: permissionsLoading } = useRolePermissions()
+  const canVoid = !permissionsLoading && hasTenantPermission(user?.role, 'void_purchases')
+  const canEdit = user?.role === 'OWNER'
+
+  const voidPurchase = async () => {
+    if (!confirm(
+      'Void this purchase?\n\nStock will be removed and the supplier balance adjusted. This cannot be undone.'
+    )) return
+    setIsVoiding(true)
+    setActionError('')
+    try {
+      const res = await fetch(`/api/purchases/${id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Failed to void purchase')
+      router.push('/purchases')
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to void purchase')
+      setIsVoiding(false)
+    }
+  }
 
   useEffect(() => {
     fetch(`/api/purchases/${id}`)
@@ -93,15 +119,37 @@ export default function PurchaseDetailPage({ params }: { params: Promise<{ id: s
               <RotateCcw className="w-4 h-4" />
               Process Return
             </button>
-            <button
-              onClick={() => router.push(`/purchases/${id}/edit`)}
-              className="px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
-            >
-              <Pencil className="w-4 h-4" />
-              Edit Purchase
-            </button>
+            {/* Editing is OWNER-only server-side; showing it to everyone meant
+                filling the whole form and only then getting a 403. */}
+            {canEdit && (
+              <button
+                onClick={() => router.push(`/purchases/${id}/edit`)}
+                className="px-5 py-3 bg-indigo-50 text-indigo-700 border border-indigo-200 font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                Edit Purchase
+              </button>
+            )}
+            {/* The void endpoint was fully implemented but unreachable from any
+                screen, leaving void_purchases dead. */}
+            {canVoid && (
+              <button
+                onClick={voidPurchase}
+                disabled={isVoiding}
+                className="px-5 py-3 bg-red-50 text-red-700 border border-red-200 font-semibold hover:bg-red-100 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isVoiding ? 'Voiding…' : 'Void Purchase'}
+              </button>
+            )}
           </div>
         </div>
+
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            ⚠ {actionError}
+          </div>
+        )}
 
         {/* Purchase Summary Card */}
         <div className="bg-white shadow-sm border-2 border-gray-200 p-6">

@@ -19,6 +19,11 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    // view_purchase_orders was defined and shown in the admin permission editor
+    // but enforced nowhere — the toggle did nothing.
+    const { authorized, error: permError } = requirePermission(context!, 'view_purchase_orders')
+    if (!authorized) return permError!
+
     const featureError = requireTenantFeature(
       context!.features,
       'enablePurchaseOrders'

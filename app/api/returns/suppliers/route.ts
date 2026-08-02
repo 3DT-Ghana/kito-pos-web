@@ -249,11 +249,22 @@ export async function POST(req: Request) {
 
       // 3. Adjust supplier balance based on return type
       if (body.type === ReturnType.CREDIT) {
-        // Supplier issues credit note — reduces our AP balance
-        await tx.supplier.update({
-          where: { id: purchase.supplierId },
-          data: { balance: { decrement: amount } },
+        // Supplier issues credit note — reduces our AP balance.
+        // Floored at zero: returning goods on a purchase already paid in cash
+        // would otherwise drive the stored balance negative, permanently
+        // disagreeing with getScopedSupplierMetrics (which floors at zero) and
+        // slipping past the "balance > 0" guard on supplier deletion.
+        const supplierRow = await tx.supplier.findFirst({
+          where: { id: purchase.supplierId, tenantId: context!.tenantId },
+          select: { balance: true },
         })
+        const reduction = Math.min(amount, Math.max(0, supplierRow?.balance ?? 0))
+        if (reduction > 0) {
+          await tx.supplier.update({
+            where: { id: purchase.supplierId },
+            data: { balance: { decrement: reduction } },
+          })
+        }
       }
       // EXCHANGE: no balance adjustment needed
 

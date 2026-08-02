@@ -38,14 +38,22 @@ export default function PurchaseOrderDetailPage() {
   const [paidAmount, setPaidAmount] = useState('')
   const [isConverting, setIsConverting] = useState(false)
   const [convertError, setConvertError] = useState('')
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
 
   useEffect(() => { fetchOrder() }, [orderId])
 
   const fetchOrder = async () => {
+    setLoadError('')
     try {
       const res = await fetch(`/api/purchase-orders/${orderId}`)
-      if (!res.ok) throw new Error()
-      setOrder(await res.json())
+      if (res.ok) { setOrder(await res.json()); return }
+      // Was `throw new Error()` inside try/finally with no catch — an
+      // unhandled rejection, and a 403/500 rendered as "not found".
+      const data = await res.json().catch(() => ({}))
+      setLoadError(data.error || (res.status === 404 ? '' : 'Failed to load purchase order'))
+    } catch {
+      setLoadError('Could not reach the server. Check your connection and retry.')
     } finally {
       setIsLoading(false)
     }
@@ -53,13 +61,22 @@ export default function PurchaseOrderDetailPage() {
 
   const updateStatus = async (status: POStatus) => {
     setIsUpdating(true)
+    setActionError('')
     try {
-      await fetch(`/api/purchase-orders/${orderId}`, {
+      const res = await fetch(`/api/purchase-orders/${orderId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
-      fetchOrder()
+      // The response was never checked, so a 403/409 made the button appear
+      // to do nothing at all.
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to update status')
+      }
+      await fetchOrder()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Failed to update status')
     } finally {
       setIsUpdating(false)
     }
@@ -67,11 +84,14 @@ export default function PurchaseOrderDetailPage() {
 
   const handleDelete = async () => {
     if (!confirm('Delete this purchase order?')) return
-    const res = await fetch(`/api/purchase-orders/${orderId}`, { method: 'DELETE' })
-    if (res.ok) router.push('/purchase-orders')
-    else {
-      const err = await res.json()
-      alert(err.error || 'Failed to delete')
+    setActionError('')
+    try {
+      const res = await fetch(`/api/purchase-orders/${orderId}`, { method: 'DELETE' })
+      if (res.ok) { router.push('/purchase-orders'); return }
+      const data = await res.json().catch(() => ({}))
+      setActionError(data.error || 'Failed to delete')
+    } catch {
+      setActionError('Could not reach the server. Please try again.')
     }
   }
 
@@ -93,7 +113,10 @@ export default function PurchaseOrderDetailPage() {
         throw new Error(err.error || 'Failed to receive')
       }
       const data = await res.json()
-      router.push(`/purchases/${data.purchaseId}`)
+      // The convert route returns the purchase record itself, so the id is on
+      // `id` — `data.purchaseId` was undefined and sent every successful
+      // receive to /purchases/undefined.
+      router.push(`/purchases/${data.id}`)
     } catch (err) {
       setConvertError(err instanceof Error ? err.message : 'Failed to receive')
     } finally {
@@ -106,7 +129,23 @@ export default function PurchaseOrderDetailPage() {
   }
 
   if (!order) {
-    return <AppLayout><div className="max-w-3xl mx-auto text-center py-16"><p className="text-gray-500">Purchase order not found</p></div></AppLayout>
+    return (
+      <AppLayout>
+        <div className="max-w-3xl mx-auto text-center py-16 space-y-3">
+          <p className={loadError ? 'text-red-600' : 'text-gray-500'}>
+            {loadError || 'Purchase order not found'}
+          </p>
+          {loadError && (
+            <button
+              onClick={() => { setIsLoading(true); void fetchOrder() }}
+              className="px-4 py-2 text-sm font-semibold border-2 border-gray-200 hover:bg-gray-50"
+            >
+              Retry
+            </button>
+          )}
+        </div>
+      </AppLayout>
+    )
   }
 
   const meta = STATUS_META[order.status]
@@ -118,6 +157,11 @@ export default function PurchaseOrderDetailPage() {
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto space-y-5 print:space-y-3">
+        {actionError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm print:hidden">
+            ⚠ {actionError}
+          </div>
+        )}
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 print:hidden">
           <div className="flex items-center gap-3 flex-1">

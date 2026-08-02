@@ -27,6 +27,9 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'record_payments')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const supplierId = searchParams.get('supplierId')
     const startDate = searchParams.get('startDate')
@@ -176,15 +179,26 @@ export async function POST(req: Request) {
         },
       })
 
-      // 2. Reduce supplier balance
-      await tx.supplier.update({
-        where: { id: body.supplierId },
+      // 2. Reduce supplier balance. Conditional on the balance still covering
+      // the amount — the check above runs outside this transaction, so two
+      // concurrent payments could each pass it and drive the balance negative.
+      const balanceUpdate = await tx.supplier.updateMany({
+        where: {
+          id: body.supplierId,
+          tenantId: context!.tenantId,
+          balance: { gte: amount },
+        },
         data: {
           balance: {
             decrement: amount,
           },
         },
       })
+      if (balanceUpdate.count !== 1) {
+        throw new Error(
+          'The supplier balance changed while this payment was being recorded. Please check the balance and try again.'
+        )
+      }
 
       // 3. Post journal entry (if accounting enabled)
       if (accountingEnabled) {

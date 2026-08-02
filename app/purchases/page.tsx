@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { PurchaseWithDetails } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils/format'
 import { useBranch } from '@/lib/branch/BranchContext'
+import { useUser } from '@/hooks/useUser'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
@@ -23,6 +24,8 @@ type FilterStatus = 'all' | 'paid' | 'partial'
 export default function PurchasesPage() {
   const router = useRouter()
   const { currentBranchId } = useBranch()
+  const { user } = useUser()
+  const canEdit = user?.role === 'OWNER'
   const [purchases, setPurchases] = useState<PurchaseWithDetails[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -241,12 +244,15 @@ export default function PurchasesPage() {
                             >
                               View
                             </button>
-                            <button
-                              onClick={e => { e.stopPropagation(); router.push(`/purchases/${purchase.id}/edit`) }}
-                              className="text-xs text-indigo-600 font-semibold hover:underline"
-                            >
-                              Edit
-                            </button>
+                            {/* Editing is OWNER-only server-side */}
+                            {canEdit && (
+                              <button
+                                onClick={e => { e.stopPropagation(); router.push(`/purchases/${purchase.id}/edit`) }}
+                                className="text-xs text-indigo-600 font-semibold hover:underline"
+                              >
+                                Edit
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

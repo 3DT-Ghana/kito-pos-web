@@ -22,6 +22,9 @@ export async function GET(req: Request, { params }: RouteParams) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    const { authorized, error: permError } = requirePermission(context!, 'view_purchase_orders')
+    if (!authorized) return permError!
+
     const featureError = requireTenantFeature(
       context!.features,
       'enablePurchaseOrders'
@@ -139,11 +142,29 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       )
     }
 
+    // Transitions were unvalidated, so a cancelled order could be moved back to
+    // DRAFT or SENT and then received.
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+      DRAFT:     ['SENT', 'CANCELLED'],
+      SENT:      ['CANCELLED'],
+      CANCELLED: [],
+    }
+    if (body.status && body.status !== existing.status) {
+      const allowed = ALLOWED_TRANSITIONS[existing.status] ?? []
+      if (!allowed.includes(body.status)) {
+        return NextResponse.json(
+          { error: `Cannot change a ${existing.status} purchase order to ${body.status}.` },
+          { status: 409 }
+        )
+      }
+    }
+
     const shouldBackfillBranchId =
       context!.branchesEnabled && branchId && !existing.branchId
 
-    const order = await prisma.purchaseOrder.update({
-      where: { id },
+    // Scope the write by tenant/branch rather than trusting the prior read
+    const updateResult = await prisma.purchaseOrder.updateMany({
+      where: { id, tenantId: context!.tenantId },
       data: {
         ...(body.status && { status: body.status }),
         ...(body.note !== undefined && { note: body.note }),
@@ -153,7 +174,13 @@ export async function PATCH(req: Request, { params }: RouteParams) {
         ...(shouldBackfillBranchId ? { branchId } : {}),
       },
     })
+    if (updateResult.count !== 1) {
+      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    }
 
+    const order = await prisma.purchaseOrder.findFirst({
+      where: { id, tenantId: context!.tenantId },
+    })
     return NextResponse.json(order)
   } catch (err) {
     console.error('Failed to update purchase order:', err)

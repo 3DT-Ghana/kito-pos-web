@@ -21,6 +21,10 @@ export async function GET(req: Request) {
     const { error, context } = await requireBranchAccess()
     if (error) return error
 
+    // view_suppliers was likewise defined, granted and advertised but unused.
+    const { authorized, error: permError } = requirePermission(context!, 'view_suppliers')
+    if (!authorized) return permError!
+
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search')
     const hasCredit = searchParams.get('hasCredit') === 'true'
