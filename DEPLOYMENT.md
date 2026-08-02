@@ -345,6 +345,17 @@ does not re-issue and does not burn Let's Encrypt rate limits.
 
 `APP_DOMAIN` and `ACME_EMAIL` are read from `/etc/pos/app.env`.
 
+`scripts/deploy.sh` copies `docker/Caddyfile` to `/opt/pos/caddy/Caddyfile`, and
+the container mounts that **directory**. Mounting the file directly does not
+work: a bind-mounted file is pinned to its inode, and `actions/checkout`
+replaces the file rather than rewriting it, so the container would go on serving
+whatever Caddyfile it started with and no config change would ever take effect.
+
+> Response-header rules need the `>` prefix (`header /api/* >Cache-Control …`).
+> `>` means "set, deferred". A plain set runs *before* the reverse proxy writes
+> the upstream's headers, so the upstream value is appended afterwards and the
+> response carries the field twice.
+
 > The app sets `compress: false` — on Vercel the edge compressed, and here
 > [docker/Caddyfile](docker/Caddyfile) does (`encode zstd gzip`). If you ever put
 > the app behind something that does not compress, flip that flag back on.

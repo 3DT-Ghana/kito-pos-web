@@ -85,6 +85,13 @@ else
   echo "  no current image; first deploy"
 fi
 
+log "Staging the Caddy config"
+# Caddy mounts /opt/pos/caddy as a directory (see docker-compose.yml for why a
+# single-file mount cannot work here), so the config has to be copied out of the
+# checkout before the container starts.
+install -d /opt/pos/caddy
+install -m 0644 docker/Caddyfile /opt/pos/caddy/Caddyfile
+
 log "Building"
 compose build app migrate
 
@@ -102,8 +109,15 @@ if ! wait_for_health; then
 fi
 
 log "Reloading Caddy"
-compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
-  || warn "Caddy reload failed; it is still serving its last good config."
+# Validate first: `caddy reload` on a broken config leaves the old one running,
+# but checking explicitly turns a silent no-op into a visible warning.
+if compose exec -T caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1; then
+  compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile \
+    || warn "Caddy reload failed; it is still serving its last good config."
+else
+  warn "docker/Caddyfile is invalid — Caddy kept its previous config. Check:"
+  warn "  docker compose -p $PROJECT exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile"
+fi
 
 log "Pruning dangling images"
 docker image prune -f >/dev/null || true

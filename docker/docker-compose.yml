@@ -49,7 +49,12 @@ services:
       APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set in /etc/pos/app.env}
       ACME_EMAIL: ${ACME_EMAIL:-}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # A *directory* mount, staged by scripts/deploy.sh from docker/Caddyfile.
+      # Mounting the file directly does not work here: a bind-mounted file is
+      # pinned to its inode, and `actions/checkout` replaces the file rather
+      # than rewriting it, so the container would keep serving the Caddyfile it
+      # started with and no config change would ever take effect.
+      - /opt/pos/caddy:/etc/caddy:ro
       - caddy_data:/data      # certificates and ACME account — must persist
       - caddy_config:/config
     networks:
