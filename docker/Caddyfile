@@ -22,9 +22,10 @@
 	encode zstd gzip
 
 	# Private documents are authorised per request and must never be cached by
-	# an intermediary. next.config.ts already sends this; stated here too so the
-	# guarantee does not depend on the origin alone.
-	header /api/* Cache-Control "private, no-store, max-age=0"
+	# an intermediary. next.config.ts already sends this; restated here so the
+	# guarantee does not depend on the origin alone. The `>` prefix *replaces*
+	# rather than appends — without it the response carries the header twice.
+	header /api/* >Cache-Control "private, no-store, max-age=0"
 
 	reverse_proxy app:3000 {
 		# Reports and spreadsheet exports can run long; the Vercel deployment
