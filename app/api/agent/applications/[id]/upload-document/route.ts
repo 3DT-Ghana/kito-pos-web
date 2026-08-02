@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server'
 import { requireApprovedAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
-import {
-  deleteStoredFileBySignedUrl,
-  getSignedUrl,
-  uploadGhanaCard,
-} from '@/lib/storage/supabase'
+import { uploadDocument, deleteStoredFile } from '@/lib/storage'
 import { DocumentType } from '@prisma/client'
+import { MAX_UPLOAD_BYTES, MAX_UPLOAD_LABEL } from '@/lib/storage/limits'
+
+export const runtime = 'nodejs'
 
 interface RouteParams {
   params: Promise<{ id: string }>
 }
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf']
-const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
+// See lib/storage/limits.ts — capped below Vercel's ~4.5 MB request body limit.
+const MAX_SIZE = MAX_UPLOAD_BYTES
 
 /**
  * POST /api/agent/applications/[id]/upload-document
@@ -69,16 +69,15 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     if (file.size > MAX_SIZE) {
-      return NextResponse.json({ error: 'File must be under 5 MB' }, { status: 400 })
+      return NextResponse.json({ error: `File must be under ${MAX_UPLOAD_LABEL}` }, { status: 400 })
     }
 
     const ext = file.type === 'application/pdf' ? 'pdf' : file.type.split('/')[1].replace('jpeg', 'jpg')
     const timestamp = Date.now()
-    const path = `businesses/${id}/${documentType.toLowerCase()}-${timestamp}.${ext}`
+    const key = `businesses/${id}/${documentType.toLowerCase()}-${timestamp}.${ext}`
 
     const buffer = Buffer.from(await file.arrayBuffer())
-    await uploadGhanaCard(path, buffer, file.type)
-    const fileUrl = await getSignedUrl(path)
+    const fileUrl = await uploadDocument(key, buffer, file.type)
 
     const existingDocuments = await prisma.businessDocument.findMany({
       where: {
@@ -112,7 +111,7 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     for (const existingDocument of existingDocuments) {
       try {
-        await deleteStoredFileBySignedUrl(existingDocument.fileUrl)
+        await deleteStoredFile(existingDocument.fileUrl)
       } catch (storageError) {
         console.error('Failed to delete replaced application document from storage:', storageError)
       }

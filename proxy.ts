@@ -142,6 +142,7 @@ export default withAuth(
     const isAuthApi = pathname.startsWith('/api/auth/')
     const isPublicApi =
       isAuthApi ||
+      pathname === '/api/health' ||
       pathname.startsWith('/api/tenants') ||
       pathname.startsWith('/api/agent/register') ||
       // session-settings GET is read by useIdleTimeout on every authenticated page
@@ -152,6 +153,10 @@ export default withAuth(
     const isAdminApi = pathname.startsWith('/api/admin/')
     const isAgentPage = pathname.startsWith('/agent')
     const isAgentApi = pathname.startsWith('/api/agent/')
+    // Private file downloads are shared between agents and super admins, so they
+    // sit outside the agent/admin/tenant split. The route handler itself checks
+    // that the caller owns (or administers) the object before streaming it.
+    const isFileApi = pathname.startsWith('/api/files/')
     const isPublicAgentPage =
       pathname === '/agent/login' || pathname === '/agent/register'
     const isBlockedAgent =
@@ -178,6 +183,24 @@ export default withAuth(
     }
 
     if (isApi && !isPublicApi) {
+      // Private file downloads are checked before the admin/agent/tenant split,
+      // because both agents and super admins need them. A session cookie is
+      // required — the route reads getServerSession, so a mobile bearer token
+      // would not identify the caller. The handler itself then confirms the
+      // caller owns (or administers) the object.
+      if (isFileApi) {
+        if (!token) {
+          return applySecurityHeaders(
+            NextResponse.json(
+              { error: 'Authentication required' },
+              { status: 401 }
+            )
+          )
+        }
+
+        return applySecurityHeaders(NextResponse.next())
+      }
+
       if (isAdminApi) {
         if (!token) {
           return applySecurityHeaders(

@@ -378,7 +378,10 @@ export default function AdminAgentDetailPage() {
           )}
           {agent.ghanaCardImageUrl ? (
             <div className="relative w-full max-w-sm h-44 overflow-hidden border border-gray-200">
-              <Image src={agent.ghanaCardImageUrl} alt="Ghana Card" fill className="object-contain" />
+              {/* unoptimized: the file is served from the authenticated
+                  /api/files route, and the image optimizer fetches without the
+                  session cookie. */}
+              <Image src={agent.ghanaCardImageUrl} alt="Ghana Card" fill unoptimized className="object-contain" />
             </div>
           ) : (
             <p className="text-sm text-gray-400 italic">No image uploaded</p>

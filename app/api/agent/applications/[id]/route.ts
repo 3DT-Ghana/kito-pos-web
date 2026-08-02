@@ -4,7 +4,7 @@ import { requireApprovedAgent } from '@/lib/agent/server'
 import { prisma } from '@/lib/db/prisma'
 import { getGlobalKYCSettings } from '@/lib/kyc/settings'
 import { normalizeBusinessApplicationPayload } from '@/lib/agent/businessApplications'
-import { deleteStoredFileBySignedUrl } from '@/lib/storage/supabase'
+import { deleteStoredFile } from '@/lib/storage'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -188,7 +188,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     for (const document of application.documents) {
       try {
-        await deleteStoredFileBySignedUrl(document.fileUrl)
+        await deleteStoredFile(document.fileUrl)
       } catch (storageError) {
         console.error('Failed to delete application document from storage:', storageError)
       }
