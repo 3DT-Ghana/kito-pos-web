@@ -207,6 +207,32 @@
   html.printing-receipt body {
     font-size: inherit;
   }
+
+  /* Receipt isolation. This used to live inside ThermalReceipt, so anything
+     rendering its own receipt markup — the POS modal does — printed the entire
+     screen instead. Keyed off .thermal-receipt rather than the component, so
+     every receipt surface gets it. */
+  body:has(.thermal-receipt) * {
+    visibility: hidden;
+  }
+
+  body:has(.thermal-receipt) .thermal-receipt,
+  body:has(.thermal-receipt) .thermal-receipt * {
+    visibility: visible;
+  }
+
+  body:has(.thermal-receipt) .thermal-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    max-width: 80mm;
+    margin: 0;
+    padding: 8px;
+    /* The on-screen modal scrolls; print must show every line, not one screenful. */
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 /* ── Login page utilities ──────────────────────────────────────── */

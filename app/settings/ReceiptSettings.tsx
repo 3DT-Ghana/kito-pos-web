@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Printer, Check, RefreshCw } from 'lucide-react'
 import { findPrinters } from '@/lib/print/qzTray'
+import { smartPrint } from '@/lib/print/print'
 import { savePrinterName } from '@/lib/print/print'
 
 interface ReceiptSettingsProps {
@@ -24,6 +25,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const [detectingPrinters, setDetectingPrinters] = useState(false)
   const [qzStatus, setQzStatus] = useState<'unknown' | 'connected' | 'unavailable'>('unknown')
   const [qzError, setQzError] = useState('')
+  const [testingPrint, setTestingPrint] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -51,6 +53,39 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
       setQzError(err instanceof Error ? err.message : 'Printer detection failed.')
     } finally {
       setDetectingPrinters(false)
+    }
+  }
+
+  // Prints a real receipt-shaped page through the same path a sale uses, so it
+  // exercises the page geometry and the silent/dialog decision rather than just
+  // proving the printer exists.
+  const runPrintTest = () => {
+    setTestingPrint(true)
+    const holder = document.createElement('div')
+    holder.className = 'thermal-receipt'
+    holder.style.cssText = `width:${printerWidth};max-width:${printerWidth};font-family:monospace;font-size:12px;line-height:1.4;padding:8px;background:#fff;color:#000;position:fixed;left:-10000px;top:0;`
+    holder.innerHTML = `
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:8px">
+        <div style="font-weight:700;font-size:16px">PRINTER TEST</div>
+        <div>${new Date().toLocaleString()}</div>
+      </div>
+      <div style="border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between"><span>Test item A</span><span>10.00</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Test item B</span><span>5.50</span></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px">
+        <span>TOTAL</span><span>15.50</span>
+      </div>
+      <div style="text-align:center;margin-top:10px;border-top:2px solid #000;padding-top:8px">
+        <div style="font-weight:700">If you can read this, printing works.</div>
+        <div style="font-size:9px;margin-top:4px">Paper width setting: ${printerWidth}</div>
+      </div>`
+    document.body.appendChild(holder)
+    try {
+      void smartPrint('receipt', holder)
+    } finally {
+      // Leave it up briefly so the print engine can rasterise before removal.
+      setTimeout(() => { holder.remove(); setTestingPrint(false) }, 1500)
     }
   }
 
@@ -128,6 +163,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                 </div>
               </details>
             </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
             <button
               type="button"
               onClick={detectPrinters}
@@ -137,6 +173,16 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
               <RefreshCw className={`w-4 h-4 ${detectingPrinters ? 'animate-spin' : ''}`} />
               {detectingPrinters ? 'Detecting...' : 'Detect Printers'}
             </button>
+            <button
+              type="button"
+              onClick={runPrintTest}
+              disabled={testingPrint}
+              title="Print a sample receipt using the current settings"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shrink-0 transition-colors disabled:opacity-50"
+            >
+              🖨 {testingPrint ? 'Sending...' : 'Test Print'}
+            </button>
+            </div>
           </div>
 
           {qzStatus === 'unavailable' && (

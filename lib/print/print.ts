@@ -63,7 +63,31 @@ export async function smartPrint(
 
   // With --kiosk-printing this prints straight to the default printer with no
   // dialog, which is the practical alternative to QZ on a locked-down till.
-  window.print()
+  //
+  // Receipts need the thermal page geometry rather than the app-wide A4 rule.
+  // ThermalReceipt sets this itself while mounted, but surfaces that build
+  // their own receipt markup (the POS modal) do not, so apply it here for the
+  // duration of the print and take it back off afterwards.
+  const isReceipt = target === 'receipt' && Boolean(element?.closest('.thermal-receipt') ?? element?.classList.contains('thermal-receipt'))
+  const root = document.documentElement
+  const alreadyMarked = root.classList.contains('printing-receipt')
+  let pageStyle: HTMLStyleElement | null = null
+
+  if (isReceipt && !alreadyMarked) {
+    root.classList.add('printing-receipt')
+    pageStyle = document.createElement('style')
+    pageStyle.textContent = '@media print { @page { size: 80mm auto; margin: 0; } }'
+    document.head.appendChild(pageStyle)
+  }
+
+  try {
+    window.print()
+  } finally {
+    if (pageStyle) {
+      pageStyle.remove()
+      root.classList.remove('printing-receipt')
+    }
+  }
 }
 
 /** Clears the backoff so a fresh QZ attempt happens on the next print. */

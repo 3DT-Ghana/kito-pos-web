@@ -13,6 +13,7 @@ import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 import { isLowStock } from '@/lib/items/stock'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 import { AmountEntryModal } from '@/components/modals/AmountEntryModal'
+import { smartPrint } from '@/lib/print/print'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1112,7 +1113,7 @@ export default function PosPage() {
             <span className="font-bold text-gray-800">Receipt #{lastSaleData.receiptNumber}</span>
             <button onClick={() => setShowReceipt(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
           </div>
-          <div className="p-4 space-y-3 font-mono text-sm max-h-[70vh] overflow-y-auto">
+          <div className="thermal-receipt p-4 space-y-3 font-mono text-sm max-h-[70vh] overflow-y-auto">
             <div className="text-center border-b pb-3">
               <div className="font-bold text-base">{currentBranch?.name ?? 'Sales Receipt'}</div>
               <div className="text-xs text-gray-500">{lastSaleData.date} · {lastSaleData.time}</div>
@@ -1163,10 +1164,17 @@ export default function PosPage() {
           </div>
           <div className="px-4 pb-4 flex gap-2">
             <button
-              onClick={() => window.open(`/sales/${lastSaleData.id}`, '_blank')}
+              onClick={() => smartPrint('receipt', document.querySelector('.thermal-receipt') as HTMLElement | null)}
               className="flex-1 py-2.5 bg-indigo-600 text-white font-bold text-sm"
             >
               Print Receipt
+            </button>
+            <button
+              onClick={() => window.open(`/sales/${lastSaleData.id}`, '_blank')}
+              title="Open the full sale page"
+              className="px-3 py-2.5 border-2 border-gray-200 text-gray-600 font-bold text-sm"
+            >
+              Open
             </button>
             <button
               onClick={() => setShowReceipt(false)}
