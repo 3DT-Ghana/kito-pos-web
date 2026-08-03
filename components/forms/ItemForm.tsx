@@ -79,6 +79,7 @@ export function ItemForm({
     handleSubmit,
     watch,
     setValue,
+    reset,
     formState: { errors },
   } = useForm<ItemFormData>({
     resolver: zodResolver(itemSchema),
@@ -96,6 +97,33 @@ export function ItemForm({
       ...initialData,
     },
   })
+
+  // useForm reads defaultValues once, on the first mount. The edit form is
+  // toggled in place rather than unmounted, so after a save the fields kept the
+  // values from the first time Edit was opened — the second edit submitted
+  // stale data and the change appeared not to save. Re-sync whenever the item
+  // being edited changes.
+  const initialDataKey = JSON.stringify(initialData ?? null)
+  useEffect(() => {
+    if (!initialData) return
+    reset({
+      manufacturerId: '',
+      name: '',
+      quantity: 0,
+      reorderLevel: DEFAULT_REORDER_LEVEL,
+      costPrice: 0,
+      sellingPrice: 0,
+      itemType: 'INVENTORY',
+      isTaxable: false,
+      useTenantDefaultTaxes: true,
+      taxRateIds: [],
+      ...initialData,
+    })
+    setUnitNameInput(initialData.unitName ?? '')
+    // initialDataKey covers the object's contents; initialData itself is a new
+    // literal on every parent render and would loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDataKey, reset])
 
   const itemType = normalizeItemType(watch('itemType'))
   const isInventoryItem = isInventoryItemType(itemType)
