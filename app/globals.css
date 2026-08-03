@@ -230,6 +230,42 @@
 
   /* The receipt is usually nested inside layout wrappers rather than being a
      direct child of body, so reveal its ancestors while hiding their siblings. */
+  /* Blank tail so the cutter falls below the last line instead of through it.
+     Thermal cutters sit a short distance past the print head, so without this
+     the final rows are sheared off. */
+  html.printing-receipt .receipt-feed {
+    display: block !important;
+    height: 12mm !important;
+  }
+
+  /* The page must end where the content ends. Any height on the ancestors
+     feeds blank paper past the last line, and the printer's auto-cut fires
+     after that gap rather than under the total. */
+  html.printing-receipt,
+  html.printing-receipt body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* A trailing margin on the last element becomes trailing paper. */
+  html.printing-receipt .thermal-receipt > *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Nothing may push a second page: a stray page break would eject a whole
+     blank receipt before the cut. */
+  html.printing-receipt .thermal-receipt,
+  html.printing-receipt .thermal-receipt * {
+    page-break-inside: auto !important;
+    page-break-after: auto !important;
+    page-break-before: auto !important;
+    break-inside: auto !important;
+    break-after: auto !important;
+    break-before: auto !important;
+  }
+
   html.printing-receipt .thermal-receipt {
     display: block !important;
     position: static !important;

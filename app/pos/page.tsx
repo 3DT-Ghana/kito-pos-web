@@ -1161,6 +1161,8 @@ export default function PosPage() {
             <div className="text-center border-t border-dashed border-gray-200 pt-2 mt-1" style={{ fontSize: '10px', color: '#aaa' }}>
               System Developed EYO Solutions | 0246462398
             </div>
+            {/* Blank tail so the cutter clears the last line — print only. */}
+            <div className="receipt-feed hidden" aria-hidden="true" />
           </div>
           <div className="px-4 pb-4 flex gap-2">
             <button

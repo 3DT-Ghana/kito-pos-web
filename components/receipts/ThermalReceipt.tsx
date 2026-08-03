@@ -198,6 +198,9 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
         </div>
       </div>
 
+      {/* Blank tail so the cutter clears the last line — print only. */}
+      <div className="receipt-feed hidden" aria-hidden="true" />
+
       {/* Print styles. A plain <style> rather than styled-jsx: styled-jsx
           rewrites selectors for component scoping, which stops these rules
           from matching the document-level elements they target (body, and

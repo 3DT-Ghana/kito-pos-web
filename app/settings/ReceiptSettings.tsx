@@ -114,7 +114,8 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
         <div style="font-weight:700">THANK YOU!</div>
         <div style="font-size:9px;margin-top:2px">Paper width: ${printerWidth}</div>
         <div style="font-size:8px;margin-top:6px;color:#888">System Developed EYO Solutions | 0246462398</div>
-      </div>`
+      </div>
+      <div class="receipt-feed" aria-hidden="true"></div>`
     document.body.appendChild(holder)
 
     // A dialog means --kiosk-printing is not active on this browser. window
