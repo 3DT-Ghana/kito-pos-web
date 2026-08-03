@@ -24,9 +24,22 @@ export function savePrinterName(target: PrintTarget, name: string | null) {
   }
 }
 
+// Remember a failed QZ attempt for the rest of the session. Where QZ is
+// blocked — by an extension, or a browser policy on reaching localhost — every
+// print would otherwise stall on the same doomed connection retries before
+// falling back, making each sale feel like the terminal had frozen.
+let qzUnavailableUntil = 0
+const QZ_RETRY_BACKOFF_MS = 5 * 60 * 1000
+
 /**
- * Smart print: tries QZ Tray silent print first, falls back to window.print().
- * Pass `element` to print a specific DOM element, or omit to print the whole page.
+ * Print the given element, silently when possible.
+ *
+ * Order of preference:
+ *  1. QZ Tray, if configured and reachable — true silent print.
+ *  2. window.print(), which is also silent when the browser runs with
+ *     --kiosk-printing; otherwise it opens the print dialog.
+ *
+ * Pass `element` to print a specific DOM element, or omit for the whole page.
  */
 export async function smartPrint(
   target: PrintTarget,
@@ -34,15 +47,26 @@ export async function smartPrint(
 ): Promise<void> {
   const printerName = getPrinterName(target)
 
-  if (printerName) {
-    const qzAvailable = await isQZAvailable()
-    if (qzAvailable) {
-      const html = element ? element.outerHTML : document.documentElement.outerHTML
-      const result = await printHTMLToQZ(printerName, html)
-      if (result.success) return
-      // fall through to window.print() if QZ fails
+  if (printerName && Date.now() >= qzUnavailableUntil) {
+    try {
+      const qzAvailable = await isQZAvailable()
+      if (qzAvailable) {
+        const html = element ? element.outerHTML : document.documentElement.outerHTML
+        const result = await printHTMLToQZ(printerName, html)
+        if (result.success) return
+      }
+      qzUnavailableUntil = Date.now() + QZ_RETRY_BACKOFF_MS
+    } catch {
+      qzUnavailableUntil = Date.now() + QZ_RETRY_BACKOFF_MS
     }
   }
 
+  // With --kiosk-printing this prints straight to the default printer with no
+  // dialog, which is the practical alternative to QZ on a locked-down till.
   window.print()
+}
+
+/** Clears the backoff so a fresh QZ attempt happens on the next print. */
+export function resetPrintTransport() {
+  qzUnavailableUntil = 0
 }

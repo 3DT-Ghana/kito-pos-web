@@ -104,6 +104,29 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                   Download QZ Tray
                 </a>
               </p>
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer text-blue-700 font-semibold">
+                  QZ Tray blocked or not working? Print silently without it
+                </summary>
+                <div className="mt-2 space-y-2 text-gray-600">
+                  <p>
+                    Chrome and Edge can print with no dialog when started in kiosk-printing
+                    mode. Nothing extra is installed, and no extension can block it.
+                  </p>
+                  <ol className="list-decimal ml-5 space-y-1">
+                    <li>Set the receipt printer as the <strong>default printer</strong> in Windows.</li>
+                    <li>Make a desktop shortcut to the browser and add the flag below to its Target.</li>
+                    <li>Always open the till from that shortcut.</li>
+                  </ol>
+                  <code className="block bg-gray-100 px-3 py-2 text-xs break-all">
+                    chrome.exe --kiosk-printing --app=https://citizen-pos.eyosolutions.com
+                  </code>
+                  <p className="text-xs">
+                    Receipts then print straight to the default printer. Paper size still comes
+                    from the printer&apos;s own settings, so set it to your 80mm roll there.
+                  </p>
+                </div>
+              </details>
             </div>
             <button
               type="button"
