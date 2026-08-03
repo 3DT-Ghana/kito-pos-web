@@ -14,9 +14,12 @@ export const itemSchema = z.object({
   sellingPrice: z.number().min(0, 'Selling price must be positive'),
   unitName: z.string().optional(),
   piecesPerUnit: z.number().int().min(1, 'Must be at least 1').optional(),
-  retailPrice: z.number().min(0).optional(),
-  wholesalePrice: z.number().min(0).optional(),
-  promoPrice: z.number().min(0).optional(),
+  // nullable as well as optional: clearing the field sends null so the API
+  // can distinguish "erase this price" from "field not submitted". undefined
+  // is dropped by JSON.stringify, which made clearing a price silently no-op.
+  retailPrice: z.number().min(0).nullable().optional(),
+  wholesalePrice: z.number().min(0).nullable().optional(),
+  promoPrice: z.number().min(0).nullable().optional(),
   barcode: z.string().optional(),
   expiryDate: z.string().optional(),
   categoryId: z.string().optional(),

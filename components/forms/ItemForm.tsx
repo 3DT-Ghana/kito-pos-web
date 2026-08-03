@@ -518,7 +518,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('retailPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
+                  {...register('retailPrice', { setValueAs: v => v === '' || v === null ? null : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -536,7 +536,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('wholesalePrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
+                  {...register('wholesalePrice', { setValueAs: v => v === '' || v === null ? null : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
@@ -554,7 +554,7 @@ export function ItemForm({
                 </label>
                 <input
                   type="number"
-                  {...register('promoPrice', { setValueAs: v => v === '' || v === null ? undefined : parseFloat(v) })}
+                  {...register('promoPrice', { setValueAs: v => v === '' || v === null ? null : parseFloat(v) })}
                   placeholder="0.00"
                   step="0.01"
                   min="0"
