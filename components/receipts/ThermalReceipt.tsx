@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel } from '@/lib/tax/summary'
 
@@ -55,6 +56,22 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
   const is58mm = width === '58mm'
   const maxWidth = is58mm ? '58mm' : '80mm'
   const fontSize = is58mm ? '10px' : '12px'
+
+  // @page cannot be scoped to a selector, so the app-wide "A4, 1.5cm margin"
+  // rule in globals.css would lay this receipt out as a full page. Injecting a
+  // later @page rule while a receipt is mounted wins on source order, and the
+  // class lets the print stylesheet drop the report table borders too.
+  useEffect(() => {
+    const style = document.createElement('style')
+    style.setAttribute('data-thermal-receipt-page', '')
+    style.textContent = `@media print { @page { size: ${maxWidth} auto; margin: 0; } }`
+    document.head.appendChild(style)
+    document.documentElement.classList.add('printing-receipt')
+    return () => {
+      style.remove()
+      document.documentElement.classList.remove('printing-receipt')
+    }
+  }, [maxWidth])
 
   return (
     <div
@@ -181,8 +198,11 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
         </div>
       </div>
 
-      {/* Print Styles */}
-      <style jsx>{`
+      {/* Print styles. A plain <style> rather than styled-jsx: styled-jsx
+          rewrites selectors for component scoping, which stops these rules
+          from matching the document-level elements they target (body, and
+          the visibility reset over every other node on the page). */}
+      <style>{`
         @media print {
           .thermal-receipt {
             width: ${maxWidth};
@@ -191,11 +211,9 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
             padding: 8px;
           }
 
-          /* Remove all margins and padding from page */
-          @page {
-            size: ${maxWidth} auto;
-            margin: 0;
-          }
+          /* @page lives in the injected head style — see the effect above.
+             Declaring it here too left two competing rules whose winner
+             depended on stylesheet order. */
 
           body {
             margin: 0;

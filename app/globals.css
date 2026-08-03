@@ -184,6 +184,29 @@
     margin: 1.5cm;
     size: A4;
   }
+
+  /* Thermal receipts are not A4 documents. @page cannot be scoped to a
+     selector, so the receipt view sets .printing-receipt on <html> and these
+     rules override the report defaults above for that print job only.
+     Without this the browser laid an 80mm receipt out on A4 with 1.5cm
+     margins, and the global table borders below boxed every receipt line. */
+  html.printing-receipt {
+    background: white !important;
+  }
+
+  html.printing-receipt th,
+  html.printing-receipt td {
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  html.printing-receipt table {
+    width: 100% !important;
+  }
+
+  html.printing-receipt body {
+    font-size: inherit;
+  }
 }
 
 /* ── Login page utilities ──────────────────────────────────────── */
