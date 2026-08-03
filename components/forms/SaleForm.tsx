@@ -225,7 +225,51 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   };
 
   const { items } = useItems();
-  const { customers } = useCustomers();
+  const { customers, refetch: refetchCustomers } = useCustomers();
+
+  // Creating a customer without leaving the sale. A credit sale cannot be
+  // recorded against nobody, and sending the cashier to the customers page
+  // mid-sale loses the cart, so the "no results" state becomes the entry point.
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
+  const [customerCreateError, setCustomerCreateError] = useState("");
+
+  const createCustomerInline = async () => {
+    const name = customerSearch.trim();
+    if (!name || isCreatingCustomer) return;
+    setIsCreatingCustomer(true);
+    setCustomerCreateError("");
+    try {
+      const res = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          phone: newCustomerPhone.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not create customer");
+
+      // Select immediately so the sale can continue; the refetch just keeps the
+      // dropdown list current for any later search.
+      setSelectedCustomer({
+        id: data.id,
+        name: data.name,
+        balance: data.balance ?? 0,
+      });
+      setCustomerSearch("");
+      setNewCustomerPhone("");
+      setShowCustomerDropdown(false);
+      void refetchCustomers();
+    } catch (err) {
+      setCustomerCreateError(
+        err instanceof Error ? err.message : "Could not create customer",
+      );
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -688,6 +732,10 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
               onChange={(e) => {
                 setCustomerSearch(e.target.value);
                 setShowCustomerDropdown(true);
+                // Retyping means a different person — drop the phone and any
+                // error captured for the previous name.
+                setNewCustomerPhone("");
+                setCustomerCreateError("");
               }}
               onFocus={() => setShowCustomerDropdown(true)}
               className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
@@ -727,8 +775,39 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
             {showCustomerDropdown &&
               customerSearch.trim() &&
               filteredCustomers.length === 0 && (
-                <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-4 text-center text-sm text-gray-500">
-                  No customers found
+                <div className="absolute z-20 mt-1 w-full bg-white border-2 border-gray-200 shadow-xl p-3 space-y-2">
+                  <p className="text-sm text-gray-500">
+                    No customer named{" "}
+                    <span className="font-semibold text-gray-900">
+                      &quot;{customerSearch.trim()}&quot;
+                    </span>
+                  </p>
+                  <input
+                    type="tel"
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void createCustomerInline();
+                      }
+                    }}
+                    placeholder="Phone number (optional)"
+                    className="w-full px-3 py-2 border border-gray-300 focus:border-blue-500 focus:outline-none text-sm"
+                  />
+                  {customerCreateError && (
+                    <p className="text-xs text-red-600">{customerCreateError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void createCustomerInline()}
+                    disabled={isCreatingCustomer}
+                    className="w-full py-2.5 bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isCreatingCustomer
+                      ? "Creating..."
+                      : `+ Create "${customerSearch.trim()}"`}
+                  </button>
                 </div>
               )}
           </>
