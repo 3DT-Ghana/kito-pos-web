@@ -70,11 +70,19 @@ export async function findPrinters(): Promise<PrinterLookup> {
       // certificate trusted, so a running QZ still refuses the socket.
       const isSecurePage =
         window.location.protocol === 'https:' && window.location.hostname !== 'localhost'
+      // "blocked by client" means something on this machine refused the socket
+      // rather than QZ rejecting it — an extension or a browser policy on
+      // reaching localhost from a public site. Certificate trust produces a
+      // different failure, so do not send people down that path twice.
+      const blockedByClient = /blocked by client|ERR_BLOCKED|NetworkError/i.test(detail)
+
       return {
         printers: [],
-        error: isSecurePage
-          ? `Could not reach QZ Tray from ${window.location.host}. It is running locally on wss://localhost:8181, and this page is served over HTTPS, so the browser needs QZ Tray's certificate to be trusted. Open https://localhost:8181 once and accept the certificate, then try again. (${detail})`
-          : `Could not connect to QZ Tray. Check that it is running — its icon should be in the system tray. (${detail})`,
+        error: blockedByClient
+          ? `The browser on this computer blocked the connection to QZ Tray (${detail}). QZ Tray itself is reachable, so this is usually an ad-blocker, privacy or endpoint-security extension intercepting local connections — try again in a private window with extensions disabled. If that works, allow ${window.location.host} in the extension. Chrome and Edge may also block a public site from reaching localhost: check chrome://flags for "Private Network Access" restrictions.`
+          : isSecurePage
+            ? `Could not reach QZ Tray from ${window.location.host}. It runs locally on wss://localhost:8181, and this page is HTTPS, so the browser must trust QZ Tray's certificate. Open https://localhost:8181 once and accept it, then try again. (${detail})`
+            : `Could not connect to QZ Tray. Check that it is running — its icon should be in the system tray. (${detail})`,
       }
     }
   }
