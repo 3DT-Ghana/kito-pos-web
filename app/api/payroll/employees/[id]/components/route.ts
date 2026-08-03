@@ -48,6 +48,11 @@ export async function POST(req: Request, { params }: RouteParams) {
     return NextResponse.json({ error: 'componentId and amount are required' }, { status: 400 })
   }
 
+  const parsedAmount = Number(amount)
+  if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+    return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 })
+  }
+
   const [employee, component] = await Promise.all([
     prisma.employee.findFirst({ where: { id: employeeId, tenantId: context!.tenantId } }),
     prisma.payrollComponent.findFirst({ where: { id: componentId, tenantId: context!.tenantId } }),
@@ -55,11 +60,28 @@ export async function POST(req: Request, { params }: RouteParams) {
   if (!employee) return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
   if (!component) return NextResponse.json({ error: 'Component not found' }, { status: 404 })
 
+  // The same component assigned twice was applied twice on every run — the
+  // allowance or deduction silently doubled with nothing to indicate why.
+  const duplicate = await prisma.employeePayrollComponent.findFirst({
+    where: {
+      employeeId,
+      componentId,
+      OR: [{ effectiveTo: null }, { effectiveTo: { gte: new Date() } }],
+    },
+    select: { id: true },
+  })
+  if (duplicate) {
+    return NextResponse.json(
+      { error: `"${component.name}" is already assigned to this employee. Edit or remove the existing assignment instead.` },
+      { status: 409 }
+    )
+  }
+
   const assignment = await prisma.employeePayrollComponent.create({
     data: {
       employeeId,
       componentId,
-      amount,
+      amount: parsedAmount,
       effectiveFrom: effectiveFrom ? new Date(effectiveFrom) : new Date(),
       effectiveTo: effectiveTo ? new Date(effectiveTo) : null,
     },

@@ -125,6 +125,10 @@ export default function ApprovalsPage() {
   const [noteInput, setNoteInput] = useState('')
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
+  // Without this, double-clicking Confirm fired two requests; the second hit
+  // the server's conditional guard and painted "no longer pending" over an
+  // approval that had actually succeeded.
+  const [isActioning, setIsActioning] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [page, setPage] = useState(1)
 
@@ -211,9 +215,13 @@ export default function ApprovalsPage() {
     } else if (record.stockAdjustmentId) {
       url = `/api/approvals/stock/${record.stockAdjustmentId}/${actionState.type}`
     } else {
+      // Was a bare `return`: the editor stayed open and every subsequent click
+      // silently did nothing, with no message explaining why.
+      setActionError('This approval is not linked to a sale or stock adjustment and cannot be actioned.')
       return
     }
 
+    setIsActioning(true)
     try {
       const res = await fetch(url, {
         method: 'POST',
@@ -234,6 +242,8 @@ export default function ApprovalsPage() {
           ? error.message
           : 'Action failed.'
       )
+    } finally {
+      setIsActioning(false)
     }
   }
 
@@ -253,8 +263,10 @@ export default function ApprovalsPage() {
         <p className="text-sm text-red-600">{actionError}</p>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Btn size="sm" onClick={handleAction}>
-          Confirm {actionState?.type === 'approve' ? 'Approval' : 'Rejection'}
+        <Btn size="sm" onClick={handleAction} disabled={isActioning}>
+          {isActioning
+            ? 'Working…'
+            : `Confirm ${actionState?.type === 'approve' ? 'Approval' : 'Rejection'}`}
         </Btn>
         <Btn
           size="sm"
@@ -469,6 +481,9 @@ export default function ApprovalsPage() {
                                   onClick={() => {
                                     setActionState({ id: record.id, type: 'approve' })
                                     setActionError('')
+                                    // Cleared on row switch — a note typed for one approval was
+                                    // otherwise attached to whichever approval was actioned next.
+                                    setNoteInput('')
                                   }}
                                 >
                                   Approve
@@ -479,6 +494,9 @@ export default function ApprovalsPage() {
                                   onClick={() => {
                                     setActionState({ id: record.id, type: 'reject' })
                                     setActionError('')
+                                    // Cleared on row switch — a note typed for one approval was
+                                    // otherwise attached to whichever approval was actioned next.
+                                    setNoteInput('')
                                   }}
                                 >
                                   Reject
@@ -583,6 +601,9 @@ export default function ApprovalsPage() {
                               onClick={() => {
                                 setActionState({ id: record.id, type: 'approve' })
                                 setActionError('')
+                                // Cleared on row switch — a note typed for one approval was
+                                // otherwise attached to whichever approval was actioned next.
+                                setNoteInput('')
                               }}
                             >
                               Approve
@@ -593,6 +614,9 @@ export default function ApprovalsPage() {
                               onClick={() => {
                                 setActionState({ id: record.id, type: 'reject' })
                                 setActionError('')
+                                // Cleared on row switch — a note typed for one approval was
+                                // otherwise attached to whichever approval was actioned next.
+                                setNoteInput('')
                               }}
                             >
                               Reject

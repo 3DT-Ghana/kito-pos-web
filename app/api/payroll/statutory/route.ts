@@ -57,10 +57,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'name, code, and rate are required' }, { status: 400 })
   }
 
+  // Was accepted unvalidated: {"rate": 5000} deducted 5000% of basic salary
+  // from every employee on the next run.
+  const parsedRate = Number(rate)
+  if (!Number.isFinite(parsedRate) || parsedRate < 0 || parsedRate > 100) {
+    return NextResponse.json(
+      { error: 'Rate must be a percentage between 0 and 100' },
+      { status: 400 }
+    )
+  }
+
   const deduction = await prisma.statutoryDeduction.upsert({
     where: { tenantId_code: { tenantId: context!.tenantId, code } },
-    create: { tenantId: context!.tenantId, name, code, rate, appliesTo: appliesTo ?? 'BASIC' },
-    update: { name, rate, appliesTo: appliesTo ?? 'BASIC' },
+    create: { tenantId: context!.tenantId, name, code, rate: parsedRate, appliesTo: appliesTo ?? 'BASIC' },
+    update: { name, rate: parsedRate, appliesTo: appliesTo ?? 'BASIC' },
   })
 
   return NextResponse.json(deduction, { status: 201 })

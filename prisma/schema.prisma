@@ -661,6 +661,22 @@ model TransactionApproval {
   @@index([tenantId, stockAdjustmentId])
 }
 
+/// Records approval grants that have already been redeemed.
+///
+/// A grant is a short-lived signed token minted when a manager enters their
+/// PIN. Without a consumption record it is a bearer token: whoever holds it can
+/// replay it until it expires. The unique jti makes redemption single-use.
+model ConsumedApprovalGrant {
+  id         String   @id @default(uuid())
+  tenantId   String
+  jti        String   @unique // unique id carried inside the signed grant
+  saleId     String?  // which sale it was redeemed against
+  approverId String
+  consumedAt DateTime @default(now())
+
+  @@index([tenantId, consumedAt])
+}
+
 // =====================
 // EXPENSES
 // =====================
@@ -1649,10 +1665,15 @@ model LoanRepayment {
   loanId        String
   loan          EmployeeLoan @relation(fields: [loanId], references: [id], onDelete: Cascade)
   payrollLineId String?
+  /// Which payroll run recorded this repayment. Without it a deleted draft run
+  /// left the repayment orphaned and the loan permanently credited for money
+  /// the employee never actually repaid.
+  payrollRunId  String?
   amount        Float
   paidAt        DateTime     @default(now())
 
   @@index([loanId])
+  @@index([payrollRunId])
 }
 
 model PayrollDepartment {

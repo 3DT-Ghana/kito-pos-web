@@ -239,7 +239,13 @@ export async function POST(req: Request) {
 
       if (loanRepayments.length > 0) {
         await tx.loanRepayment.createMany({
-          data: loanRepayments.map(({ loanId, amount }) => ({ loanId, amount })),
+          // payrollRunId links the repayment back to the run, so deleting a
+          // draft can restore the loan balance instead of orphaning it.
+          data: loanRepayments.map(({ loanId, amount }) => ({
+            loanId,
+            amount,
+            payrollRunId: run.id,
+          })),
         })
 
         for (const { loanId, nextBalance, shouldClose } of loanRepayments) {

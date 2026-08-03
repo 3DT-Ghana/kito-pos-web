@@ -111,6 +111,18 @@ export function computePayrollLine(input: PayrollLineInput): PayrollLineResult {
 
   const netPay = round2(grossPay - ssfEmployee - paye - beforeTaxDeductions - afterTaxDeductions)
 
+  // Deductions exceeding gross means the employee would owe the company money
+  // this month — always a configuration error (a mistyped statutory rate, a
+  // duplicated deduction, or a loan instalment larger than the salary). It was
+  // previously stored unchecked and flowed into the payroll journal as a
+  // reduced or negative cash credit, so the run silently under-paid everyone.
+  if (netPay < 0) {
+    throw new Error(
+      `Deductions exceed gross pay for this employee (gross ${grossPay.toFixed(2)}, net ${netPay.toFixed(2)}). ` +
+      'Check the loan instalment, statutory rates and deduction components.'
+    )
+  }
+
   return {
     basicSalary: round2(input.basicSalary),
     overtime: round2(input.overtime),

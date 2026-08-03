@@ -20,7 +20,7 @@ import {
 } from '@/lib/accounting/journalEngine'
 import { ACCOUNT_CODES, round2 } from '@/lib/accounting/accounts'
 import { detectSaleFlags } from '@/lib/approvals/detect'
-import { verifyApprovalGrant } from '@/lib/approvals/inlineGrant'
+import { consumeApprovalGrant, verifyApprovalGrant } from '@/lib/approvals/inlineGrant'
 import { createAuditLog } from '@/lib/audit/auditLog'
 import {
   calculateLineTaxes,
@@ -277,8 +277,16 @@ export async function createSaleFromInput(
   // On the POS terminal (source === 'pos' or unset), discount approval is not enforced.
   const discountApprovalRequired = body.source === 'sales' && !canSelfApprove && !canApplyDiscount
 
+  // Detected whenever approvals are switched on — including for users who can
+  // self-approve. Previously the flags were only computed when approval was
+  // *required*, so a manager's own discounts and credit sales produced no
+  // record at all: the people best placed to abuse the control were the only
+  // ones it left no trail for.
+  const shouldRecordSelfApproval =
+    context.features.requireApproval && canSelfApprove
+
   let approvalFlags: ApprovalFlag[] = []
-  if (approvalRequired || discountApprovalRequired) {
+  if (approvalRequired || discountApprovalRequired || shouldRecordSelfApproval) {
     const allFlags = detectSaleFlags({
       items: body.items.map((saleItem) => {
         const item = items.find((candidate) => candidate.id === saleItem.itemId)!
@@ -295,7 +303,7 @@ export async function createSaleFromInput(
       orderDiscountAmount: 0,
       creditAmount,
     })
-    if (approvalRequired) {
+    if (approvalRequired || shouldRecordSelfApproval) {
       approvalFlags = allFlags
     } else {
       // Only flag DISCOUNT — not PRICE_OVERRIDE or CREDIT_SALE — when it's purely a discount-permission issue
@@ -384,6 +392,10 @@ export async function createSaleFromInput(
     }
   })
 
+  // No saleId is passed: on the create path the sale does not exist yet, so the
+  // grant must be one minted without a sale binding. verifyApprovalGrant
+  // rejects a sale-bound grant here and a null-sale grant on the approve path,
+  // so the two cannot be swapped.
   const approvalGrant =
     typeof body.approvalGrant === 'string'
       ? verifyApprovalGrant(body.approvalGrant, {
@@ -392,6 +404,14 @@ export async function createSaleFromInput(
           scope: 'SALE',
         })
       : null
+
+  // A cashier cannot use their own PIN to wave through their own sale.
+  if (approvalGrant && approvalGrant.approverId === context.user.id) {
+    throw new SaleOperationError(
+      'You cannot approve your own transaction. Ask another manager to approve it.',
+      403
+    )
+  }
 
   if (
     typeof body.approvalGrant === 'string' &&
@@ -507,6 +527,37 @@ export async function createSaleFromInput(
     }
 
     if (inlineApproval) {
+      // Single-use: redeeming inside the transaction means a captured grant
+      // cannot be replayed to wave through a second sale.
+      const fresh = await consumeApprovalGrant(tx, inlineApproval, createdSale.id)
+      if (!fresh) {
+        throw new SaleOperationError(
+          'This approval has already been used. Please verify PIN again.',
+          409
+        )
+      }
+
+      await tx.transactionApproval.create({
+        data: {
+          tenantId: context.tenantId,
+          flag: approvalFlags[0],
+          // The record stores one primary flag, but the approver needs to see
+          // every reason — a sale can be a discount AND a credit sale AND a
+          // price override at once.
+          status: ApprovalStatus.APPROVED,
+          saleId: createdSale.id,
+          createdById: context.user.id,
+          approvedById: inlineApproval.approverId,
+          approvedAt: new Date(),
+          note: `Inline approval by ${inlineApproval.approverName}${
+            approvalFlags.length > 1 ? ` — flags: ${approvalFlags.join(', ')}` : ''
+          }`,
+        },
+      })
+    } else if (shouldRecordSelfApproval && approvalFlags.length > 0) {
+      // Self-approved: no second party was involved, but the transaction still
+      // carried flags that would have required approval from anyone else, so it
+      // is recorded as auto-approved rather than leaving no trail at all.
       await tx.transactionApproval.create({
         data: {
           tenantId: context.tenantId,
@@ -514,9 +565,11 @@ export async function createSaleFromInput(
           status: ApprovalStatus.APPROVED,
           saleId: createdSale.id,
           createdById: context.user.id,
-          approvedById: inlineApproval.approverId,
+          approvedById: context.user.id,
           approvedAt: new Date(),
-          note: `Inline approval by ${inlineApproval.approverName}`,
+          note: `Self-approved — user holds approve_transactions${
+            approvalFlags.length > 1 ? ` — flags: ${approvalFlags.join(', ')}` : ''
+          }`,
         },
       })
     }

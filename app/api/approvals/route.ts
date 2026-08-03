@@ -98,10 +98,40 @@ export async function GET(req: Request) {
       return NextResponse.json({ total })
     }
 
+    // Branch filtering is applied in the query rather than after `take`.
+    // Filtering afterwards meant `take` consumed the tenant-wide list first, so
+    // with 200 approvals of which only 12 were in your branch you saw 12 — and
+    // anything in your branch beyond the first 200 tenant-wide was invisible
+    // and unactionable, with no way for the UI to detect the truncation.
+    //
+    // TransactionApproval has no relation to Sale or StockAdjustment (both are
+    // loose id columns), so the visible ids are resolved first and matched by
+    // id rather than joined.
+    let branchFilter: Record<string, unknown> = {}
+    if (isBranchFilterActive(context!)) {
+      const [visibleSales, visibleAdjustments] = await Promise.all([
+        prisma.sale.findMany({
+          where: { tenantId: context!.tenantId, branchId: context!.currentBranchId },
+          select: { id: true },
+        }),
+        prisma.stockAdjustment.findMany({
+          where: { tenantId: context!.tenantId, branchId: context!.currentBranchId },
+          select: { id: true },
+        }),
+      ])
+      branchFilter = {
+        OR: [
+          { saleId: { in: visibleSales.map(s => s.id) } },
+          { stockAdjustmentId: { in: visibleAdjustments.map(a => a.id) } },
+        ],
+      }
+    }
+
     const approvals = await prisma.transactionApproval.findMany({
       where: {
         tenantId: context!.tenantId,
         status,
+        ...branchFilter,
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

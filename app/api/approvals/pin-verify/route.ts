@@ -71,6 +71,22 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { pin } = body
 
+    // The sale being approved, when it already exists. The POS create path
+    // approves before the sale is written, so it legitimately has none — the
+    // grant is then usable only on that path (verifyApprovalGrant rejects a
+    // null-sale grant wherever a saleId is expected, and vice versa).
+    let requestedSaleId: string | null = null
+    if (body.saleId) {
+      const candidateSale = await prisma.sale.findFirst({
+        where: { id: String(body.saleId), tenantId: context!.tenantId },
+        select: { id: true },
+      })
+      if (!candidateSale) {
+        return NextResponse.json({ error: 'Sale not found' }, { status: 404 })
+      }
+      requestedSaleId = candidateSale.id
+    }
+
     if (!pin || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
       return NextResponse.json({ error: 'PIN must be 4–6 digits' }, { status: 400 })
     }
@@ -93,6 +109,9 @@ export async function POST(req: Request) {
       where: {
         tenantId: context!.tenantId,
         approvalPin: { not: null },
+        // A manager cannot approve their own transaction by entering their own
+        // PIN — approval is a second pair of eyes, not a formality.
+        id: { not: context!.user.id },
       },
       select: { id: true, name: true, role: true, approvalPin: true, branchId: true },
     })
@@ -114,12 +133,17 @@ export async function POST(req: Request) {
         candidate.branchId === operationalBranchId
       if (!branchAllowed) continue
 
+      // Bound to the specific sale when one exists. Without this the grant was
+      // a bearer token for any sale in the branch: a cashier could capture the
+      // token issued for a small discount and replay it against every other
+      // pending sale, including a large credit sale, until it expired.
       const grant = createApprovalGrant({
         tenantId: context!.tenantId,
         branchId: operationalBranchId,
         approverId: candidate.id,
         approverName: candidate.name,
         scope: 'SALE',
+        saleId: requestedSaleId,
       })
 
       attempts.delete(rateKey) // successful approval clears the counter

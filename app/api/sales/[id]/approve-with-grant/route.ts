@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth/auth'
 import { prisma } from '@/lib/db/prisma'
 import { ApprovalStatus } from '@prisma/client'
-import { verifyApprovalGrant } from '@/lib/approvals/inlineGrant'
+import { consumeApprovalGrant, verifyApprovalGrant } from '@/lib/approvals/inlineGrant'
 import { postSaleJournal, SaleLineBreakdown } from '@/lib/accounting/journalEngine'
 import { round2, ACCOUNT_CODES } from '@/lib/accounting/accounts'
 
@@ -55,15 +55,28 @@ export async function POST(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: 'Pending sale not found' }, { status: 404 })
     }
 
+    // saleId is passed so the grant must have been minted for *this* sale — a
+    // grant obtained for a small discount can no longer approve a different,
+    // larger sale.
     const verifiedGrant = verifyApprovalGrant(grant, {
       tenantId,
       branchId: sale.branchId ?? null,
       scope: 'SALE',
+      saleId: sale.id,
     })
 
     if (!verifiedGrant) {
       return NextResponse.json(
         { error: 'Manager approval has expired or is invalid. Please verify PIN again.' },
+        { status: 403 }
+      )
+    }
+
+    // Approval is a second pair of eyes; approving your own transaction defeats
+    // the control entirely.
+    if (verifiedGrant.approverId === session.user.id) {
+      return NextResponse.json(
+        { error: 'You cannot approve a transaction you created. Ask another manager to approve it.' },
         { status: 403 }
       )
     }
@@ -130,6 +143,13 @@ export async function POST(req: Request, { params }: RouteParams) {
     const saleWhere = { id, tenantId, approvalStatus: ApprovalStatus.PENDING }
 
     await prisma.$transaction(async (tx) => {
+      // Redeem the grant inside the transaction so a captured token cannot be
+      // replayed, and so a failed approval releases it again.
+      const fresh = await consumeApprovalGrant(tx, verifiedGrant, id)
+      if (!fresh) {
+        throw new Error('This approval has already been used. Please verify PIN again.')
+      }
+
       const updated = await tx.sale.updateMany({
         where: saleWhere,
         data: { approvalStatus: ApprovalStatus.APPROVED },

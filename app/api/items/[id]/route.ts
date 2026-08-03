@@ -182,7 +182,13 @@ export async function PUT(req: Request, { params }: RouteParams) {
       const barcodeValue = String(body.barcode).trim()
       if (barcodeValue) {
         const barcodeClash = await prisma.item.findFirst({
-          where: { tenantId: context!.tenantId, barcode: barcodeValue, id: { not: id } },
+          // Per branch — see the create route for the reasoning.
+          where: {
+            tenantId: context!.tenantId,
+            ...(context!.branchesEnabled ? { branchId: existing.branchId } : {}),
+            barcode: barcodeValue,
+            id: { not: id },
+          },
           select: { name: true },
         })
         if (barcodeClash) {

@@ -176,7 +176,13 @@ export async function POST(req: Request) {
       const barcodeValue = String(body.barcode).trim()
       if (barcodeValue) {
         const barcodeClash = await prisma.item.findFirst({
-          where: { tenantId: context!.tenantId, barcode: barcodeValue },
+          // Per branch: each branch keeps its own stock row for the same
+          // product, and the POS scanner looks up within the current branch.
+          where: {
+            tenantId: context!.tenantId,
+            ...(context!.branchesEnabled ? { branchId } : {}),
+            barcode: barcodeValue,
+          },
           select: { name: true },
         })
         if (barcodeClash) {

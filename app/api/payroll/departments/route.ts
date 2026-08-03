@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireBranchAccess } from '@/lib/branch/server'
+import { requirePermission } from '@/lib/permissions/rbac'
 import { requireTenantFeature } from '@/lib/tenant/features'
 import { prisma } from '@/lib/db/prisma'
 
@@ -9,6 +10,9 @@ export async function GET() {
 
   const featureError = requireTenantFeature(context!.features, 'enablePayroll')
   if (featureError) return featureError
+
+  const { authorized, error: permError } = requirePermission(context!, 'view_payroll')
+  if (!authorized) return permError!
 
   const departments = await prisma.payrollDepartment.findMany({
     where: { tenantId: context!.tenantId },
@@ -25,6 +29,9 @@ export async function POST(req: Request) {
 
   const featureError = requireTenantFeature(context!.features, 'enablePayroll')
   if (featureError) return featureError
+
+  const { authorized, error: permError } = requirePermission(context!, 'manage_employees')
+  if (!authorized) return permError!
 
   try {
     const { name } = await req.json()

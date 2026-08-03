@@ -126,13 +126,20 @@ export async function POST(req: Request) {
           continue
         }
 
-        // Check barcode uniqueness if provided
+        // Barcode uniqueness is per branch, matching the name check above and
+        // the fact that each branch holds its own stock row for a product.
+        // Tenant-wide, Branch B could not import an item that Branch A already
+        // stocked — even though both legitimately sell it.
         if (barcode) {
           const barcodeExists = await prisma.item.findFirst({
-            where: { tenantId: context!.tenantId, barcode },
+            where: {
+              tenantId: context!.tenantId,
+              ...(context!.branchesEnabled ? { branchId } : {}),
+              barcode,
+            },
           })
           if (barcodeExists) {
-            results.errors.push(`Row ${rowNum}: barcode "${barcode}" already in use — skipped`)
+            results.errors.push(`Row ${rowNum}: barcode "${barcode}" already used in this branch — skipped`)
             results.skipped++
             continue
           }
