@@ -12,6 +12,7 @@ import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPr
 import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 import { isLowStock } from '@/lib/items/stock'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
+import { AmountEntryModal } from '@/components/modals/AmountEntryModal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -226,9 +227,11 @@ export default function PosPage() {
   const momoPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Synchronous submit lock — state batching makes isSubmitting unreliable for this
   const submitLockRef = useRef(false)
-  // True while the cashier is actively in the amount field, so its select-on-
-  // focus fires once on entry rather than on every refocus during typing.
-  const amountTouchedRef = useRef(false)
+  const [showAmountModal, setShowAmountModal] = useState(false)
+  const amountButtonRef = useRef<HTMLButtonElement>(null)
+  // Set while focus returns from the amount modal, so the button's focus
+  // handler does not immediately reopen what was just closed.
+  const amountReturnRef = useRef(false)
   // Whichever approval path (PIN or remote poll) lands first claims the sale
   const approvalHandledRef = useRef(false)
   const [numpadBuffer, setNumpadBuffer] = useState('')
@@ -1480,32 +1483,35 @@ export default function PosPage() {
   }
 
   // ── Inline numpad for payment panel ────────────────────────────────────────
+  // Which buffer the amount readout and its modal are editing. Hoisted out of
+  // the numpad renderer so the modal, rendered at the page root, writes to the
+  // same target the cashier was looking at.
+  const amountLabel = splitMode
+    ? numpadTarget === 'momoPaid' ? 'MoMo Amount' : 'Cash Amount'
+    : method === 'CASH' ? 'Cash Tendered' : method === 'MOMO' ? 'MoMo Amount' : 'Amount'
+
+  const amountValue = splitMode
+    ? numpadTarget === 'momoPaid' ? momoPaid : cashPaid
+    : tendered
+
+  const setAmountValue = (raw: string) => {
+    // Keep the buffer in the shape numpadPress produces: digits and at most
+    // one decimal point.
+    const cleaned = raw.replace(/[^0-9.]/g, '')
+    const parts = cleaned.split('.')
+    const next = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned
+    if (splitMode) {
+      if (numpadTarget === 'momoPaid') setMomoPaid(next)
+      else setCashPaid(next)
+    } else {
+      setTendered(next)
+    }
+  }
+
   const renderPaymentNumpad = () => {
     const keys = ['7','8','9','4','5','6','1','2','3','.','0','←']
-    const label = splitMode
-      ? numpadTarget === 'momoPaid' ? 'MoMo Amount' : 'Cash Amount'
-      : method === 'CASH' ? 'Cash Tendered' : method === 'MOMO' ? 'MoMo Amount' : 'Amount'
-
-    const displayValue = splitMode
-      ? numpadTarget === 'momoPaid' ? momoPaid : cashPaid
-      : tendered
-
-    // The on-screen keys stay for touch terminals, but the readout is a real
-    // input so a keyboard user can click or tab into it and just type. Both
-    // paths write the same buffer, so they can be used interchangeably.
-    const setDisplayValue = (raw: string) => {
-      // Keep the buffer in the shape numpadPress produces: digits and at most
-      // one decimal point.
-      const cleaned = raw.replace(/[^0-9.]/g, '')
-      const parts = cleaned.split('.')
-      const next = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned
-      if (splitMode) {
-        if (numpadTarget === 'momoPaid') setMomoPaid(next)
-        else setCashPaid(next)
-      } else {
-        setTendered(next)
-      }
-    }
+    const label = amountLabel
+    const displayValue = amountValue
 
     return (
       <div className="px-2 pb-2">
@@ -1524,33 +1530,29 @@ export default function PosPage() {
             </div>
           )}
         </div>
-        <div className={`flex items-baseline justify-end gap-1 px-3 py-2 mb-1.5 border-2 focus-within:ring-2 focus-within:ring-indigo-400 ${
-          splitMode && numpadTarget === 'momoPaid' ? 'border-purple-400 bg-purple-50' :
-          splitMode && numpadTarget === 'cashPaid' ? 'border-indigo-400 bg-indigo-50' :
-          'border-gray-300 bg-gray-50'
-        }`}>
+        {/* Opens AmountEntryModal rather than editing inline. An input living
+            here is re-rendered by every unrelated POS state change, which kept
+            costing the cashier partial input; the modal owns its own state
+            until Accept. Focus opens it too, so tabbing here still works. */}
+        <button
+          type="button"
+          aria-label={`${label} — tap to enter`}
+          ref={amountButtonRef}
+          onClick={() => setShowAmountModal(true)}
+          // Tab-focus opens it too, but not the focus restored when the modal
+          // closes — that would trap the cashier in a modal they just accepted.
+          onFocus={() => { if (!amountReturnRef.current) setShowAmountModal(true) }}
+          className={`w-full flex items-baseline justify-end gap-1 px-3 py-2 mb-1.5 border-2 cursor-text focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+            splitMode && numpadTarget === 'momoPaid' ? 'border-purple-400 bg-purple-50' :
+            splitMode && numpadTarget === 'cashPaid' ? 'border-indigo-400 bg-indigo-50' :
+            'border-gray-300 bg-gray-50'
+          }`}
+        >
           <span className="text-2xl font-black tracking-tight text-gray-400 select-none">GHS</span>
-          <input
-            type="text"
-            inputMode="decimal"
-            aria-label={label}
-            value={displayValue}
-            onChange={e => setDisplayValue(e.target.value)}
-            // Select the existing amount only when arriving at an idle field,
-            // so a stray refocus mid-entry cannot select what has been typed so
-            // far and let the next digit overwrite all of it. Selecting on
-            // every focus event made the field appear to accept one digit.
-            onFocus={e => {
-              if (!amountTouchedRef.current) {
-                amountTouchedRef.current = true
-                e.target.select()
-              }
-            }}
-            onBlur={() => { amountTouchedRef.current = false }}
-            placeholder="0.00"
-            className={`min-w-0 flex-1 bg-transparent text-right text-2xl font-black tracking-tight focus:outline-none placeholder:text-gray-300 ${displayValue ? 'text-gray-900' : 'text-gray-400'}`}
-          />
-        </div>
+          <span className={`text-2xl font-black tracking-tight ${displayValue ? 'text-gray-900' : 'text-gray-300'}`}>
+            {displayValue || '0.00'}
+          </span>
+        </button>
         <div className="grid grid-cols-3 gap-0.5">
           {keys.map(k => (
             <button
@@ -2456,6 +2458,22 @@ export default function PosPage() {
         initialValue={momoPhone}
         onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
         onClose={() => setMomoPhoneModalOpen(false)}
+      />
+
+      <AmountEntryModal
+        open={showAmountModal}
+        title={amountLabel}
+        initialValue={amountValue}
+        hint={grandTotal > 0 ? `Total due ${formatCurrency(grandTotal)} · Enter to accept · Esc to cancel` : undefined}
+        onAccept={setAmountValue}
+        onClose={() => {
+          setShowAmountModal(false)
+          // Return focus to the trigger for keyboard users, suppressing the
+          // reopen that its focus handler would otherwise cause.
+          amountReturnRef.current = true
+          amountButtonRef.current?.focus()
+          setTimeout(() => { amountReturnRef.current = false }, 0)
+        }}
       />
     </>
   )
