@@ -38,18 +38,72 @@ export async function isQZAvailable(): Promise<boolean> {
   }
 }
 
-export async function getAvailablePrinters(): Promise<string[]> {
-  try {
-    const loaded = await loadQZ()
-    if (!loaded) return []
-    if (!window.qz.websocket.isActive()) {
-      await window.qz.websocket.connect({ retries: 2, delay: 1 })
-    }
-    const printers = await window.qz.printers.find()
-    return Array.isArray(printers) ? printers : []
-  } catch {
-    return []
+export type PrinterLookup = {
+  printers: string[]
+  /** Null on success; otherwise a message naming the actual cause. */
+  error?: string
+}
+
+/**
+ * Detect printers, reporting *why* detection failed.
+ *
+ * Previously every failure was swallowed into an empty array, so "QZ is not
+ * running", "the browser blocked the socket", and "this PC genuinely has no
+ * printers" were indistinguishable — and the UI blamed the install in all
+ * three cases.
+ */
+export async function findPrinters(): Promise<PrinterLookup> {
+  if (typeof window === 'undefined') return { printers: [] }
+
+  const loaded = await loadQZ()
+  if (!loaded) {
+    return { printers: [], error: 'Could not load the QZ Tray script (/qz-tray.js) from this site.' }
   }
+
+  if (!window.qz.websocket.isActive()) {
+    try {
+      await window.qz.websocket.connect({ retries: 2, delay: 1 })
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err ?? '')
+      // QZ listens on wss://localhost:8181. An https:// page cannot fall back
+      // to the insecure ws:// port, and wss:// needs QZ's self-signed
+      // certificate trusted, so a running QZ still refuses the socket.
+      const isSecurePage =
+        window.location.protocol === 'https:' && window.location.hostname !== 'localhost'
+      return {
+        printers: [],
+        error: isSecurePage
+          ? `Could not reach QZ Tray from ${window.location.host}. It is running locally on wss://localhost:8181, and this page is served over HTTPS, so the browser needs QZ Tray's certificate to be trusted. Open https://localhost:8181 once and accept the certificate, then try again. (${detail})`
+          : `Could not connect to QZ Tray. Check that it is running — its icon should be in the system tray. (${detail})`,
+      }
+    }
+  }
+
+  try {
+    const printers = await window.qz.printers.find()
+    const list = Array.isArray(printers) ? printers : printers ? [printers] : []
+    if (list.length === 0) {
+      return {
+        printers: [],
+        error: 'QZ Tray is connected but reported no printers. Check that the printer is installed in the operating system.',
+      }
+    }
+    return { printers: list }
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err ?? '')
+    return {
+      printers: [],
+      // An unsigned request pops an "Allow" prompt in QZ; denying or ignoring
+      // it surfaces here rather than as a connection failure.
+      error: `QZ Tray connected but refused the printer list. If a QZ Tray prompt appeared, choose Allow (and "Remember"). (${detail})`,
+    }
+  }
+}
+
+/** Back-compat wrapper — callers that only need the names. */
+export async function getAvailablePrinters(): Promise<string[]> {
+  const { printers } = await findPrinters()
+  return printers
 }
 
 export async function printHTMLToQZ(

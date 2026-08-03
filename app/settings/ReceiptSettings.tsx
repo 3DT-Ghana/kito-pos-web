@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Printer, Check, RefreshCw } from 'lucide-react'
-import { getAvailablePrinters } from '@/lib/print/qzTray'
+import { findPrinters } from '@/lib/print/qzTray'
 import { savePrinterName } from '@/lib/print/print'
 
 interface ReceiptSettingsProps {
@@ -23,6 +23,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
   const [detectingPrinters, setDetectingPrinters] = useState(false)
   const [qzStatus, setQzStatus] = useState<'unknown' | 'connected' | 'unavailable'>('unknown')
+  const [qzError, setQzError] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -35,16 +36,19 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const detectPrinters = async () => {
     setDetectingPrinters(true)
     setQzStatus('unknown')
+    setQzError('')
     try {
-      const printers = await getAvailablePrinters()
+      const { printers, error } = await findPrinters()
       if (printers.length > 0) {
         setAvailablePrinters(printers)
         setQzStatus('connected')
       } else {
         setQzStatus('unavailable')
+        setQzError(error ?? '')
       }
-    } catch {
+    } catch (err) {
       setQzStatus('unavailable')
+      setQzError(err instanceof Error ? err.message : 'Printer detection failed.')
     } finally {
       setDetectingPrinters(false)
     }
@@ -113,9 +117,16 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
           </div>
 
           {qzStatus === 'unavailable' && (
-            <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              QZ Tray not detected. Make sure it is installed and running, then click Detect Printers again.
-              Without QZ Tray the app will use the browser print dialog as fallback.
+            <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 space-y-1">
+              <p className="font-semibold">Printers could not be detected</p>
+              {qzError ? (
+                <p>{qzError}</p>
+              ) : (
+                <p>Make sure QZ Tray is installed and running, then click Detect Printers again.</p>
+              )}
+              <p className="text-xs">
+                Without QZ Tray the app falls back to the browser print dialog, which still prints.
+              </p>
             </div>
           )}
 
