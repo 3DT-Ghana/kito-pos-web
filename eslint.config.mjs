@@ -16,6 +16,14 @@ const eslintConfig = defineConfig([
     "lib/generated/**",
     // Standalone browser scratch script, not part of the build
     "discount-test.mjs",
+    // Vendored third-party scripts served as-is. qz-tray.js is the upstream QZ
+    // Tray Connector (LGPL); it is neither transpiled nor bundled, so our
+    // TypeScript rules do not apply, and its lone require() sits in a Node-only
+    // branch that never executes in the browser. Editing it to satisfy the
+    // linter would mean maintaining a fork of a library we only consume.
+    "public/**",
+    // Vendored QZ Tray client library — not our code
+    "public/qz-tray.js",
   ]),
   {
     rules: {

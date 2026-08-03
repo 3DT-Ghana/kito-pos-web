@@ -34,6 +34,7 @@
     "nodemailer": "^9.0.3",
     "prisma": "^5.22.0",
     "qrcode": "^1.5.4",
+    "qz-tray": "^2.2.6",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
