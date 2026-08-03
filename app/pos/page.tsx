@@ -226,6 +226,9 @@ export default function PosPage() {
   const momoPollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Synchronous submit lock — state batching makes isSubmitting unreliable for this
   const submitLockRef = useRef(false)
+  // True while the cashier is actively in the amount field, so its select-on-
+  // focus fires once on entry rather than on every refocus during typing.
+  const amountTouchedRef = useRef(false)
   // Whichever approval path (PIN or remote poll) lands first claims the sale
   const approvalHandledRef = useRef(false)
   const [numpadBuffer, setNumpadBuffer] = useState('')
@@ -364,6 +367,20 @@ export default function PosPage() {
 
     const handleGlobalKey = (e: KeyboardEvent) => {
       const now    = Date.now()
+
+      // Never treat deliberate typing as a scan. Amounts, phone numbers and
+      // quantities are all digits arriving fast enough to look like a scanner,
+      // and an Enter that follows would ring up a phantom barcode.
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el?.isContentEditable) {
+        // The search box runs its own scan handling, so leave its buffer alone.
+        if (el !== searchRef.current) {
+          scanBuffer = ''
+          return
+        }
+      }
+
       if (e.key === 'Enter') {
         // A scanner fires Enter right after the last char — gap < 50ms.
         // Human pressing Enter in search box has gap >> 50ms.
@@ -1519,7 +1536,17 @@ export default function PosPage() {
             aria-label={label}
             value={displayValue}
             onChange={e => setDisplayValue(e.target.value)}
-            onFocus={e => e.target.select()}
+            // Select the existing amount only when arriving at an idle field,
+            // so a stray refocus mid-entry cannot select what has been typed so
+            // far and let the next digit overwrite all of it. Selecting on
+            // every focus event made the field appear to accept one digit.
+            onFocus={e => {
+              if (!amountTouchedRef.current) {
+                amountTouchedRef.current = true
+                e.target.select()
+              }
+            }}
+            onBlur={() => { amountTouchedRef.current = false }}
             placeholder="0.00"
             className={`min-w-0 flex-1 bg-transparent text-right text-2xl font-black tracking-tight focus:outline-none placeholder:text-gray-300 ${displayValue ? 'text-gray-900' : 'text-gray-400'}`}
           />
