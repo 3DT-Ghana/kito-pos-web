@@ -26,6 +26,7 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const [qzStatus, setQzStatus] = useState<'unknown' | 'connected' | 'unavailable'>('unknown')
   const [qzError, setQzError] = useState('')
   const [testingPrint, setTestingPrint] = useState(false)
+  const [kioskHint, setKioskHint] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -59,32 +60,70 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   // Prints a real receipt-shaped page through the same path a sale uses, so it
   // exercises the page geometry and the silent/dialog decision rather than just
   // proving the printer exists.
+  // Prints a sample sale through the same path a real receipt uses, so the
+  // paper geometry, the layout and the silent-versus-dialog behaviour are all
+  // exercised rather than just proving a printer exists.
   const runPrintTest = () => {
     setTestingPrint(true)
+    const now = new Date()
+    const money = (n: number) => n.toFixed(2)
+    const lines = [
+      { name: 'SPARK 50 128 ROM/4 RAM', qty: 1, price: 1890 },
+      { name: 'NOKIA 106', qty: 2, price: 130 },
+      { name: 'it2165', qty: 3, price: 90 },
+    ]
+    const subtotal = lines.reduce((t, l) => t + l.qty * l.price, 0)
+    const tendered = Math.ceil(subtotal / 50) * 50
+
     const holder = document.createElement('div')
     holder.className = 'thermal-receipt'
-    holder.style.cssText = `width:${printerWidth};max-width:${printerWidth};font-family:monospace;font-size:12px;line-height:1.4;padding:8px;background:#fff;color:#000;position:fixed;left:-10000px;top:0;`
+    holder.style.cssText = `width:${printerWidth};max-width:${printerWidth};font-family:'Courier New',monospace;font-size:${printerWidth === '58mm' ? '10px' : '12px'};line-height:1.4;padding:8px;background:#fff;color:#000;position:fixed;left:-10000px;top:0;`
     holder.innerHTML = `
-      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:8px">
-        <div style="font-weight:700;font-size:16px">PRINTER TEST</div>
-        <div>${new Date().toLocaleString()}</div>
+      <div style="text-align:center;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:6px">
+        <div style="font-weight:700;font-size:${printerWidth === '58mm' ? '13px' : '15px'}">SAMPLE RECEIPT</div>
+        <div style="font-size:10px">Printer test — not a real sale</div>
       </div>
-      <div style="border-bottom:1px dashed #000;padding-bottom:6px;margin-bottom:6px">
-        <div style="display:flex;justify-content:space-between"><span>Test item A</span><span>10.00</span></div>
-        <div style="display:flex;justify-content:space-between"><span>Test item B</span><span>5.50</span></div>
+      <div style="margin-bottom:6px">
+        <div>${now.toLocaleDateString()} ${now.toLocaleTimeString()}</div>
+        <div>Receipt #: TEST-0001</div>
+        <div>Served by: Test</div>
       </div>
-      <div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px">
-        <span>TOTAL</span><span>15.50</span>
+      <div style="border-top:1px dashed #000;padding-top:4px">
+        ${lines.map(l => `
+          <div style="display:flex;justify-content:space-between;gap:6px;margin-bottom:3px">
+            <span style="flex:1">${l.name}</span>
+            <span style="white-space:nowrap">${l.qty} x ${money(l.price)}</span>
+            <span style="white-space:nowrap;font-weight:600">${money(l.qty * l.price)}</span>
+          </div>`).join('')}
       </div>
-      <div style="text-align:center;margin-top:10px;border-top:2px solid #000;padding-top:8px">
-        <div style="font-weight:700">If you can read this, printing works.</div>
-        <div style="font-size:9px;margin-top:4px">Paper width setting: ${printerWidth}</div>
+      <div style="border-top:1px dashed #000;margin-top:6px;padding-top:6px">
+        <div style="display:flex;justify-content:space-between"><span>SUBTOTAL</span><span>${money(subtotal)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:${printerWidth === '58mm' ? '12px' : '14px'};border-top:1px solid #000;margin-top:4px;padding-top:4px">
+          <span>TOTAL</span><span>${money(subtotal)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px"><span>CASH</span><span>${money(tendered)}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>CHANGE</span><span>${money(tendered - subtotal)}</span></div>
+      </div>
+      <div style="text-align:center;border-top:2px solid #000;margin-top:8px;padding-top:6px">
+        <div style="font-weight:700">THANK YOU!</div>
+        <div style="font-size:9px;margin-top:2px">Paper width: ${printerWidth}</div>
+        <div style="font-size:8px;margin-top:6px;color:#888">System Developed EYO Solutions | 0246462398</div>
       </div>`
     document.body.appendChild(holder)
+
+    // A dialog means --kiosk-printing is not active on this browser. window
+    // .print() blocks while the dialog is open, so a near-instant return
+    // indicates silent printing; anything slower means the operator saw a
+    // dialog and we say so rather than leaving them to guess.
+    const startedAt = Date.now()
     try {
       void smartPrint('receipt', holder)
     } finally {
-      // Leave it up briefly so the print engine can rasterise before removal.
+      const elapsed = Date.now() - startedAt
+      setKioskHint(elapsed > 400
+        ? 'A print dialog appeared, so this browser is not running with --kiosk-printing. Open the till from the kiosk shortcut (see the note above) for silent printing. In the dialog, also untick "Headers and footers" to remove the URL, date and page title from the paper.'
+        : '')
+      // Leave it mounted briefly so the print engine can rasterise it.
       setTimeout(() => { holder.remove(); setTestingPrint(false) }, 1500)
     }
   }
@@ -184,6 +223,13 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
             </button>
             </div>
           </div>
+
+          {kioskHint && (
+            <div className="bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900 space-y-1">
+              <p className="font-semibold">Printing is not silent on this browser</p>
+              <p>{kioskHint}</p>
+            </div>
+          )}
 
           {qzStatus === 'unavailable' && (
             <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 space-y-1">
