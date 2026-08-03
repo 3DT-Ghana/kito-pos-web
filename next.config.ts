@@ -20,7 +20,13 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  // QZ Tray is a desktop bridge that listens on the cashier's own machine, so
+  // silent printing needs a websocket to localhost. Without these the browser
+  // blocks the connection and QZ looks "not installed" however correctly it is
+  // set up. Scoped to QZ's documented ports on loopback only: these address the
+  // operator's own PC, never a third-party host, so they grant no reach to any
+  // remote origin.
+  "connect-src 'self' wss://localhost:8181 wss://localhost:8282 wss://localhost:8383 wss://localhost:8484 wss://localhost.qz.io:8181 wss://localhost.qz.io:8282 wss://localhost.qz.io:8383 wss://localhost.qz.io:8484",
   "media-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
