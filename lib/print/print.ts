@@ -14,6 +14,23 @@ function getPrinterName(target: PrintTarget): string | null {
   }
 }
 
+// Paper width chosen in Settings. Falls back to 80mm, the common roll.
+function getReceiptWidth(): '58mm' | '80mm' {
+  try {
+    return localStorage.getItem('receiptPrinterWidth') === '58mm' ? '58mm' : '80mm'
+  } catch {
+    return '80mm'
+  }
+}
+
+export function saveReceiptWidth(width: string) {
+  try {
+    localStorage.setItem('receiptPrinterWidth', width)
+  } catch {
+    // ignore
+  }
+}
+
 export function savePrinterName(target: PrintTarget, name: string | null) {
   try {
     const key = target === 'receipt' ? 'receiptPrinterName' : 'reportPrinterName'
@@ -73,16 +90,39 @@ export async function smartPrint(
   const alreadyMarked = root.classList.contains('printing-receipt')
   let pageStyle: HTMLStyleElement | null = null
 
+  // Reparent the receipt to <body> for the duration of the print. Hiding
+  // siblings only collapses the page when the receipt is a direct child;
+  // nested inside layout wrappers, its own ancestors kept the page as wide as
+  // the POS screen and the printer scaled that down — the receipt printed tiny
+  // and centred on the roll. A placeholder marks where to put it back.
+  let placeholder: Comment | null = null
+  let movedNode: HTMLElement | null = null
+
+  if (isReceipt && element && element.parentNode !== document.body) {
+    placeholder = document.createComment('receipt-print-placeholder')
+    element.parentNode?.insertBefore(placeholder, element)
+    document.body.appendChild(element)
+    movedNode = element
+  }
+
   if (isReceipt && !alreadyMarked) {
     root.classList.add('printing-receipt')
     pageStyle = document.createElement('style')
-    pageStyle.textContent = '@media print { @page { size: 80mm auto; margin: 0; } }'
+    const width = getReceiptWidth()
+    pageStyle.textContent =
+      `@media print { @page { size: ${width} auto; margin: 0; } ` +
+      `html.printing-receipt, html.printing-receipt body, ` +
+      `html.printing-receipt .thermal-receipt { width: ${width} !important; max-width: ${width} !important; } }`
     document.head.appendChild(pageStyle)
   }
 
   try {
     window.print()
   } finally {
+    if (movedNode && placeholder?.parentNode) {
+      placeholder.parentNode.insertBefore(movedNode, placeholder)
+      placeholder.remove()
+    }
     if (pageStyle) {
       pageStyle.remove()
       root.classList.remove('printing-receipt')

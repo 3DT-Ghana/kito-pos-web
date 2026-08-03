@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Printer, Check, RefreshCw } from 'lucide-react'
 import { findPrinters } from '@/lib/print/qzTray'
-import { smartPrint } from '@/lib/print/print'
+import { smartPrint, saveReceiptWidth } from '@/lib/print/print'
 import { savePrinterName } from '@/lib/print/print'
 
 interface ReceiptSettingsProps {
@@ -35,6 +35,12 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
     savePrinterName('receipt', receiptPrinter || null)
     savePrinterName('report', reportPrinter || null)
   }, [receiptPrinter, reportPrinter])
+
+  // Mirror the paper width to localStorage so the print CSS can size the page
+  // without waiting for a server round trip.
+  useEffect(() => {
+    saveReceiptWidth(printerWidth)
+  }, [printerWidth])
 
   const detectPrinters = async () => {
     setDetectingPrinters(true)
