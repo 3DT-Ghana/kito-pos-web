@@ -6,6 +6,8 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { ADJUSTMENT_REASONS, type AdjustmentReason } from '@/lib/adjustments/reasons'
 import { getStockAlertState } from '@/lib/items/stock'
 import { isInventoryItemType } from '@/lib/items/type'
+import { useBranch } from '@/lib/branch/BranchContext'
+import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 
 interface Item {
   id: string
@@ -42,6 +44,10 @@ function reasonsForType(type: 'add' | 'remove' | 'set'): AdjustmentReason[] {
 
 export default function BulkAdjustItemsPage() {
   const router = useRouter()
+  // Same rule as the single-item form: stock is per branch, so the server
+  // rejects adjustments made while "All Branches" is selected.
+  const { branchesEnabled, currentBranchId, isLoading: isBranchLoading } = useBranch()
+  const needsBranchSelection = !isBranchLoading && branchesEnabled && !currentBranchId
   const [items, setItems] = useState<Item[]>([])
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [loading, setLoading] = useState(true)
@@ -156,6 +162,20 @@ export default function BulkAdjustItemsPage() {
 
   const dirtyCount   = Object.values(rows).filter(r => r.dirty && r.qty !== '').length
   const readyCount   = items.filter(i => isRowValid(rows[i.id])).length
+
+  if (needsBranchSelection) {
+    return (
+      <AppLayout>
+        <div className="max-w-xl mx-auto space-y-5">
+          <h1 className="text-xl font-bold text-gray-900">Bulk Stock Adjustment</h1>
+          <OperationalBranchPrompt
+            title="Choose a branch before adjusting stock"
+            description="Each branch holds its own stock, so adjustments have to name the branch they apply to. Pick the branch you are counting to continue."
+          />
+        </div>
+      </AppLayout>
+    )
+  }
 
   return (
     <AppLayout>
