@@ -7,12 +7,13 @@ import { useUser } from '@/hooks/useUser'
 import { useBranch } from '@/lib/branch/BranchContext'
 import { useRolePermissions, useTenant, useTenantFeatures } from '@/hooks/useTenant'
 import { formatCurrency } from '@/lib/utils/format'
-import { formatTaxLabel, summariseTaxBreakdown } from '@/lib/tax/summary'
+import { summariseTaxBreakdown } from '@/lib/tax/summary'
 import { OperationalBranchPrompt } from '@/components/branch/OperationalBranchPrompt'
 import { useCustomerDisplaySender } from '@/hooks/useCustomerDisplay'
 import { isLowStock } from '@/lib/items/stock'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 import { AmountEntryModal } from '@/components/modals/AmountEntryModal'
+import { PosReceipt } from '@/components/receipts/PosReceipt'
 import { smartPrint } from '@/lib/print/print'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -187,6 +188,16 @@ export default function PosPage() {
   const { features } = useTenantFeatures()
   useRolePermissions()
   const { tenantName } = useTenant()
+  // Settings mirrors the paper width here so the receipt renders at the same
+  // size it will print at.
+  const [receiptWidth, setReceiptWidth] = useState<'58mm' | '80mm'>('80mm')
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('receiptPrinterWidth') === '58mm') setReceiptWidth('58mm')
+    } catch {
+      // ignore
+    }
+  }, [])
 
   // Catalog
   const [allItems, setAllItems] = useState<PosItem[]>([])
@@ -1113,56 +1124,28 @@ export default function PosPage() {
             <span className="font-bold text-gray-800">Receipt #{lastSaleData.receiptNumber}</span>
             <button onClick={() => setShowReceipt(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
           </div>
-          <div className="thermal-receipt p-4 space-y-3 font-mono text-sm max-h-[70vh] overflow-y-auto">
-            <div className="text-center border-b pb-3">
-              <div className="font-bold text-base">{currentBranch?.name ?? 'Sales Receipt'}</div>
-              <div className="text-xs text-gray-500">{lastSaleData.date} · {lastSaleData.time}</div>
-              {lastSaleData.customerName && <div className="mt-1 text-xs">Customer: {lastSaleData.customerName}</div>}
-            </div>
-            <div className="space-y-1">
-              {lastSaleData.items.map((line, i) => (
-                <div key={i} className="flex justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate font-medium">{line.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {line.qty} × {formatCurrency(line.unitPrice)}
-                      {line.lineTaxAmount > 0 ? ` · Tax ${formatCurrency(line.lineTaxAmount)}` : ''}
-                    </div>
-                  </div>
-                  <div className="font-semibold shrink-0">{formatCurrency(line.lineTotal)}</div>
-                </div>
-              ))}
-            </div>
-            <div className="border-t pt-2 space-y-1">
-              <div className="flex justify-between text-gray-600"><span>Subtotal</span><span>{formatCurrency(lastSaleData.subtotal)}</span></div>
-              {lastSaleData.orderDiscount > 0 && (
-                <div className="flex justify-between text-green-700"><span>Discount</span><span>− {formatCurrency(lastSaleData.orderDiscount)}</span></div>
-              )}
-              {lastSaleData.taxLines.map((taxLine) => (
-                <div
-                  key={`${taxLine.taxRateId ?? taxLine.taxName}-${taxLine.taxRatePercentage}`}
-                  className="flex justify-between text-gray-600"
-                >
-                  <span>{formatTaxLabel(taxLine)}</span>
-                  <span>{formatCurrency(taxLine.taxAmount)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-bold text-base border-t pt-1"><span>TOTAL</span><span>{formatCurrency(lastSaleData.total)}</span></div>
-              {lastSaleData.method === 'CASH' && lastSaleData.change > 0 && (
-                <>
-                  <div className="flex justify-between text-gray-600"><span>Tendered</span><span>{formatCurrency(lastSaleData.paidAmount + lastSaleData.change)}</span></div>
-                  <div className="flex justify-between text-gray-600"><span>Change</span><span>{formatCurrency(lastSaleData.change)}</span></div>
-                </>
-              )}
-              <div className="flex justify-between text-gray-500 text-xs"><span>Payment</span><span>{lastSaleData.method}</span></div>
-            </div>
-            {lastSaleData.note && <div className="text-xs text-gray-500 border-t pt-2">Note: {lastSaleData.note}</div>}
-            <div className="text-center text-xs text-gray-400 border-t pt-2">Thank you for your business!</div>
-            <div className="text-center border-t border-dashed border-gray-200 pt-2 mt-1" style={{ fontSize: '10px', color: '#aaa' }}>
-              System Developed EYO Solutions | 0246462398
-            </div>
-            {/* Blank tail so the cutter clears the last line — print only. */}
-            <div className="receipt-feed hidden" aria-hidden="true" />
+          <div className="max-h-[70vh] overflow-y-auto flex justify-center bg-gray-50 py-3">
+            <PosReceipt
+              width={receiptWidth}
+              data={{
+                receiptNumber: lastSaleData.receiptNumber,
+                date: lastSaleData.date,
+                time: lastSaleData.time,
+                businessName: tenantName || 'Sales Receipt',
+                branchName: currentBranch?.name,
+                cashierName: undefined,
+                customerName: lastSaleData.customerName || undefined,
+                items: lastSaleData.items,
+                subtotal: lastSaleData.subtotal,
+                orderDiscount: lastSaleData.orderDiscount,
+                taxLines: lastSaleData.taxLines,
+                total: lastSaleData.total,
+                paidAmount: lastSaleData.paidAmount,
+                change: lastSaleData.change,
+                paymentMethod: lastSaleData.method,
+                note: lastSaleData.note || undefined,
+              }}
+            />
           </div>
           <div className="px-4 pb-4 flex gap-2">
             <button
