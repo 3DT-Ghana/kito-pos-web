@@ -9,17 +9,17 @@ import { useTenantFeatures } from '@/hooks/useTenant'
  * Import Items Page
  *
  * Upload a CSV file or paste CSV text to bulk-import items.
- * Automatically creates manufacturers that don't exist yet.
+ * Automatically creates manufacturers and categories that don't exist yet.
  *
  * CSV columns (header row required):
- *   name, manufacturer, costPrice, sellingPrice, quantity, barcode,
+ *   name, manufacturer, category, costPrice, sellingPrice, quantity, barcode,
  *   reorderLevel, itemType, plus retailPrice / wholesalePrice / promoPrice
  *   for whichever price levels the business has enabled.
  */
 
 const REQUIRED_COLS = ['name', 'costprice', 'sellingprice']
 
-const BASE_COLS = ['name', 'manufacturer', 'costPrice', 'sellingPrice', 'quantity', 'barcode', 'reorderLevel', 'itemType']
+const BASE_COLS = ['name', 'manufacturer', 'category', 'costPrice', 'sellingPrice', 'quantity', 'barcode', 'reorderLevel', 'itemType']
 
 /**
  * Template rows keyed by column, so the price-level columns can be included or
@@ -28,11 +28,11 @@ const BASE_COLS = ['name', 'manufacturer', 'costPrice', 'sellingPrice', 'quantit
  * importer will refuse to store.
  */
 const TEMPLATE_ROWS: Record<string, string>[] = [
-  { name: 'Paracetamol 500mg', manufacturer: 'PharmaCo', costPrice: '2.50', sellingPrice: '4.00', quantity: '100', barcode: '', reorderLevel: '10', itemType: 'INVENTORY', retailPrice: '4.00', wholesalePrice: '3.40', promoPrice: '3.75' },
-  { name: 'Ibuprofen 400mg', manufacturer: 'PharmaCo', costPrice: '3.00', sellingPrice: '5.50', quantity: '50', barcode: '', reorderLevel: '5', itemType: 'INVENTORY', retailPrice: '5.50', wholesalePrice: '4.80', promoPrice: '' },
-  { name: 'Amoxicillin 250mg', manufacturer: 'MedLabs', costPrice: '5.00', sellingPrice: '9.00', quantity: '200', barcode: '8901234567890', reorderLevel: '20', itemType: 'INVENTORY', retailPrice: '9.00', wholesalePrice: '7.80', promoPrice: '' },
-  { name: 'Consultation Fee', manufacturer: '', costPrice: '50.00', sellingPrice: '80.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'SERVICE', retailPrice: '', wholesalePrice: '', promoPrice: '' },
-  { name: 'Delivery Charge', manufacturer: '', costPrice: '0', sellingPrice: '15.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'NON_INVENTORY', retailPrice: '', wholesalePrice: '', promoPrice: '' },
+  { name: 'Paracetamol 500mg', manufacturer: 'PharmaCo', category: 'Pain Relief', costPrice: '2.50', sellingPrice: '4.00', quantity: '100', barcode: '', reorderLevel: '10', itemType: 'INVENTORY', retailPrice: '4.00', wholesalePrice: '3.40', promoPrice: '3.75' },
+  { name: 'Ibuprofen 400mg', manufacturer: 'PharmaCo', category: 'Pain Relief', costPrice: '3.00', sellingPrice: '5.50', quantity: '50', barcode: '', reorderLevel: '5', itemType: 'INVENTORY', retailPrice: '5.50', wholesalePrice: '4.80', promoPrice: '' },
+  { name: 'Amoxicillin 250mg', manufacturer: 'MedLabs', category: 'Antibiotics', costPrice: '5.00', sellingPrice: '9.00', quantity: '200', barcode: '8901234567890', reorderLevel: '20', itemType: 'INVENTORY', retailPrice: '9.00', wholesalePrice: '7.80', promoPrice: '' },
+  { name: 'Consultation Fee', manufacturer: '', category: 'Services', costPrice: '50.00', sellingPrice: '80.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'SERVICE', retailPrice: '', wholesalePrice: '', promoPrice: '' },
+  { name: 'Delivery Charge', manufacturer: '', category: 'Logistics', costPrice: '0', sellingPrice: '15.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'NON_INVENTORY', retailPrice: '', wholesalePrice: '', promoPrice: '' },
 ]
 
 function buildTemplateCsv(tiers: { retail: boolean; wholesale: boolean; promo: boolean }): string {
@@ -157,7 +157,7 @@ export default function ImportItemsPage() {
           </button>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Import Items</h1>
-            <p className="text-sm text-gray-500">Upload a CSV to bulk-create items and manufacturers</p>
+            <p className="text-sm text-gray-500">Upload a CSV to bulk-create items, manufacturers and categories</p>
           </div>
         </div>
 
@@ -179,7 +179,7 @@ export default function ImportItemsPage() {
         <div className="bg-blue-50 border border-blue-200 p-4 text-sm text-blue-800">
           <p className="font-semibold mb-1">CSV columns:</p>
           <p className="font-mono text-xs bg-blue-100 px-2 py-1 inline-block">
-            name*, costPrice*, sellingPrice*, manufacturer, quantity, barcode, reorderLevel, itemType
+            name*, costPrice*, sellingPrice*, manufacturer, category, quantity, barcode, reorderLevel, itemType
             {enabledTierCols.length > 0 && `, ${enabledTierCols.join(', ')}`}
           </p>
           <ul className="mt-2 text-xs text-blue-600 space-y-0.5">
@@ -199,6 +199,7 @@ export default function ImportItemsPage() {
             )}
             <li>• <strong>quantity</strong> and <strong>reorderLevel</strong> only apply to INVENTORY items (ignored for SERVICE/NON_INVENTORY)</li>
             <li>• <strong>manufacturer</strong> is optional — auto-created if provided, defaults to &quot;General&quot;</li>
+            <li>• <strong>category</strong> groups items into tabs on the POS screen — auto-created if provided. Leave it out and the manufacturer name is used, which suits shops that browse by brand.</li>
             <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">&quot;Phone, Samsung&quot;</code></li>
           </ul>
           <button

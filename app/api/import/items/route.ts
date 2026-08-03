@@ -11,6 +11,9 @@ import { requireBranchAccess, requireOperationalBranch } from '@/lib/branch/serv
  * Body: { rows: Array<{
  *   name: string
  *   manufacturer: string       // manufacturer name (created if not exists)
+ *   category?: string          // category name (created if not exists); when
+ *                              // omitted, falls back to the manufacturer name
+ *                              // so the POS still has something to group by
  *   costPrice: number
  *   sellingPrice: number
  *   quantity?: number          // opening stock, defaults to 0
@@ -82,12 +85,37 @@ export async function POST(req: Request) {
     // Cache manufacturer lookups to avoid N+1 queries
     const mfrCache: Record<string, string> = {}
 
+    // Categories drive the POS tab bar. They are tenant-scoped (unlike items,
+    // which are per branch), so a category created by one branch's import is
+    // reused by the next rather than duplicated.
+    const catCache: Record<string, string> = {}
+    let catSortOrder = await prisma.category.count({ where: { tenantId: context!.tenantId } })
+    const resolveCategory = async (rawName: string): Promise<string> => {
+      const key = rawName.toLowerCase()
+      if (catCache[key]) return catCache[key]
+      let cat = await prisma.category.findFirst({
+        where: { tenantId: context!.tenantId, name: { equals: rawName, mode: 'insensitive' } },
+      })
+      if (!cat) {
+        cat = await prisma.category.create({
+          data: { tenantId: context!.tenantId, name: rawName, sortOrder: catSortOrder++ },
+        })
+      }
+      catCache[key] = cat.id
+      return cat.id
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       const rowNum = i + 2 // 1-indexed + header row
 
       const name         = String(row.name || '').trim()
       const mfrName      = String(row.manufacturer || '').trim()
+      // Shops that sell by brand (phone stores, for one) use the same value for
+      // both: the brand is how staff browse the POS. Defaulting category to the
+      // manufacturer means such a sheet needs only one column, while a shop
+      // that groups differently can still supply its own category column.
+      const catName      = String(row.category || '').trim() || mfrName
       const costPrice    = parseFloat(String(row.costprice ?? row.costPrice ?? ''))
       const sellingPrice = parseFloat(String(row.sellingprice ?? row.sellingPrice ?? ''))
       const quantity     = parseFloat(String(row.quantity ?? '0'))
@@ -150,6 +178,10 @@ export async function POST(req: Request) {
           manufacturerId = await getDefaultMfr()
         }
 
+        // Left null when the row named no category and no manufacturer to fall
+        // back on — better an ungrouped item than a category called "General".
+        const categoryId = catName ? await resolveCategory(catName) : null
+
         // Skip if exact name already exists in this branch/tenant
         const existing = await prisma.item.findFirst({
           where: {
@@ -188,6 +220,7 @@ export async function POST(req: Request) {
             tenantId: context!.tenantId,
             ...(context!.branchesEnabled ? { branchId } : {}),
             manufacturerId,
+            ...(categoryId ? { categoryId } : {}),
             name,
             costPrice,
             sellingPrice,
