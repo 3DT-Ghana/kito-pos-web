@@ -67,12 +67,18 @@ export default function SalesPage() {
 
   useEffect(() => setPage(1), [search, filter, paymentFilter])
 
+  // Outstanding credit after returns. A fully-returned credit sale is settled,
+  // not owed — counting it as debt overstated the credit total and left the
+  // sale sitting under the "Partial" tab forever.
+  const outstandingCredit = (s: SaleWithDetails) =>
+    s.openCredit ?? Math.max(0, s.totalAmount - s.paidAmount - (s.returnedAmount ?? 0))
+
   const filtered = sales.filter(s => {
     const q = search.toLowerCase()
     const matchesSearch = !q
       || s.id.toLowerCase().includes(q)
       || (s.customer?.name || 'Walk-in').toLowerCase().includes(q)
-    const credit = s.totalAmount - s.paidAmount
+    const credit = outstandingCredit(s)
     const matchesFilter =
       filter === 'all' ? true : filter === 'paid' ? credit === 0 : credit > 0
     const matchesPayment =
@@ -83,11 +89,11 @@ export default function SalesPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const totalRevenue = filtered.reduce((s, x) => s + x.paidAmount, 0)
-  const totalCredit = filtered.reduce((s, x) => s + Math.max(0, x.totalAmount - x.paidAmount), 0)
+  const totalCredit = filtered.reduce((s, x) => s + outstandingCredit(x), 0)
   const cashSales = sales.filter(s => s.paymentType === 'CASH').length
   const creditSales = sales.filter(s => s.paymentType === 'CREDIT').length
-  const fullyPaid = sales.filter(s => s.totalAmount === s.paidAmount).length
-  const partialCount = sales.filter(s => s.totalAmount !== s.paidAmount).length
+  const fullyPaid = sales.filter(s => outstandingCredit(s) === 0).length
+  const partialCount = sales.filter(s => outstandingCredit(s) > 0).length
 
   const statusTabs = [
     { value: 'all' as FilterStatus, label: 'All', count: sales.length },
@@ -117,7 +123,8 @@ export default function SalesPage() {
                   'Payment Type': s.paymentType,
                   'Total (GHS)': s.totalAmount.toFixed(2),
                   'Paid (GHS)': s.paidAmount.toFixed(2),
-                  'Balance (GHS)': Math.max(0, s.totalAmount - s.paidAmount).toFixed(2),
+                  'Returned (GHS)': (s.returnedAmount ?? 0).toFixed(2),
+                  'Balance (GHS)': outstandingCredit(s).toFixed(2),
                 }))}
               />
               <button
@@ -215,7 +222,7 @@ export default function SalesPage() {
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
               {paginated.map((sale) => {
-                const credit = sale.totalAmount - sale.paidAmount
+                const credit = outstandingCredit(sale)
                 const name = sale.customer?.name || 'Walk-in Customer'
                 return (
                   <div
@@ -239,11 +246,16 @@ export default function SalesPage() {
                               <Badge variant="amber">⏳ Awaiting approval</Badge>
                             ) : sale.approvalStatus === 'REJECTED' ? (
                               <Badge variant="red">Rejected</Badge>
+                            ) : sale.isFullyReturned ? (
+                              <Badge variant="red">↩ Returned</Badge>
                             ) : (
                               <>
                                 <Badge variant={sale.paymentType === 'CASH' ? 'green' : 'blue'}>
                                   {sale.paymentType === 'CASH' ? 'Cash' : 'Credit'}
                                 </Badge>
+                                {(sale.returnedAmount ?? 0) > 0 && (
+                                  <Badge variant="amber">↩ Part returned</Badge>
+                                )}
                                 <Badge variant={credit === 0 ? 'green' : 'amber'}>
                                   {credit === 0 ? 'Paid' : 'Partial'}
                                 </Badge>
@@ -276,7 +288,7 @@ export default function SalesPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {paginated.map(sale => {
-                    const credit = sale.totalAmount - sale.paidAmount
+                    const credit = outstandingCredit(sale)
                     const name = sale.customer?.name || 'Walk-in Customer'
                     return (
                       <tr
@@ -313,10 +325,17 @@ export default function SalesPage() {
                             <Badge variant="amber" dot>Awaiting approval</Badge>
                           ) : sale.approvalStatus === 'REJECTED' ? (
                             <Badge variant="red" dot>Rejected</Badge>
+                          ) : sale.isFullyReturned ? (
+                            <Badge variant="red" dot>Returned</Badge>
                           ) : (
-                            <Badge variant={credit === 0 ? 'green' : 'amber'} dot>
-                              {credit === 0 ? 'Paid' : 'Partial'}
-                            </Badge>
+                            <div className="flex flex-col gap-1 items-center">
+                              <Badge variant={credit === 0 ? 'green' : 'amber'} dot>
+                                {credit === 0 ? 'Paid' : 'Partial'}
+                              </Badge>
+                              {(sale.returnedAmount ?? 0) > 0 && (
+                                <Badge variant="amber">Part returned</Badge>
+                              )}
+                            </div>
                           )}
                         </td>
                       </tr>

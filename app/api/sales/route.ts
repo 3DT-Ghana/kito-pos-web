@@ -101,21 +101,47 @@ export async function GET(req: Request) {
       }
     }
 
+    // A returned sale is never deleted — the original stays and the return is
+    // posted against it. Without this the list shows a fully-returned credit
+    // sale as money still owed, and the credit summary counts it as debt.
+    const returnedMap = new Map<string, number>()
+    if (saleIds.length > 0) {
+      const returnTotals = await prisma.customerReturn.groupBy({
+        by: ['saleId'],
+        where: { tenantId: context!.tenantId, saleId: { in: saleIds } },
+        _sum: { amount: true },
+      })
+      for (const row of returnTotals) {
+        if (row.saleId) returnedMap.set(row.saleId, row._sum.amount ?? 0)
+      }
+    }
+
+    // Outstanding credit net of returns, floored at zero: a return can clear a
+    // debt but never create one the customer is owed here.
+    const openCredit = (sale: { id: string; totalAmount: number; paidAmount: number }) =>
+      Math.max(0, sale.totalAmount - sale.paidAmount - (returnedMap.get(sale.id) ?? 0))
+
     // Calculate summary
     const summary = {
       total: sales.length,
       totalAmount: sales.reduce((sum, sale) => sum + sale.totalAmount, 0),
       totalPaid: sales.reduce((sum, sale) => sum + sale.paidAmount, 0),
-      totalCredit: sales.reduce(
-        (sum, sale) => sum + (sale.totalAmount - sale.paidAmount),
-        0
-      ),
+      totalCredit: sales.reduce((sum, sale) => sum + openCredit(sale), 0),
+      totalReturned: sales.reduce((sum, sale) => sum + (returnedMap.get(sale.id) ?? 0), 0),
     }
 
-    const salesWithApproval = sales.map(s => ({
-      ...s,
-      approvalStatus: approvalMap.get(s.id) ?? s.approvalStatus ?? null,
-    }))
+    const salesWithApproval = sales.map(s => {
+      const returnedAmount = returnedMap.get(s.id) ?? 0
+      return {
+        ...s,
+        approvalStatus: approvalMap.get(s.id) ?? s.approvalStatus ?? null,
+        returnedAmount,
+        // Tolerance mirrors the money rounding used elsewhere, so a cent of
+        // float drift does not leave a sale looking partially returned.
+        isFullyReturned: returnedAmount > 0 && returnedAmount >= s.totalAmount - 0.005,
+        openCredit: openCredit(s),
+      }
+    })
 
     return NextResponse.json({ sales: salesWithApproval, summary })
   } catch (err) {

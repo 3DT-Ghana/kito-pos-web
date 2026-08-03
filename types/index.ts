@@ -61,6 +61,11 @@ export interface SaleWithDetails {
   paymentMethod: string
   /** null when the sale needed no approval */
   approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null
+  /** Value returned against this sale; the sale itself is never deleted. */
+  returnedAmount?: number
+  isFullyReturned?: boolean
+  /** Outstanding credit after returns — use instead of total minus paid. */
+  openCredit?: number
   createdAt: Date
   customer?: {
     id: string
