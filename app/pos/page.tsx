@@ -462,9 +462,13 @@ export default function PosPage() {
   // Whether charge button should be enabled
   const paymentComplete = (() => {
     if (cart.length === 0) return false
-    if (splitMode) return splitReady && momoPhone.trim().length >= 9
+    // The phone number is only required when a prompt is actually being sent
+    // to it. With no gateway the cashier has already collected the money, so
+    // the number is a reference, not a destination.
+    const momoPhoneReady = !features.enableMomoCollect || momoPhone.trim().length >= 9
+    if (splitMode) return splitReady && momoPhoneReady
     if (method === 'CASH') return features.enableCreditSales ? tenderedNum > 0 : tenderedNum >= grandTotal
-    if (method === 'MOMO') return momoPhone.trim().length >= 9
+    if (method === 'MOMO') return momoPhoneReady
     return true // BANK
   })()
 
@@ -933,14 +937,24 @@ export default function PosPage() {
   const handleCheckout = async () => {
     if (cart.length === 0 || isSubmitting) return
 
-    // Validate MoMo payment before proceeding
-    if ((method === 'MOMO' || (splitMode && momoPaidNum > 0)) && !momoPhone.trim()) {
+    // Validate MoMo payment before proceeding — only when a prompt will be sent
+    if (
+      features.enableMomoCollect &&
+      (method === 'MOMO' || (splitMode && momoPaidNum > 0)) &&
+      !momoPhone.trim()
+    ) {
       setErrorMsg('Please enter the MoMo phone number before charging.')
       return
     }
 
-    // For split / pure-MOMO: send MoMo request first and wait for approval
-    const momoAmount = splitMode ? momoPaidNum : method === 'MOMO' ? grandTotal : 0
+    // For split / pure-MOMO: send MoMo request first and wait for approval.
+    // Only when the business actually has a payment gateway — otherwise the
+    // cashier has taken the money on their own phone and just records it, and
+    // waiting for an approval that can never arrive would block the sale.
+    const momoAmount =
+      features.enableMomoCollect
+        ? (splitMode ? momoPaidNum : method === 'MOMO' ? grandTotal : 0)
+        : 0
     if (momoAmount > 0 && momoStatus !== 'success') {
       if (momoStatus === 'pending') {
         setErrorMsg('Waiting for customer to approve MoMo payment.')
@@ -1449,7 +1463,7 @@ export default function PosPage() {
   }
 
   // ── Inline numpad for payment panel ────────────────────────────────────────
-  const PaymentNumpad = () => {
+  const renderPaymentNumpad = () => {
     const keys = ['7','8','9','4','5','6','1','2','3','.','0','←']
     const label = splitMode
       ? numpadTarget === 'momoPaid' ? 'MoMo Amount' : 'Cash Amount'
@@ -1458,6 +1472,23 @@ export default function PosPage() {
     const displayValue = splitMode
       ? numpadTarget === 'momoPaid' ? momoPaid : cashPaid
       : tendered
+
+    // The on-screen keys stay for touch terminals, but the readout is a real
+    // input so a keyboard user can click or tab into it and just type. Both
+    // paths write the same buffer, so they can be used interchangeably.
+    const setDisplayValue = (raw: string) => {
+      // Keep the buffer in the shape numpadPress produces: digits and at most
+      // one decimal point.
+      const cleaned = raw.replace(/[^0-9.]/g, '')
+      const parts = cleaned.split('.')
+      const next = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : cleaned
+      if (splitMode) {
+        if (numpadTarget === 'momoPaid') setMomoPaid(next)
+        else setCashPaid(next)
+      } else {
+        setTendered(next)
+      }
+    }
 
     return (
       <div className="px-2 pb-2">
@@ -1476,14 +1507,22 @@ export default function PosPage() {
             </div>
           )}
         </div>
-        <div className={`px-3 py-2 mb-1.5 text-right border-2 ${
+        <div className={`flex items-baseline justify-end gap-1 px-3 py-2 mb-1.5 border-2 focus-within:ring-2 focus-within:ring-indigo-400 ${
           splitMode && numpadTarget === 'momoPaid' ? 'border-purple-400 bg-purple-50' :
           splitMode && numpadTarget === 'cashPaid' ? 'border-indigo-400 bg-indigo-50' :
           'border-gray-300 bg-gray-50'
         }`}>
-          <span className={`text-2xl font-black tracking-tight ${displayValue ? 'text-gray-900' : 'text-gray-300'}`}>
-            {displayValue ? `GHS ${displayValue}` : 'GHS 0.00'}
-          </span>
+          <span className="text-2xl font-black tracking-tight text-gray-400 select-none">GHS</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            aria-label={label}
+            value={displayValue}
+            onChange={e => setDisplayValue(e.target.value)}
+            onFocus={e => e.target.select()}
+            placeholder="0.00"
+            className={`min-w-0 flex-1 bg-transparent text-right text-2xl font-black tracking-tight focus:outline-none placeholder:text-gray-300 ${displayValue ? 'text-gray-900' : 'text-gray-400'}`}
+          />
         </div>
         <div className="grid grid-cols-3 gap-0.5">
           {keys.map(k => (
@@ -1617,7 +1656,9 @@ export default function PosPage() {
       {(method === 'MOMO' || splitMode) && (
         <div className="px-3 pt-2">
           <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
-            Customer MoMo Number *
+            {features.enableMomoCollect
+              ? 'Customer MoMo Number *'
+              : 'Customer MoMo Number (for the record)'}
           </label>
           <div className="flex gap-1.5">
             <button
@@ -1651,9 +1692,13 @@ export default function PosPage() {
         </div>
       )}
 
-      {/* ── Always-visible inline numpad ── */}
+      {/* ── Always-visible inline numpad ──
+          Called as a function, not rendered as <PaymentNumpad />: it is defined
+          inside this component, so as a JSX element React would treat it as a
+          new component type each render and remount the subtree, stealing focus
+          from the amount input after every keystroke. */}
       <div className="border-t border-gray-100 mt-1.5">
-        <PaymentNumpad />
+        {renderPaymentNumpad()}
       </div>
 
       {/* ── Note + errors ── */}

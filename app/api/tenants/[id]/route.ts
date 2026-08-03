@@ -37,6 +37,7 @@ const TENANT_PUBLIC_SUMMARY_SELECT = {
   enableCreditSales: true,
   enableExpenses: true,
   enableTill: true,
+  enableMomoCollect: true,
   allowSaleOnZeroStock: true,
   enableBarcodeGenerator: true,
   enableAccounting: true,
@@ -173,6 +174,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.enableCreditSales !== undefined && { enableCreditSales: Boolean(body.enableCreditSales) }),
         ...(body.enableExpenses !== undefined && { enableExpenses: Boolean(body.enableExpenses) }),
         ...(body.enableTill !== undefined && { enableTill: Boolean(body.enableTill) }),
+        ...(body.enableMomoCollect !== undefined && { enableMomoCollect: Boolean(body.enableMomoCollect) }),
         ...(body.enableBarcodeGenerator !== undefined && { enableBarcodeGenerator: Boolean(body.enableBarcodeGenerator) }),
         // Sales behaviour
         ...(body.allowSaleOnZeroStock !== undefined && { allowSaleOnZeroStock: Boolean(body.allowSaleOnZeroStock) }),

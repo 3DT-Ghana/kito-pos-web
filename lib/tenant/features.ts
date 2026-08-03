@@ -5,6 +5,7 @@ export interface TenantFeatureFlags {
   enableQuotations: boolean
   enablePurchaseOrders: boolean
   enableTill: boolean
+  enableMomoCollect: boolean
   enableAccounting: boolean
   enablePayroll: boolean
   requireApproval: boolean
@@ -22,6 +23,7 @@ export const TENANT_FEATURE_SELECT = {
   enableQuotations: true,
   enablePurchaseOrders: true,
   enableTill: true,
+  enableMomoCollect: true,
   enableAccounting: true,
   enablePayroll: true,
   requireApproval: true,
@@ -38,6 +40,7 @@ const FEATURE_ERRORS: Record<keyof TenantFeatureFlags, string> = {
   enableQuotations: 'Quotations module is not enabled for this tenant.',
   enablePurchaseOrders: 'Purchase orders module is not enabled for this tenant.',
   enableTill: 'Till module is not enabled for this tenant.',
+  enableMomoCollect: 'Automatic MoMo collection is not enabled for this tenant.',
   enableAccounting: 'Accounting module is not enabled for this tenant.',
   enablePayroll: 'Payroll module is not enabled for this tenant.',
   requireApproval: 'Approval workflow is not enabled for this tenant.',

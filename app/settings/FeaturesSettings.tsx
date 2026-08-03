@@ -14,6 +14,7 @@ interface FeaturesSettingsProps {
     enableCreditSales: boolean
     enableExpenses: boolean
     enableTill: boolean
+    enableMomoCollect: boolean
     allowSaleOnZeroStock: boolean
     enableBarcodeGenerator: boolean
     enableAccounting: boolean
@@ -142,6 +143,12 @@ export function FeaturesSettings({ tenantId, initialSettings }: FeaturesSettings
           label: 'Till / Cash Register',
           icon: '🏧',
           desc: 'Manage shift cash register — open/close shifts, track float, cash sales, and end-of-shift variance.',
+        },
+        {
+          key: 'enableMomoCollect',
+          label: 'Automatic MoMo Collection',
+          icon: '📲',
+          desc: 'Send a live payment prompt to the customer’s phone and wait for their approval. Requires a payment gateway account. Leave this off if you are not on a payment platform yet — MoMo payments are then typed in by hand after the customer pays you directly.',
         },
       ],
     },

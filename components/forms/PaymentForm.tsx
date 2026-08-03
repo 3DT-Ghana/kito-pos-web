@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { paymentSchema, PaymentFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
+import { useTenantFeatures } from '@/hooks/useTenant'
 
 type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
 type MomoStatus = 'idle' | 'sending' | 'pending' | 'success' | 'failed'
@@ -41,6 +42,11 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
 
   const label = type === 'customer' ? 'Customer' : 'Supplier'
   const fieldName: keyof PaymentFormData = type === 'customer' ? 'customerId' : 'supplierId'
+
+  // When off, MoMo is recorded manually: no prompt is sent and no approval is
+  // awaited, because the business has no payment gateway to send one through.
+  const { features } = useTenantFeatures()
+  const momoCollectEnabled = features.enableMomoCollect
 
   const {
     register,
@@ -171,8 +177,10 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
 
     const ref = `PAY-${type.toUpperCase()}-${Date.now()}`
 
-    // MoMo-only: send prompt first, wait for approval
-    if (method === 'MOMO' && !splitMode) {
+    // MoMo-only: send prompt first, wait for approval. Skipped entirely when
+    // the business has no payment gateway — the money was collected on the
+    // cashier's own phone and this is just recording it.
+    if (method === 'MOMO' && !splitMode && momoCollectEnabled) {
       if (momoPhone.trim().length < 9) {
         setFormError('Enter the customer MoMo phone number first')
         return
@@ -187,12 +195,14 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         setFormError('Cash and MoMo amounts must add up to the total')
         return
       }
-      if (momoPhone.trim().length < 9) {
-        setFormError('Enter the MoMo phone number for the mobile portion')
-        return
+      if (momoCollectEnabled) {
+        if (momoPhone.trim().length < 9) {
+          setFormError('Enter the MoMo phone number for the mobile portion')
+          return
+        }
+        const approved = await runMomoCollect(splitMomoNum, momoPhone.trim(), `${ref}-MOMO`)
+        if (!approved) return
       }
-      const approved = await runMomoCollect(splitMomoNum, momoPhone.trim(), `${ref}-MOMO`)
-      if (!approved) return
     }
 
     setIsSubmitting(true)
@@ -210,7 +220,9 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
     }
   }
 
-  const momoPhoneValid = momoPhone.trim().length >= 9
+  // With no payment gateway the number is a reference, not a destination, so
+  // it must not block recording a payment the cashier already received.
+  const momoPhoneValid = !momoCollectEnabled || momoPhone.trim().length >= 9
   const paymentReady = (() => {
     if (!selectedEntity || selectedEntity.balance === 0 || amount <= 0) return false
     if (method === 'MOMO' && !splitMode) return momoPhoneValid
@@ -399,7 +411,10 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         {(method === 'MOMO' || splitMode) && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-              MoMo Phone Number <span className="text-red-500">*</span>
+              MoMo Phone Number{' '}
+              {momoCollectEnabled
+                ? <span className="text-red-500">*</span>
+                : <span className="font-normal normal-case text-gray-400">(optional)</span>}
             </label>
             <button
               type="button"
@@ -411,8 +426,13 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
               {momoPhone || 'Tap to enter MoMo number…'}
             </button>
             <p className="text-xs text-gray-400 mt-0.5">
-              {momoStatus === 'idle' && momoPhoneValid && 'Ready — click Record Payment to send prompt to customer.'}
-              {momoStatus === 'idle' && !momoPhoneValid && 'Tap above to enter the number.'}
+              {/* Without a gateway no prompt is sent, so promising one would be a lie */}
+              {momoStatus === 'idle' && !momoCollectEnabled &&
+                'Recorded manually — no prompt is sent to the customer.'}
+              {momoStatus === 'idle' && momoCollectEnabled && momoPhoneValid &&
+                'Ready — click Record Payment to send prompt to customer.'}
+              {momoStatus === 'idle' && momoCollectEnabled && !momoPhoneValid &&
+                'Tap above to enter the number.'}
               {momoStatus === 'sending' && '⏳ Sending MoMo request to customer...'}
               {momoStatus === 'pending' && '⏳ Waiting for customer to approve on their phone...'}
               {momoStatus === 'success' && '✓ Customer approved the payment.'}

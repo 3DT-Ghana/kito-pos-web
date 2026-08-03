@@ -270,6 +270,7 @@ export async function requireTenant(): Promise<TenantContext> {
     enableQuotations: tenant.enableQuotations,
     enablePurchaseOrders: tenant.enablePurchaseOrders,
     enableTill: tenant.enableTill,
+    enableMomoCollect: tenant.enableMomoCollect,
     enableAccounting: tenant.enableAccounting,
     enablePayroll: tenant.enablePayroll,
     requireApproval: tenant.requireApproval,

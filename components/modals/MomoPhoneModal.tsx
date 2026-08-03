@@ -52,11 +52,18 @@ export function MomoPhoneModal({ open, initialValue = '', onAccept, onClose }: M
           <input
             ref={inputRef}
             type="text"
-            inputMode="none"
+            // "numeric", not "none": the on-screen pad is for touch terminals,
+            // but a keyboard user must be able to click in and simply type.
+            inputMode="numeric"
+            autoComplete="tel"
             value={value}
             onChange={e => {
               const v = e.target.value.replace(/\D/g, '').slice(0, 12)
               setValue(v)
+            }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.preventDefault(); handleAccept() }
+              else if (e.key === 'Escape') { e.preventDefault(); onClose() }
             }}
             placeholder="0244 123 456"
             className="w-full px-4 py-3 border-2 border-indigo-300 focus:border-indigo-600 focus:outline-none text-xl font-bold tracking-widest text-center"

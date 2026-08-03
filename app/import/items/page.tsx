@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { useTenantFeatures } from '@/hooks/useTenant'
 
 /**
  * Import Items Page
@@ -11,16 +12,41 @@ import { AppLayout } from '@/components/layout/AppLayout'
  * Automatically creates manufacturers that don't exist yet.
  *
  * CSV columns (header row required):
- *   name, manufacturer, costPrice, sellingPrice, quantity
+ *   name, manufacturer, costPrice, sellingPrice, quantity, barcode,
+ *   reorderLevel, itemType, plus retailPrice / wholesalePrice / promoPrice
+ *   for whichever price levels the business has enabled.
  */
 
 const REQUIRED_COLS = ['name', 'costprice', 'sellingprice']
-const TEMPLATE_CSV = `name,manufacturer,costPrice,sellingPrice,quantity,barcode,reorderLevel,itemType
-Paracetamol 500mg,PharmaCo,2.50,4.00,100,,10,INVENTORY
-Ibuprofen 400mg,PharmaCo,3.00,5.50,50,,5,INVENTORY
-Amoxicillin 250mg,MedLabs,5.00,9.00,200,8901234567890,20,INVENTORY
-Consultation Fee,,50.00,80.00,,,, SERVICE
-Delivery Charge,,0,15.00,,,,NON_INVENTORY`
+
+const BASE_COLS = ['name', 'manufacturer', 'costPrice', 'sellingPrice', 'quantity', 'barcode', 'reorderLevel', 'itemType']
+
+/**
+ * Template rows keyed by column, so the price-level columns can be included or
+ * left out to match what the business has switched on. Offering a wholesale
+ * column to a shop with wholesale pricing disabled only invites data the
+ * importer will refuse to store.
+ */
+const TEMPLATE_ROWS: Record<string, string>[] = [
+  { name: 'Paracetamol 500mg', manufacturer: 'PharmaCo', costPrice: '2.50', sellingPrice: '4.00', quantity: '100', barcode: '', reorderLevel: '10', itemType: 'INVENTORY', retailPrice: '4.00', wholesalePrice: '3.40', promoPrice: '3.75' },
+  { name: 'Ibuprofen 400mg', manufacturer: 'PharmaCo', costPrice: '3.00', sellingPrice: '5.50', quantity: '50', barcode: '', reorderLevel: '5', itemType: 'INVENTORY', retailPrice: '5.50', wholesalePrice: '4.80', promoPrice: '' },
+  { name: 'Amoxicillin 250mg', manufacturer: 'MedLabs', costPrice: '5.00', sellingPrice: '9.00', quantity: '200', barcode: '8901234567890', reorderLevel: '20', itemType: 'INVENTORY', retailPrice: '9.00', wholesalePrice: '7.80', promoPrice: '' },
+  { name: 'Consultation Fee', manufacturer: '', costPrice: '50.00', sellingPrice: '80.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'SERVICE', retailPrice: '', wholesalePrice: '', promoPrice: '' },
+  { name: 'Delivery Charge', manufacturer: '', costPrice: '0', sellingPrice: '15.00', quantity: '', barcode: '', reorderLevel: '', itemType: 'NON_INVENTORY', retailPrice: '', wholesalePrice: '', promoPrice: '' },
+]
+
+function buildTemplateCsv(tiers: { retail: boolean; wholesale: boolean; promo: boolean }): string {
+  const cols = [
+    ...BASE_COLS,
+    ...(tiers.retail ? ['retailPrice'] : []),
+    ...(tiers.wholesale ? ['wholesalePrice'] : []),
+    ...(tiers.promo ? ['promoPrice'] : []),
+  ]
+  return [
+    cols.join(','),
+    ...TEMPLATE_ROWS.map(r => cols.map(c => r[c] ?? '').join(',')),
+  ].join('\n')
+}
 
 // Handles quoted fields so values with commas work correctly
 function parseCSVLine(line: string): string[] {
@@ -52,6 +78,19 @@ function parseCSV(text: string): { headers: string[]; rows: Record<string, strin
 export default function ImportItemsPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const { features } = useTenantFeatures()
+
+  const tiers = {
+    retail: features.enableRetailPrice,
+    wholesale: features.enableWholesalePrice,
+    promo: features.enablePromoPrice,
+  }
+  const enabledTierCols = [
+    ...(tiers.retail ? ['retailPrice'] : []),
+    ...(tiers.wholesale ? ['wholesalePrice'] : []),
+    ...(tiers.promo ? ['promoPrice'] : []),
+  ]
+  const templateCsv = buildTemplateCsv(tiers)
 
   const [csvText, setCsvText] = useState('')
   const [parsed, setParsed] = useState<{ headers: string[]; rows: Record<string, string>[] } | null>(null)
@@ -141,17 +180,30 @@ export default function ImportItemsPage() {
           <p className="font-semibold mb-1">CSV columns:</p>
           <p className="font-mono text-xs bg-blue-100 px-2 py-1 inline-block">
             name*, costPrice*, sellingPrice*, manufacturer, quantity, barcode, reorderLevel, itemType
+            {enabledTierCols.length > 0 && `, ${enabledTierCols.join(', ')}`}
           </p>
           <ul className="mt-2 text-xs text-blue-600 space-y-0.5">
             <li>• <strong>name, costPrice, sellingPrice</strong> are required (marked *)</li>
             <li>• <strong>itemType</strong>: <code className="bg-blue-100 px-0.5">INVENTORY</code> (default) · <code className="bg-blue-100 px-0.5">SERVICE</code> · <code className="bg-blue-100 px-0.5">NON_INVENTORY</code></li>
+            {enabledTierCols.length > 0 ? (
+              <li>
+                • <strong>{enabledTierCols.join(', ')}</strong> — optional price levels. Leave a cell
+                blank to fall back to sellingPrice.
+              </li>
+            ) : (
+              <li>
+                • Price levels (retail / wholesale / promo) are turned off, so those columns are
+                ignored. Turn them on in <strong>Settings → Features</strong> first if you need to
+                import them.
+              </li>
+            )}
             <li>• <strong>quantity</strong> and <strong>reorderLevel</strong> only apply to INVENTORY items (ignored for SERVICE/NON_INVENTORY)</li>
             <li>• <strong>manufacturer</strong> is optional — auto-created if provided, defaults to &quot;General&quot;</li>
             <li>• Wrap values containing commas in double quotes: <code className="bg-blue-100 px-0.5">&quot;Phone, Samsung&quot;</code></li>
           </ul>
           <button
             onClick={() => {
-              const blob = new Blob([TEMPLATE_CSV], { type: 'text/csv' })
+              const blob = new Blob([templateCsv], { type: 'text/csv' })
               const a = document.createElement('a')
               a.href = URL.createObjectURL(blob)
               a.download = 'items_template.csv'
@@ -183,7 +235,7 @@ export default function ImportItemsPage() {
             <textarea
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
-              placeholder={TEMPLATE_CSV}
+              placeholder={templateCsv}
               rows={6}
               className="w-full px-4 py-3 border-2 border-gray-200 text-sm font-mono focus:border-indigo-500 focus:outline-none resize-y"
             />

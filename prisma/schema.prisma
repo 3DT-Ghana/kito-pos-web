@@ -259,6 +259,12 @@ model Tenant {
   enableExpenses       Boolean @default(false)
   enableTill           Boolean @default(false)
 
+  // Send a live MoMo collection prompt to the customer's phone via the payment
+  // gateway. Off by default: a business with no gateway account still records
+  // MoMo payments, but types the number and reference manually instead of
+  // waiting for an approval that can never arrive.
+  enableMomoCollect    Boolean @default(false)
+
   // Sales behaviour
   allowSaleOnZeroStock Boolean @default(false)
 

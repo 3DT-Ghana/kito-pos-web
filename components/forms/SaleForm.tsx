@@ -31,6 +31,11 @@ interface CartItem {
 
 interface SaleFormData {
   customerId?: string;
+  // Echoed back so the page can offer to record a down payment on a credit
+  // sale. Not part of the API payload contract — the server derives credit
+  // status from paidAmount vs total.
+  paymentType?: "CASH" | "CREDIT";
+  customerName?: string;
   paidAmount?: number;
   paymentMethod?: "CASH" | "MOMO" | "BANK";
   momoPhone?: string;
@@ -449,17 +454,29 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
       setFormError("Credit sales require a customer to be selected");
       return;
     }
-    if (paymentMethod === "MOMO" && !momoPhone.trim()) {
+    // Only required when a collection prompt is actually sent to that number.
+    // Credit sales collect nothing now, so the method is not asked for at all.
+    if (
+      paymentType !== "CREDIT" &&
+      paymentMethod === "MOMO" &&
+      features.enableMomoCollect &&
+      !momoPhone.trim()
+    ) {
       setFormError("Please enter the MoMo phone number");
       return;
     }
+    // A credit sale collects nothing at the till, so it carries no tender
+    // details; the method is captured later on the down payment itself.
+    const isCredit = paymentType === "CREDIT";
     const data: SaleFormData = {
       customerId: selectedCustomer?.id,
-      paymentMethod,
-      momoPhone: paymentMethod === "MOMO" ? momoPhone.trim() : undefined,
-      bankName: paymentMethod === "BANK" ? bankName.trim() || undefined : undefined,
-      bankAccountName: paymentMethod === "BANK" ? bankAccountName.trim() || undefined : undefined,
-      bankReference: paymentMethod === "BANK" ? bankReference.trim() || undefined : undefined,
+      paymentType,
+      customerName: selectedCustomer?.name,
+      paymentMethod: isCredit ? undefined : paymentMethod,
+      momoPhone: !isCredit && paymentMethod === "MOMO" ? momoPhone.trim() : undefined,
+      bankName: !isCredit && paymentMethod === "BANK" ? bankName.trim() || undefined : undefined,
+      bankAccountName: !isCredit && paymentMethod === "BANK" ? bankAccountName.trim() || undefined : undefined,
+      bankReference: !isCredit && paymentMethod === "BANK" ? bankReference.trim() || undefined : undefined,
       items: cart.map((c) => ({
         itemId: c.itemId,
         quantity: c.quantity,
@@ -543,7 +560,19 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         })}
       </div>
 
-      {/* Payment Method (how money is received) */}
+      {/* Payment Method (how money is received).
+          Hidden on a credit sale: no money changes hands at the till, so asking
+          "cash or MoMo?" is a question about a payment that has not happened.
+          Any down payment is recorded straight afterwards, where the method
+          genuinely applies. */}
+      {paymentType === "CREDIT" ? (
+        <div className="border-2 border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-semibold">Credit sale — no payment collected now</p>
+          <p className="text-xs mt-0.5">
+            After recording, you&apos;ll be asked whether the customer made a down payment.
+          </p>
+        </div>
+      ) : (
       <div className="space-y-2">
         <p className="text-xs font-semibold text-gray-500 uppercase">Payment Method</p>
         <div className="grid grid-cols-3 gap-2">
@@ -612,6 +641,7 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Customer Search */}
       <div ref={customerSearchRef} className="relative">

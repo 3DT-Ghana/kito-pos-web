@@ -21,6 +21,10 @@ export default function NewSalePage() {
   } = useBranch()
   const [pageState, setPageState] = useState<PageState>('form')
   const [lastSaleId, setLastSaleId] = useState<string | null>(null)
+  // Set only for a credit sale, so the success screen can offer to record a
+  // down payment against the same customer instead of making the cashier go
+  // find them again under Payments.
+  const [creditCustomer, setCreditCustomer] = useState<{ id: string; name?: string } | null>(null)
   const isAutoSelectingAssignedBranch =
     !isBranchLoading && branchesEnabled && !currentBranchId && Boolean(assignedBranchId)
   const requiresOperationalBranch =
@@ -33,10 +37,18 @@ export default function NewSalePage() {
   }, [assignedBranchId, isAutoSelectingAssignedBranch, setBranchId])
 
   const handleSubmit = async (data: unknown) => {
+    // paymentType/customerName are UI-only echoes from the form; the sales API
+    // does not accept them, so they are stripped before the request.
+    const { paymentType, customerName, ...payload } = data as {
+      paymentType?: string
+      customerName?: string
+      customerId?: string
+    }
+
     const response = await fetch('/api/sales', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...(data as object), source: 'sales' }),
+      body: JSON.stringify({ ...payload, source: 'sales' }),
     })
 
     const result = await response.json()
@@ -51,6 +63,11 @@ export default function NewSalePage() {
       throw new Error(result.error || 'Failed to create sale')
     }
 
+    setCreditCustomer(
+      paymentType === 'CREDIT' && payload.customerId
+        ? { id: payload.customerId, name: customerName }
+        : null
+    )
     setLastSaleId(result.id || result.data?.id || null)
     setPageState('success')
   }
@@ -77,7 +94,7 @@ export default function NewSalePage() {
               View Approvals Queue
             </button>
             <button
-              onClick={() => { setPageState('form'); setLastSaleId(null) }}
+              onClick={() => { setPageState('form'); setLastSaleId(null); setCreditCustomer(null) }}
               className="px-6 py-3 bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
             >
               New Sale
@@ -97,6 +114,33 @@ export default function NewSalePage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Sale Created!</h2>
           <p className="text-gray-600 mb-8">The sale was recorded successfully.</p>
+
+          {creditCustomer && (
+            <div className="border-2 border-amber-200 bg-amber-50 p-5 mb-8 text-left">
+              <p className="font-bold text-amber-900">
+                Did {creditCustomer.name || 'the customer'} make a down payment?
+              </p>
+              <p className="text-sm text-amber-800 mt-1 mb-4">
+                This was a credit sale. If money changed hands, record it now so the
+                balance stays accurate.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => router.push(`/payments/customers?customerId=${creditCustomer.id}`)}
+                  className="px-6 py-3 bg-amber-500 text-white font-bold hover:bg-amber-600 transition-colors"
+                >
+                  Yes, record down payment
+                </button>
+                <button
+                  onClick={() => setCreditCustomer(null)}
+                  className="px-6 py-3 border-2 border-amber-300 text-amber-900 font-semibold hover:bg-amber-100 transition-colors"
+                >
+                  No, pay later
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {lastSaleId && (
               <Link
@@ -107,7 +151,7 @@ export default function NewSalePage() {
               </Link>
             )}
             <button
-              onClick={() => { setPageState('form'); setLastSaleId(null) }}
+              onClick={() => { setPageState('form'); setLastSaleId(null); setCreditCustomer(null) }}
               className="px-6 py-3 bg-green-600 text-white font-bold hover:bg-green-700 transition-colors"
             >
               New Sale
