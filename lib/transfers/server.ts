@@ -1,4 +1,5 @@
 import type { StockTransfer, StockTransferItem } from '@prisma/client'
+import { productKey } from '@/lib/items/identity'
 import {
   canAccessBranch,
   getOperationalBranchId,
@@ -47,8 +48,13 @@ export function canCancelTransfer(context: BranchAccessContext, transfer: Pick<S
   return canDispatchTransfer(context, transfer)
 }
 
+/**
+ * @deprecated Use `productKey` from `@/lib/items/identity` directly. Kept so
+ * the transfer call sites read unchanged; both now resolve the same key, so a
+ * product matched by a transfer and one matched by a branch copy agree.
+ */
 export function normalizeTransferKey(itemName: string, manufacturerId: string, unitName: string | null | undefined) {
-  return `${manufacturerId}::${itemName.trim().toLowerCase()}::${(unitName ?? '').trim().toLowerCase()}`
+  return productKey(itemName, manufacturerId, unitName)
 }
 
 export function serializeTransfer(

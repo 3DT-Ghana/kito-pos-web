@@ -16,9 +16,10 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from '@/lib/items/type'
 import { isLowStock } from '@/lib/items/stock'
 import { Pagination } from '@/components/ui/Pagination'
+import { CopyToBranchModal } from '@/components/items/CopyToBranchModal'
 import {
   Package, Search, X, Clock,
-  Plus, Printer, Factory, Sliders, Download, DollarSign
+  Plus, Printer, Factory, Sliders, Download, DollarSign, Copy
 } from 'lucide-react'
 
 type Tab = 'all' | 'low' | 'out' | 'expiring'
@@ -59,7 +60,8 @@ export function ItemsCatalog({
 }: ItemsCatalogProps) {
   const router = useRouter()
   const { features } = useTenantFeatures()
-  const { currentBranchId, isLoading: isBranchLoading } = useBranch()
+  const { currentBranchId, isLoading: isBranchLoading, branchesEnabled, branches } = useBranch()
+  const [showCopyModal, setShowCopyModal] = useState(false)
   const [items, setItems] = useState<Item[]>(initialItems)
   const [categories, setCategories] = useState<Category[]>(initialCategories)
   const [isLoading, setIsLoading] = useState(!hasInitialData)
@@ -233,6 +235,15 @@ export function ItemsCatalog({
         <BarcodeGenerator items={labelItems} onClose={() => setShowBarcodeModal(false)} />
       )}
 
+      <CopyToBranchModal
+        open={showCopyModal}
+        items={items}
+        onClose={() => setShowCopyModal(false)}
+        // Copies land in another branch, so this branch's list is unchanged —
+        // refresh only so any cached branch counts stay honest.
+        onCopied={() => router.refresh()}
+      />
+
       <div className="space-y-5">
         {loadError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
@@ -244,6 +255,19 @@ export function ItemsCatalog({
           subtitle={`${items.length} items in your catalog`}
           actions={
             <>
+              {/* Items are per branch, so a product sold in two branches is two
+                  rows. Copying keeps the names identical rather than relying on
+                  someone retyping them the same way. */}
+              {branchesEnabled && branches.length > 1 && (
+                <Btn
+                  icon={Copy}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCopyModal(true)}
+                >
+                  Copy to branch
+                </Btn>
+              )}
               <ExportButton
                 filename="items-catalog"
                 getData={() => filtered.map(i => ({
