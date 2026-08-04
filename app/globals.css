@@ -292,10 +292,13 @@
   html.printing-receipt .thermal-receipt {
     display: block !important;
     position: static !important;
-    width: 80mm !important;
-    max-width: 80mm !important;
-    margin: 0 !important;
-    padding: 6px 4px !important;
+    /* Printable area, not paper width — a thermal head leaves a dead margin at
+       each edge, so 80mm of content on an 80mm roll is clipped or shrunk.
+       smartPrint injects the exact figure; this is the 80mm fallback. */
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
     box-shadow: none !important;
     border: 0 !important;
     /* The on-screen modal scrolls; print must show every line. */

@@ -109,17 +109,26 @@ export async function smartPrint(
     root.classList.add('printing-receipt')
     pageStyle = document.createElement('style')
     const width = getReceiptWidth()
-    // Every ancestor is pinned to the paper width so no element is wider than
-    // the roll. A page wider than the paper is what the driver shrinks to fit,
-    // and that shrink is what made the content print tiny.
+    // @page is the full paper width; the receipt itself is the narrower
+    // printable area, centred, because a thermal head leaves a dead margin at
+    // each edge. Ancestors are pinned to the paper so nothing is wider than the
+    // roll — a page wider than the paper is what the driver shrinks to fit, and
+    // that shrink is what made the content print small.
+    const printable = width === '58mm' ? '48mm' : '72mm'
     pageStyle.textContent =
       `@media print {` +
       `  @page { size: ${width} auto; margin: 0; }` +
       `  html.printing-receipt, html.printing-receipt body,` +
-      `  html.printing-receipt main, html.printing-receipt main > *,` +
-      `  html.printing-receipt .thermal-receipt {` +
+      `  html.printing-receipt main, html.printing-receipt main > * {` +
       `    width: ${width} !important; min-width: 0 !important;` +
       `    max-width: ${width} !important; margin: 0 !important;` +
+      `    padding: 0 !important;` +
+      `    transform: none !important; zoom: 1 !important;` +
+      `  }` +
+      `  html.printing-receipt .thermal-receipt {` +
+      `    width: ${printable} !important; min-width: 0 !important;` +
+      `    max-width: ${printable} !important;` +
+      `    margin: 0 auto !important; padding: 0 !important;` +
       `    transform: none !important; zoom: 1 !important;` +
       `  }` +
       `}`

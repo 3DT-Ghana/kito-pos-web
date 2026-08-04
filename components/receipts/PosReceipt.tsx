@@ -59,22 +59,36 @@ interface PosReceiptProps {
  * or vanishes, and a green discount prints no differently from black — the
  * on-screen colours simply cost legibility on paper.
  */
-export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
-  const is58 = width === '58mm'
-  // Sized in pt, not px. A pt is an absolute 1/72in, so the printer driver
-  // reproduces it at true physical size; px is a CSS unit the driver is free to
-  // rescale when it fits the page to the roll, which is what made the receipt
-  // print tiny. 9pt Courier gives ~42 characters across 80mm — close to the
-  // 48-column native font of a 203dpi thermal head.
-  const base = is58 ? 7.5 : 9
-  const pt = (n: number) => `${n}pt`
+// Physical geometry of the paper, in millimetres.
+//
+// A thermal head cannot print to the very edge: an 80mm roll has roughly 72mm
+// of printable width, 58mm has about 48mm. Sizing to the full paper width is
+// what left the content looking small and inset — the type was scaled for
+// 80mm but only ~72mm of it was ever inked.
+const PAPER = {
+  '80mm': { printable: 72, cols: 42 },
+  '58mm': { printable: 48, cols: 32 },
+} as const
 
-  const rule = { borderTop: '1px dashed #000' } as const
-  const solid = { borderTop: '1px solid #000' } as const
+export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
+  const paper = PAPER[width]
+
+  // Type is derived from the paper, not chosen by eye. Courier advances 0.6em
+  // per character, so the size that fits N columns across the printable width
+  // is (printable / cols) / 0.6. Everything else is a multiple of that, which
+  // keeps one scale for type and spacing — previously type was in pt and
+  // padding in mm, so they did not grow together.
+  const charMm = paper.printable / paper.cols
+  const base = charMm / 0.6
+  const mm = (n: number) => `${Number(n.toFixed(3))}mm`
+  const size = (mult: number) => mm(base * mult)
+
+  const rule = { borderTop: '0.3mm dashed #000' } as const
+  const solid = { borderTop: '0.4mm solid #000' } as const
   const row: React.CSSProperties = {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: '2mm',
+    gap: mm(base * 0.5),
   }
 
   const discount = data.orderDiscount ?? 0
@@ -85,28 +99,29 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
     <div
       className="thermal-receipt"
       style={{
-        width,
-        maxWidth: width,
+        width: mm(paper.printable),
+        maxWidth: mm(paper.printable),
+        margin: '0 auto',
         background: '#fff',
         color: '#000',
         fontFamily: "'Courier New', ui-monospace, monospace",
-        fontSize: pt(base),
-        lineHeight: 1.35,
-        padding: '2mm 1.5mm',
+        fontSize: size(1),
+        lineHeight: 1.3,
+        padding: 0,
       }}
     >
       {/* Header */}
-      <div style={{ textAlign: 'center', paddingBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: pt(base + 4), letterSpacing: 0.5 }}>
+      <div style={{ textAlign: 'center', paddingBottom: mm(base * 0.6) }}>
+        <div style={{ fontWeight: 700, fontSize: size(1.45), lineHeight: 1.15 }}>
           {data.businessName.toUpperCase()}
         </div>
         {data.branchName && <div>{data.branchName}</div>}
         {data.businessPhone && <div>{data.businessPhone}</div>}
-        <div style={{ marginTop: 3, fontWeight: 700 }}>SALES RECEIPT</div>
+        <div style={{ marginTop: mm(base * 0.3), fontWeight: 700 }}>SALES RECEIPT</div>
       </div>
 
       {/* Meta */}
-      <div style={{ ...rule, paddingTop: 4, paddingBottom: 4 }}>
+      <div style={{ ...rule, paddingTop: mm(base * 0.4), paddingBottom: mm(base * 0.4) }}>
         <div style={row}>
           <span>Receipt</span>
           <span>#{data.receiptNumber}</span>
@@ -130,9 +145,9 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
       </div>
 
       {/* Items */}
-      <div style={{ ...solid, paddingTop: 4 }}>
+      <div style={{ ...solid, paddingTop: mm(base * 0.4) }}>
         {data.items.map((line, i) => (
-          <div key={i} style={{ marginBottom: 4 }}>
+          <div key={i} style={{ marginBottom: mm(base * 0.4) }}>
             <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{line.name}</div>
             <div style={row}>
               <span>
@@ -150,7 +165,7 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
       </div>
 
       {/* Totals */}
-      <div style={{ ...solid, paddingTop: 4 }}>
+      <div style={{ ...solid, paddingTop: mm(base * 0.4) }}>
         <div style={row}>
           <span>Subtotal</span>
           <span>{formatCurrency(data.subtotal)}</span>
@@ -171,10 +186,10 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
           style={{
             ...row,
             ...solid,
-            marginTop: 4,
-            paddingTop: 4,
+            marginTop: mm(base * 0.4),
+            paddingTop: mm(base * 0.4),
             fontWeight: 700,
-            fontSize: pt(base + 2),
+            fontSize: size(1.25),
           }}
         >
           <span>TOTAL</span>
@@ -183,7 +198,7 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
       </div>
 
       {/* Payment */}
-      <div style={{ ...rule, marginTop: 4, paddingTop: 4 }}>
+      <div style={{ ...rule, marginTop: mm(base * 0.4), paddingTop: mm(base * 0.4) }}>
         <div style={row}>
           <span>Paid ({data.paymentMethod})</span>
           <span>{formatCurrency(data.paidAmount)}</span>
@@ -203,16 +218,16 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
       </div>
 
       {data.note && (
-        <div style={{ ...rule, marginTop: 4, paddingTop: 4, wordBreak: 'break-word' }}>
+        <div style={{ ...rule, marginTop: mm(base * 0.4), paddingTop: mm(base * 0.4), wordBreak: 'break-word' }}>
           Note: {data.note}
         </div>
       )}
 
       {/* Footer */}
-      <div style={{ ...solid, marginTop: 6, paddingTop: 5, textAlign: 'center' }}>
+      <div style={{ ...solid, marginTop: mm(base * 0.6), paddingTop: mm(base * 0.5), textAlign: 'center' }}>
         <div style={{ fontWeight: 700 }}>THANK YOU!</div>
         <div>{data.footerNote ?? 'Please come again'}</div>
-        <div style={{ marginTop: 5, fontSize: pt(base - 3) }}>
+        <div style={{ marginTop: mm(base * 0.5), fontSize: size(0.75) }}>
           System Developed EYO Solutions | 0246462398
         </div>
       </div>
