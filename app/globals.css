@@ -230,6 +230,29 @@
 
   /* The receipt is usually nested inside layout wrappers rather than being a
      direct child of body, so reveal its ancestors while hiding their siblings. */
+  /* The generic print rules above give main/.max-w-* width:100% !important.
+     The receipt lives inside those wrappers, so the page kept a full-width
+     ancestor and the driver scaled the whole sheet down to the roll — which is
+     why the content printed tiny. Every ancestor is clamped to the paper
+     width, and !important is required to beat those earlier declarations. */
+  html.printing-receipt main,
+  html.printing-receipt main > *,
+  html.printing-receipt [class*="AppLayout"],
+  html.printing-receipt [class*="AppLayout"] > div,
+  html.printing-receipt .max-w-4xl,
+  html.printing-receipt .max-w-5xl,
+  html.printing-receipt .max-w-6xl,
+  html.printing-receipt .max-w-7xl {
+    width: 80mm !important;
+    min-width: 0 !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    float: none !important;
+    position: static !important;
+  }
+
   /* Blank tail so the cutter falls below the last line instead of through it.
      Thermal cutters sit a short distance past the print head, so without this
      the final rows are sheared off. */

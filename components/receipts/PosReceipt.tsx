@@ -61,15 +61,20 @@ interface PosReceiptProps {
  */
 export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
   const is58 = width === '58mm'
-  const base = is58 ? 10 : 12
-  const px = (n: number) => `${n}px`
+  // Sized in pt, not px. A pt is an absolute 1/72in, so the printer driver
+  // reproduces it at true physical size; px is a CSS unit the driver is free to
+  // rescale when it fits the page to the roll, which is what made the receipt
+  // print tiny. 9pt Courier gives ~42 characters across 80mm — close to the
+  // 48-column native font of a 203dpi thermal head.
+  const base = is58 ? 7.5 : 9
+  const pt = (n: number) => `${n}pt`
 
   const rule = { borderTop: '1px dashed #000' } as const
   const solid = { borderTop: '1px solid #000' } as const
   const row: React.CSSProperties = {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: '2mm',
   }
 
   const discount = data.orderDiscount ?? 0
@@ -85,14 +90,14 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
         background: '#fff',
         color: '#000',
         fontFamily: "'Courier New', ui-monospace, monospace",
-        fontSize: px(base),
+        fontSize: pt(base),
         lineHeight: 1.35,
-        padding: '6px 4px',
+        padding: '2mm 1.5mm',
       }}
     >
       {/* Header */}
       <div style={{ textAlign: 'center', paddingBottom: 6 }}>
-        <div style={{ fontWeight: 700, fontSize: px(base + 4), letterSpacing: 0.5 }}>
+        <div style={{ fontWeight: 700, fontSize: pt(base + 4), letterSpacing: 0.5 }}>
           {data.businessName.toUpperCase()}
         </div>
         {data.branchName && <div>{data.branchName}</div>}
@@ -169,7 +174,7 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
             marginTop: 4,
             paddingTop: 4,
             fontWeight: 700,
-            fontSize: px(base + 2),
+            fontSize: pt(base + 2),
           }}
         >
           <span>TOTAL</span>
@@ -207,7 +212,7 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
       <div style={{ ...solid, marginTop: 6, paddingTop: 5, textAlign: 'center' }}>
         <div style={{ fontWeight: 700 }}>THANK YOU!</div>
         <div>{data.footerNote ?? 'Please come again'}</div>
-        <div style={{ marginTop: 5, fontSize: px(base - 3) }}>
+        <div style={{ marginTop: 5, fontSize: pt(base - 3) }}>
           System Developed EYO Solutions | 0246462398
         </div>
       </div>

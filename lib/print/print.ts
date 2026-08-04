@@ -109,10 +109,20 @@ export async function smartPrint(
     root.classList.add('printing-receipt')
     pageStyle = document.createElement('style')
     const width = getReceiptWidth()
+    // Every ancestor is pinned to the paper width so no element is wider than
+    // the roll. A page wider than the paper is what the driver shrinks to fit,
+    // and that shrink is what made the content print tiny.
     pageStyle.textContent =
-      `@media print { @page { size: ${width} auto; margin: 0; } ` +
-      `html.printing-receipt, html.printing-receipt body, ` +
-      `html.printing-receipt .thermal-receipt { width: ${width} !important; max-width: ${width} !important; } }`
+      `@media print {` +
+      `  @page { size: ${width} auto; margin: 0; }` +
+      `  html.printing-receipt, html.printing-receipt body,` +
+      `  html.printing-receipt main, html.printing-receipt main > *,` +
+      `  html.printing-receipt .thermal-receipt {` +
+      `    width: ${width} !important; min-width: 0 !important;` +
+      `    max-width: ${width} !important; margin: 0 !important;` +
+      `    transform: none !important; zoom: 1 !important;` +
+      `  }` +
+      `}`
     document.head.appendChild(pageStyle)
   }
 
