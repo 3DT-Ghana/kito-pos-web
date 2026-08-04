@@ -31,6 +31,32 @@ export function saveReceiptWidth(width: string) {
   }
 }
 
+/**
+ * What happens to the receipt once a POS sale completes.
+ *
+ *  preview — show it on screen, cashier chooses to print (the old behaviour)
+ *  print   — print straight away, no modal
+ *  none    — neither; for tills that do not hand out receipts
+ */
+export type ReceiptBehaviour = 'preview' | 'print' | 'none'
+
+export function getReceiptBehaviour(): ReceiptBehaviour {
+  try {
+    const v = localStorage.getItem('posReceiptBehaviour')
+    return v === 'print' || v === 'none' ? v : 'preview'
+  } catch {
+    return 'preview'
+  }
+}
+
+export function saveReceiptBehaviour(v: ReceiptBehaviour) {
+  try {
+    localStorage.setItem('posReceiptBehaviour', v)
+  } catch {
+    // ignore
+  }
+}
+
 export function savePrinterName(target: PrintTarget, name: string | null) {
   try {
     const key = target === 'receipt' ? 'receiptPrinterName' : 'reportPrinterName'

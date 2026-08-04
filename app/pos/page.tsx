@@ -14,7 +14,7 @@ import { isLowStock } from '@/lib/items/stock'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 import { AmountEntryModal } from '@/components/modals/AmountEntryModal'
 import { PosReceipt } from '@/components/receipts/PosReceipt'
-import { smartPrint } from '@/lib/print/print'
+import { smartPrint, getReceiptBehaviour } from '@/lib/print/print'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -240,6 +240,10 @@ export default function PosPage() {
   // Synchronous submit lock — state batching makes isSubmitting unreliable for this
   const submitLockRef = useRef(false)
   const [showAmountModal, setShowAmountModal] = useState(false)
+  // Last look before money moves. CHARGE is a large button next to the numpad
+  // and a mistapped sale is awkward to unpick — the ledger keeps a posted sale
+  // even after a return — so the cashier confirms the cart and the split first.
+  const [showCheckoutPreview, setShowCheckoutPreview] = useState(false)
   const amountButtonRef = useRef<HTMLButtonElement>(null)
   // Set while focus returns from the amount modal, so the button's focus
   // handler does not immediately reopen what was just closed.
@@ -873,7 +877,7 @@ export default function PosPage() {
     setIsPollingApproval(false)
     setTimeout(() => {
       setFlashSuccess(false)
-      setShowReceipt(true)
+      finishReceipt()
       clearCart()
       setTendered('')
       setNumpadBuffer('')
@@ -952,7 +956,7 @@ export default function PosPage() {
     setFlashSuccess(true)
     setTimeout(() => {
       setFlashSuccess(false)
-      setShowReceipt(true)
+      finishReceipt()
       clearCart()
       setTendered('')
       setNumpadBuffer('')
@@ -964,6 +968,22 @@ export default function PosPage() {
       loadItems()
       searchRef.current?.focus()
     }, 1500)
+  }
+
+  // Receipt handling after a completed sale, per the till's setting: show the
+  // preview, print straight away, or neither. Printing needs the receipt in the
+  // DOM first, so the modal is mounted briefly and closed once sent.
+  const finishReceipt = () => {
+    const behaviour = getReceiptBehaviour()
+    if (behaviour === 'none') return
+    setShowReceipt(true)
+    if (behaviour === 'print') {
+      setTimeout(() => {
+        const el = document.querySelector('.thermal-receipt') as HTMLElement | null
+        void smartPrint('receipt', el)
+        setShowReceipt(false)
+      }, 250)
+    }
   }
 
   const handleCheckout = async () => {
@@ -1501,8 +1521,11 @@ export default function PosPage() {
     }
   }
 
-  const renderPaymentNumpad = () => {
-    const keys = ['7','8','9','4','5','6','1','2','3','.','0','←']
+  // Compact amount bar. The 12-key grid that used to live here has moved into
+  // AmountEntryModal — it took a third of the payment panel for something used
+  // once per sale, and the cart needs that room. Tapping the readout docks the
+  // keypad back.
+  const renderAmountBar = () => {
     const label = amountLabel
     const displayValue = amountValue
 
@@ -1523,10 +1546,6 @@ export default function PosPage() {
             </div>
           )}
         </div>
-        {/* Opens AmountEntryModal rather than editing inline. An input living
-            here is re-rendered by every unrelated POS state change, which kept
-            costing the cashier partial input; the modal owns its own state
-            until Accept. Focus opens it too, so tabbing here still works. */}
         <button
           type="button"
           aria-label={`${label} — tap to enter`}
@@ -1535,33 +1554,24 @@ export default function PosPage() {
           // Tab-focus opens it too, but not the focus restored when the modal
           // closes — that would trap the cashier in a modal they just accepted.
           onFocus={() => { if (!amountReturnRef.current) setShowAmountModal(true) }}
-          className={`w-full flex items-baseline justify-end gap-1 px-3 py-2 mb-1.5 border-2 cursor-text focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 border-2 cursor-text focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
             splitMode && numpadTarget === 'momoPaid' ? 'border-purple-400 bg-purple-50' :
             splitMode && numpadTarget === 'cashPaid' ? 'border-indigo-400 bg-indigo-50' :
             'border-gray-300 bg-gray-50'
           }`}
         >
-          <span className="text-2xl font-black tracking-tight text-gray-400 select-none">GHS</span>
-          <span className={`text-2xl font-black tracking-tight ${displayValue ? 'text-gray-900' : 'text-gray-300'}`}>
-            {displayValue || '0.00'}
+          <span className="text-[10px] font-bold text-gray-400 uppercase shrink-0">Tap to enter</span>
+          <span className="flex items-baseline gap-1">
+            <span className="text-xl font-black tracking-tight text-gray-400 select-none">GHS</span>
+            <span className={`text-2xl font-black tracking-tight ${displayValue ? 'text-gray-900' : 'text-gray-300'}`}>
+              {displayValue || '0.00'}
+            </span>
           </span>
         </button>
-        <div className="grid grid-cols-3 gap-0.5">
-          {keys.map(k => (
-            <button
-              key={k}
-              onClick={() => numpadPress(k)}
-              className={`py-3 text-base font-bold transition-colors active:scale-95 touch-manipulation ${
-                k === '←'
-                  ? 'bg-red-50 text-red-500 hover:bg-red-100'
-                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-              }`}
-            >{k}</button>
-          ))}
-        </div>
-        {/* Quick amount shortcuts for Cash */}
+        {/* Quick amount shortcuts for Cash — one tap covers most sales without
+            opening the keypad at all. */}
         {!splitMode && method === 'CASH' && grandTotal > 0 && (
-          <div className="grid grid-cols-3 gap-0.5 mt-0.5">
+          <div className="grid grid-cols-3 gap-0.5 mt-1">
             {[grandTotal, Math.ceil(grandTotal / 5) * 5, Math.ceil(grandTotal / 10) * 10]
               .filter((v, i, arr) => arr.indexOf(v) === i)
               .slice(0, 3)
@@ -1714,13 +1724,13 @@ export default function PosPage() {
         </div>
       )}
 
-      {/* ── Always-visible inline numpad ──
-          Called as a function, not rendered as <PaymentNumpad />: it is defined
-          inside this component, so as a JSX element React would treat it as a
-          new component type each render and remount the subtree, stealing focus
-          from the amount input after every keystroke. */}
+      {/* ── Amount readout ──
+          The keypad itself lives in AmountEntryModal rather than sitting here
+          permanently: it occupied a third of the panel for something used once
+          per sale, and that space is worth more to the cart. Tapping the
+          readout docks the keypad back. */}
       <div className="border-t border-gray-100 mt-1.5">
-        {renderPaymentNumpad()}
+        {renderAmountBar()}
       </div>
 
       {/* ── Note + errors ── */}
@@ -1734,7 +1744,7 @@ export default function PosPage() {
 
       {/* ── Charge button — only active when payment amounts equal the total ── */}
       <button
-        onClick={() => { if (!paymentComplete || isSubmitting || momoStatus === 'sending' || momoStatus === 'pending') return; void handleCheckout() }}
+        onClick={() => { if (!paymentComplete || isSubmitting || momoStatus === 'sending' || momoStatus === 'pending') return; setShowCheckoutPreview(true) }}
         disabled={!paymentComplete || isSubmitting || momoStatus === 'sending' || momoStatus === 'pending'}
         className="mx-3 mb-3 py-4 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-lg tracking-wide transition-colors touch-manipulation shadow"
       >
@@ -2452,6 +2462,103 @@ export default function PosPage() {
         onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
         onClose={() => setMomoPhoneModalOpen(false)}
       />
+
+      {/* ── Checkout preview — confirm before money moves ── */}
+      {showCheckoutPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+             onMouseDown={() => setShowCheckoutPreview(false)}>
+          <div className="bg-white w-full max-w-sm shadow-2xl max-h-[90vh] flex flex-col"
+               onMouseDown={e => e.stopPropagation()}>
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <span className="font-bold text-gray-900">Confirm sale</span>
+              <button onClick={() => setShowCheckoutPreview(false)}
+                      className="text-gray-400 hover:text-gray-700 text-xl leading-none">×</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 text-sm">
+              <div className="space-y-1.5">
+                {cart.map((c, i) => (
+                  <div key={i} className="flex justify-between gap-2">
+                    <span className="flex-1 min-w-0 truncate">
+                      {c.qty} × {c.name}
+                    </span>
+                    <span className="font-semibold shrink-0">{formatCurrency(lineTotal(c))}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t mt-3 pt-2 space-y-1">
+                {orderDiscountNum > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Discount</span><span>− {formatCurrency(orderDiscountNum)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-black text-lg border-t pt-1.5">
+                  <span>TOTAL</span><span>{formatCurrency(grandTotal)}</span>
+                </div>
+              </div>
+
+              {/* How the money is arriving — the part most worth checking */}
+              <div className="border-t mt-3 pt-2 space-y-1 text-gray-700">
+                {splitMode ? (
+                  <>
+                    <div className="flex justify-between"><span>MoMo</span><span>{formatCurrency(momoPaidNum)}</span></div>
+                    <div className="flex justify-between"><span>Cash</span><span>{formatCurrency(cashPaidNum)}</span></div>
+                    {features.enableMomoCollect && momoPaidNum > 0 && momoPhone && (
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Prompt to</span><span>{momoPhone}</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Method</span><span className="font-semibold">{method}</span>
+                    </div>
+                    {method === 'CASH' && (
+                      <>
+                        <div className="flex justify-between"><span>Tendered</span><span>{formatCurrency(tenderedNum)}</span></div>
+                        {tenderedNum > grandTotal && (
+                          <div className="flex justify-between font-bold text-green-700">
+                            <span>Change</span><span>{formatCurrency(tenderedNum - grandTotal)}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {method === 'MOMO' && features.enableMomoCollect && momoPhone && (
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Prompt to</span><span>{momoPhone}</span>
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedCustomer && (
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Customer</span><span>{selectedCustomer.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2 px-4 py-3 border-t border-gray-200">
+              <button
+                onClick={() => setShowCheckoutPreview(false)}
+                className="flex-1 py-3 border-2 border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => { setShowCheckoutPreview(false); void handleCheckout() }}
+                className="flex-[2] py-3 bg-green-600 hover:bg-green-700 text-white font-black text-sm"
+              >
+                {splitMode || method === 'MOMO'
+                  ? (features.enableMomoCollect ? 'Proceed — send prompt' : 'Proceed — record payment')
+                  : 'Proceed — receive cash'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <AmountEntryModal
         open={showAmountModal}

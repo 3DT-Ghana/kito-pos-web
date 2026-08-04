@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Printer, Check, RefreshCw } from 'lucide-react'
 import { findPrinters } from '@/lib/print/qzTray'
-import { smartPrint, saveReceiptWidth } from '@/lib/print/print'
+import { smartPrint, saveReceiptWidth, getReceiptBehaviour, saveReceiptBehaviour, type ReceiptBehaviour } from '@/lib/print/print'
 import { savePrinterName } from '@/lib/print/print'
 
 interface ReceiptSettingsProps {
@@ -27,6 +27,9 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const [qzError, setQzError] = useState('')
   const [testingPrint, setTestingPrint] = useState(false)
   const [kioskHint, setKioskHint] = useState('')
+  const [receiptBehaviour, setReceiptBehaviour] = useState<ReceiptBehaviour>('preview')
+
+  useEffect(() => { setReceiptBehaviour(getReceiptBehaviour()) }, [])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -369,6 +372,40 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
                   {printerWidth === w && (
                     <div className="bg-blue-600 p-1">
                       <Check className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* What happens to the receipt after a POS sale */}
+        <div className="border-2 border-gray-200 p-5 hover:border-blue-300 transition-colors">
+          <label className="text-lg font-bold text-gray-900 block mb-3">After a POS Sale</label>
+          <p className="text-sm text-gray-600 mb-4">
+            What to do with the receipt once payment completes. This is set per till, not per business.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {([
+              { v: 'print'   as const, title: 'Print directly',  desc: 'Prints straight away and returns to the next sale. Fastest at a busy counter.' },
+              { v: 'preview' as const, title: 'Show preview',    desc: 'Shows the receipt on screen; the cashier chooses to print.' },
+              { v: 'none'    as const, title: 'No receipt',      desc: 'Neither. For tills that do not hand out printed receipts.' },
+            ]).map(opt => (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => { setReceiptBehaviour(opt.v); saveReceiptBehaviour(opt.v) }}
+                className={`p-4 border-2 text-left transition-all ${receiptBehaviour === opt.v ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-300 hover:border-blue-300'}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold">{opt.title}</div>
+                    <div className="text-xs text-gray-600 mt-1">{opt.desc}</div>
+                  </div>
+                  {receiptBehaviour === opt.v && (
+                    <div className="bg-blue-600 p-1 shrink-0">
+                      <Check className="w-4 h-4 text-white" />
                     </div>
                   )}
                 </div>
