@@ -746,8 +746,11 @@ function ProcessReturnModal({
             </div>
 
             {/* Whole-sale toggle — customer returns only; supplier returns keep
-                the single-item flow. */}
-            {kind === 'customer' && items.length > 1 && (
+                the single-item flow. Shown even for a one-line sale: hiding it
+                there made the feature look missing on the 60% of sales that
+                have a single item, and returning that one line in full is the
+                commonest case of all. */}
+            {kind === 'customer' && items.length > 0 && (
               <label className="flex items-start gap-2.5 p-3 border-2 border-gray-200 cursor-pointer hover:border-blue-300">
                 <input
                   type="checkbox"
@@ -760,7 +763,9 @@ function ProcessReturnModal({
                     Return the entire sale
                   </span>
                   <span className="block text-xs text-gray-500 mt-0.5">
-                    All {items.length} lines at full quantity —{' '}
+                    {items.length === 1
+                      ? 'The one line, at full quantity'
+                      : `All ${items.length} lines at full quantity`} —{' '}
                     {formatCurrency(items.reduce((t, i) => t + i.price * i.qty, 0))}
                   </span>
                 </span>
