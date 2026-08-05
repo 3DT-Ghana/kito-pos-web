@@ -102,15 +102,21 @@ export async function smartPrint(
     movedNode = element
   }
 
+  // @page cannot be scoped to a selector: the browser merges every @page rule
+  // in the document and picks a winner by cascade order, regardless of what is
+  // being printed. So it is emitted here, at print time, for one job only —
+  // there is never a second @page for it to lose to. globals.css deliberately
+  // declares none.
+  //
+  // margin: 0 is what suppresses Chrome's header and footer. With any margin
+  // the browser prints the date, page title and URL across the full page width,
+  // which is how an A4 page rule revealed itself on an 80mm roll.
   if (isReceipt && !alreadyMarked) {
     root.classList.add('printing-receipt')
     pageStyle = document.createElement('style')
     const width = getReceiptWidth()
-    // @page is the full paper width; the receipt itself is the narrower
-    // printable area, centred, because a thermal head leaves a dead margin at
-    // each edge. Ancestors are pinned to the paper so nothing is wider than the
-    // roll — a page wider than the paper is what the driver shrinks to fit, and
-    // that shrink is what made the content print small.
+    // The receipt is the narrower printable area, centred on the paper: a
+    // thermal head cannot reach the edges of the roll.
     const printable = width === '58mm' ? '48mm' : '72mm'
     pageStyle.textContent =
       `@media print {` +
@@ -130,6 +136,12 @@ export async function smartPrint(
       `  }` +
       `}`
     document.head.appendChild(pageStyle)
+  } else if (!isReceipt) {
+    // Reports keep the A4 page they have always had. It used to live in
+    // globals.css, but an unconditional @page there also applied to receipts.
+    pageStyle = document.createElement('style')
+    pageStyle.textContent = '@media print { @page { size: A4; margin: 1.5cm; } }'
+    document.head.appendChild(pageStyle)
   }
 
   try {
@@ -139,8 +151,11 @@ export async function smartPrint(
       placeholder.parentNode.insertBefore(movedNode, placeholder)
       placeholder.remove()
     }
-    if (pageStyle) {
-      pageStyle.remove()
+    pageStyle?.remove()
+    // Only the receipt path sets this, so only it may clear it — a report
+    // printed while a receipt happens to be mounted must not strip the class
+    // out from under it.
+    if (isReceipt && !alreadyMarked) {
       root.classList.remove('printing-receipt')
     }
   }

@@ -180,10 +180,17 @@
     page-break-inside: avoid;
   }
 
-  @page {
-    margin: 1.5cm;
-    size: A4;
-  }
+  /* A4 for reports. Receipts inject their own @page from smartPrint, but
+     @page cannot be scoped to a selector — the browser merges every @page rule
+     and the winner is decided by cascade order, not by which element is
+     printing. This one is in the bundled stylesheet and was beating the
+     later-injected receipt rule, so receipts printed on an A4 page with a
+     1.5cm margin: hence the browser header, the large top gap, and a receipt
+     sitting small in one corner of the sheet.
+
+     @page is emitted at print time instead. smartPrint adds a <style> with the
+     A4 rule for reports, or the thermal rule for receipts — one @page in the
+     document, never two competing. */
 
   /* Thermal receipts are not A4 documents. @page cannot be scoped to a
      selector, so the receipt view sets .printing-receipt on <html> and these

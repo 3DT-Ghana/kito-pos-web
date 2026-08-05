@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { formatCurrency } from '@/lib/utils/format'
 import { formatTaxLabel } from '@/lib/tax/summary'
 
@@ -57,21 +56,11 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
   const maxWidth = is58mm ? '58mm' : '80mm'
   const fontSize = is58mm ? '10px' : '12px'
 
-  // @page cannot be scoped to a selector, so the app-wide "A4, 1.5cm margin"
-  // rule in globals.css would lay this receipt out as a full page. Injecting a
-  // later @page rule while a receipt is mounted wins on source order, and the
-  // class lets the print stylesheet drop the report table borders too.
-  useEffect(() => {
-    const style = document.createElement('style')
-    style.setAttribute('data-thermal-receipt-page', '')
-    style.textContent = `@media print { @page { size: ${maxWidth} auto; margin: 0; } }`
-    document.head.appendChild(style)
-    document.documentElement.classList.add('printing-receipt')
-    return () => {
-      style.remove()
-      document.documentElement.classList.remove('printing-receipt')
-    }
-  }, [maxWidth])
+  // Page geometry is smartPrint's alone. This component used to inject its own
+  // @page on mount, which meant two rules could exist at once and the browser
+  // picked between them by source order rather than by what was printing. It
+  // also set printing-receipt while merely *visible*, so a report printed from
+  // a page showing a receipt inherited the receipt's page size.
 
   return (
     <div
