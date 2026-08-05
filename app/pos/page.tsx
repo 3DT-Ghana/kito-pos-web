@@ -1175,13 +1175,6 @@ export default function PosPage() {
               Print Receipt
             </button>
             <button
-              onClick={() => window.open(`/sales/${lastSaleData.id}`, '_blank')}
-              title="Open the full sale page"
-              className="px-3 py-2.5 border-2 border-gray-200 text-gray-600 font-bold text-sm"
-            >
-              Open
-            </button>
-            <button
               onClick={() => setShowReceipt(false)}
               className="flex-1 py-2.5 bg-gray-100 text-gray-700 font-bold text-sm"
             >
