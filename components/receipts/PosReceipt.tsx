@@ -98,6 +98,9 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
   return (
     <div
       className="thermal-receipt"
+      // Width is set here for the on-screen preview only. In print the
+      // stylesheet re-asserts it with !important, because that is the only
+      // place that knows the paper actually loaded.
       style={{
         width: mm(paper.printable),
         maxWidth: mm(paper.printable),

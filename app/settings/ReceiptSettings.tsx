@@ -115,6 +115,13 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
       </div>
       <div style="text-align:center;border-top:2px solid #000;margin-top:8px;padding-top:6px">
         <div style="font-weight:700">THANK YOU!</div>
+        <!-- A physical ruler for the paper. If the bar below is not exactly
+             70mm on the printout, the driver is scaling the page and no CSS
+             change will fix it — the fix is Scale=100% in printer settings. -->
+        <div style="margin:6px 0 2px">
+          <div style="width:70mm;height:2mm;background:#000;margin:0 auto"></div>
+          <div style="font-size:8px;margin-top:1mm">&#9650; this bar should measure exactly 70mm &#9650;</div>
+        </div>
         <div style="font-size:9px;margin-top:2px">Paper width: ${printerWidth}</div>
         <div style="font-size:8px;margin-top:6px;color:#888">System Developed EYO Solutions | 0246462398</div>
       </div>
