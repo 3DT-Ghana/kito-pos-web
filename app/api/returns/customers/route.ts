@@ -227,10 +227,24 @@ export async function POST(req: Request) {
     // return, which reduces what the customer owes.
     if (body.type === ReturnType.CASH) {
       const refundCap = amount ?? maxReturnAmount
-      if (sale.paidAmount + 0.01 < refundCap) {
+      // Cash already refunded on this sale counts against what was paid.
+      // Checking this refund alone let repeated partial refunds total more than
+      // the customer ever handed over — the quantity check above has always
+      // summed prior returns, and this now matches it.
+      const priorCashRefunds = await prisma.customerReturn.aggregate({
+        where: { tenantId: context!.tenantId, saleId: body.saleId, type: ReturnType.CASH },
+        _sum: { amount: true },
+      })
+      const alreadyRefunded = round2(priorCashRefunds._sum.amount ?? 0)
+      const available = round2(sale.paidAmount - alreadyRefunded)
+
+      if (refundCap > available + 0.01) {
         return NextResponse.json(
           {
-            error: `Only ${sale.paidAmount.toFixed(2)} was actually paid on this sale, so a cash refund of ${refundCap.toFixed(2)} is not possible. Use a Credit return to reduce the customer's balance instead.`,
+            error:
+              alreadyRefunded > 0
+                ? `Only ${available.toFixed(2)} of the ${sale.paidAmount.toFixed(2)} paid remains refundable — ${alreadyRefunded.toFixed(2)} has already been refunded on this sale. Use a Credit return for the balance.`
+                : `Only ${sale.paidAmount.toFixed(2)} was actually paid on this sale, so a cash refund of ${refundCap.toFixed(2)} is not possible. Use a Credit return to reduce the customer's balance instead.`,
           },
           { status: 400 }
         )

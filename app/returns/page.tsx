@@ -503,6 +503,9 @@ function ProcessReturnModal({
 
   const [selectedItemId, setSelectedItemId] = useState('')
   const [quantity, setQuantity] = useState(1)
+  // Whole-sale mode. A 26-line sale is 26 separate returns otherwise, each a
+  // chance to mistype or to stop halfway and leave the sale part-returned.
+  const [returnWholeSale, setReturnWholeSale] = useState(false)
   const [returnType, setReturnType] = useState<'CASH' | 'CREDIT' | 'EXCHANGE'>('CASH')
   const [amount, setAmount] = useState('')
   const [note, setNote] = useState('')
@@ -580,16 +583,39 @@ function ProcessReturnModal({
     e.preventDefault()
     setSubmitError(null)
     const amountNum = parseFloat(amount)
-    if (!selectedItemId) { setSubmitError('Select an item'); return }
-    if (quantity <= 0) { setSubmitError('Quantity must be at least 1'); return }
-    if (isNaN(amountNum) || amountNum < 0) { setSubmitError('Enter a valid amount'); return }
-    if (selectedItem && quantity > selectedItem.qty) {
-      setSubmitError(`Max quantity: ${selectedItem.qty}`)
-      return
+    if (!(kind === 'customer' && returnWholeSale)) {
+      if (!selectedItemId) { setSubmitError('Select an item'); return }
+    }
+    if (!(kind === 'customer' && returnWholeSale)) {
+      if (quantity <= 0) { setSubmitError('Quantity must be at least 1'); return }
+      if (isNaN(amountNum) || amountNum < 0) { setSubmitError('Enter a valid amount'); return }
+      if (selectedItem && quantity > selectedItem.qty) {
+        setSubmitError(`Max quantity: ${selectedItem.qty}`)
+        return
+      }
     }
 
     setIsSubmitting(true)
     try {
+      // Whole-sale returns go to the bulk endpoint, which validates the total
+      // refund against what was paid before writing anything.
+      if (kind === 'customer' && returnWholeSale) {
+        const res = await fetch('/api/returns/customers/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            saleId: sale!.id,
+            type: returnType,
+            note: note.trim() || undefined,
+            lines: items.map(i => ({ itemId: i.id, quantity: i.qty })),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Return failed')
+        onSuccess()
+        return
+      }
+
       const endpoint = kind === 'customer' ? '/api/returns/customers' : '/api/returns/suppliers'
       const body = kind === 'customer'
         ? { saleId: sale!.id, itemId: selectedItemId, quantity, type: returnType, amount: amountNum, note: note.trim() || undefined }
@@ -719,6 +745,39 @@ function ProcessReturnModal({
               )}
             </div>
 
+            {/* Whole-sale toggle — customer returns only; supplier returns keep
+                the single-item flow. */}
+            {kind === 'customer' && items.length > 1 && (
+              <label className="flex items-start gap-2.5 p-3 border-2 border-gray-200 cursor-pointer hover:border-blue-300">
+                <input
+                  type="checkbox"
+                  checked={returnWholeSale}
+                  onChange={e => setReturnWholeSale(e.target.checked)}
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                />
+                <span>
+                  <span className="block text-sm font-semibold text-gray-900">
+                    Return the entire sale
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    All {items.length} lines at full quantity —{' '}
+                    {formatCurrency(items.reduce((t, i) => t + i.price * i.qty, 0))}
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {returnWholeSale && kind === 'customer' ? (
+              <div className="border border-gray-200 divide-y divide-gray-100 max-h-48 overflow-y-auto">
+                {items.map(i => (
+                  <div key={i.id} className="flex justify-between gap-2 px-3 py-1.5 text-sm">
+                    <span className="flex-1 min-w-0 truncate">{i.qty} × {i.name}</span>
+                    <span className="font-semibold shrink-0">{formatCurrency(i.price * i.qty)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+            <>
             {/* Item */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item to Return</label>
@@ -768,6 +827,8 @@ function ProcessReturnModal({
                 </button>
               </div>
             </div>
+            </>
+            )}
 
             {/* Return type */}
             <div>
