@@ -243,6 +243,10 @@ model Tenant {
   hubtelClientId         String?
   hubtelClientSecret     String?
   hubtelSenderId         String? // e.g. "MYBIZ" (max 11 chars, no spaces)
+  // Hubtel Collection Account Number, e.g. "11684". Required in the path of the
+  // Verification API, which sits on a different host to the payment API and
+  // identifies the merchant by account rather than by credentials alone.
+  hubtelCollectionAccount String?
 
   // WhatsApp Notifications — Meta WhatsApp Business Cloud API
   enableWhatsApp         Boolean @default(false)

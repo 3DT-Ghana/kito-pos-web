@@ -11,6 +11,7 @@ interface SmsSettingsProps {
     hubtelClientIdSet: boolean
     hubtelClientSecretSet: boolean
     hubtelSenderId: string | null
+    hubtelCollectionAccount: string | null
   }
 }
 
@@ -19,6 +20,9 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
   const [clientId, setClientId] = useState(initialSettings.hubtelClientIdSet ? MASKED : '')
   const [clientSecret, setClientSecret] = useState(initialSettings.hubtelClientSecretSet ? MASKED : '')
   const [senderId, setSenderId] = useState(initialSettings.hubtelSenderId || '')
+  const [collectionAccount, setCollectionAccount] = useState(
+    initialSettings.hubtelCollectionAccount || ''
+  )
   const [testPhone, setTestPhone] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
@@ -38,6 +42,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
           ...(clientId !== MASKED ? { hubtelClientId: clientId || null } : {}),
           ...(clientSecret !== MASKED ? { hubtelClientSecret: clientSecret || null } : {}),
           hubtelSenderId: senderId || null,
+          hubtelCollectionAccount: collectionAccount.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -141,6 +146,26 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
             className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono uppercase"
           />
           <p className="text-xs text-gray-400 mt-1">This name appears as the sender on the customer&apos;s phone. Must be registered with Hubtel.</p>
+        </div>
+
+        <div className="max-w-sm">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Collection Account Number{' '}
+            <span className="text-gray-400 font-normal">(for number verification)</span>
+          </label>
+          <input
+            type="text"
+            value={collectionAccount}
+            onChange={e => setCollectionAccount(e.target.value.replace(/\D/g, '').slice(0, 12))}
+            placeholder="e.g. 11684"
+            inputMode="numeric"
+            className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Needed to check a MoMo number is registered before sending a payment prompt.
+            Find it in your Hubtel dashboard. Hubtel must also whitelist this
+            server&apos;s IP address before verification will work.
+          </p>
         </div>
       </div>
 

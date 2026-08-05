@@ -33,7 +33,11 @@ export interface MomoStatusResult {
   error?: string
 }
 
-function normalisePhone(raw: string): string | null {
+/**
+ * Ghana MSISDN in the form Hubtel expects. Shared with the Verification API,
+ * which documents the same accepted formats (0XXXXXXXXX / 233XXXXXXXXX).
+ */
+export function normalisePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, '')
   if (digits.startsWith('233') && digits.length === 12) return digits
   if (digits.startsWith('0') && digits.length === 10) return '233' + digits.slice(1)
@@ -41,7 +45,8 @@ function normalisePhone(raw: string): string | null {
   return null
 }
 
-function basicAuth(clientId: string, clientSecret: string): string {
+/** Hubtel authenticates every API in this family with the same Basic scheme. */
+export function basicAuth(clientId: string, clientSecret: string): string {
   return 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
 }
 

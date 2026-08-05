@@ -535,6 +535,8 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
 
       <MomoPhoneModal
         open={momoPhoneModalOpen}
+        // No gateway means no prompt is sent, so there is nothing to verify.
+        skipVerification={!momoCollectEnabled}
         initialValue={momoPhone}
         onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoError('') }}
         onClose={() => setMomoPhoneModalOpen(false)}

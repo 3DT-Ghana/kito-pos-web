@@ -2451,6 +2451,9 @@ export default function PosPage() {
 
       <MomoPhoneModal
         open={momoPhoneModalOpen}
+        // With the gateway off the number is typed for the record only — no
+        // prompt is sent, so there is nothing to verify against.
+        skipVerification={!features.enableMomoCollect}
         initialValue={momoPhone}
         onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
         onClose={() => setMomoPhoneModalOpen(false)}
