@@ -18,6 +18,8 @@ interface ReceiptData {
   date: string
   time: string
   tenantName: string
+  /** Branch the sale was made in — which till issued this receipt. */
+  branchName?: string
   tenantPhone?: string
   customerName?: string
   items: ReceiptItem[]
@@ -78,6 +80,7 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
         <div className="font-bold" style={{ fontSize: is58mm ? '14px' : '16px' }}>
           {data.tenantName.toUpperCase()}
         </div>
+        {data.branchName && <div>{data.branchName}</div>}
         {data.tenantPhone && (
           <div className="mt-1">{data.tenantPhone}</div>
         )}
@@ -181,9 +184,6 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
         <div className="font-bold">THANK YOU!</div>
         <div className="mt-1" style={{ fontSize: is58mm ? '9px' : '10px' }}>
           Please come again
-        </div>
-        <div className="mt-2 border-t border-dashed border-gray-400 pt-1" style={{ fontSize: is58mm ? '8px' : '9px', color: '#888' }}>
-          System Developed EYO Solutions | 0246462398
         </div>
       </div>
 

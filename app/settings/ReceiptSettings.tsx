@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Printer, Check, RefreshCw } from 'lucide-react'
+import { Printer, Check } from 'lucide-react'
 import { smartPrint, saveReceiptWidth, getReceiptBehaviour, saveReceiptBehaviour, type ReceiptBehaviour } from '@/lib/print/print'
 import { savePrinterName } from '@/lib/print/print'
 
@@ -94,7 +94,6 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
           <div style="font-size:8px;margin-top:1mm">&#9650; this bar should measure exactly 70mm &#9650;</div>
         </div>
         <div style="font-size:9px;margin-top:2px">Paper width: ${printerWidth}</div>
-        <div style="font-size:8px;margin-top:6px;color:#888">System Developed EYO Solutions | 0246462398</div>
       </div>
       <div class="receipt-feed" aria-hidden="true"></div>`
     document.body.appendChild(holder)

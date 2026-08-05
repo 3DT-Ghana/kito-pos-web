@@ -226,13 +226,12 @@ export function PosReceipt({ data, width = '80mm' }: PosReceiptProps) {
         </div>
       )}
 
-      {/* Footer */}
+      {/* Footer. Nothing here is set below the base size — a thermal head at
+          203dpi cannot resolve type much under 8pt, and the developer credit
+          that used to sit here at 0.75x printed as an unreadable smudge. */}
       <div style={{ ...solid, marginTop: mm(base * 0.6), paddingTop: mm(base * 0.5), textAlign: 'center' }}>
         <div style={{ fontWeight: 700 }}>THANK YOU!</div>
         <div>{data.footerNote ?? 'Please come again'}</div>
-        <div style={{ marginTop: mm(base * 0.5), fontSize: size(0.75) }}>
-          System Developed EYO Solutions | 0246462398
-        </div>
       </div>
 
       {/* Blank tail so the cutter clears the last line — print only. */}

@@ -79,6 +79,16 @@ export default async function SaleDetailPage({ params }: PageProps) {
     },
   })
 
+  // Sale.branchId is a plain column with no relation, so the name is looked up
+  // separately. It goes on the receipt: with three branches trading, a customer
+  // returning goods needs to show which one sold them.
+  const branch = sale.branchId
+    ? await prisma.branch.findUnique({
+        where: { id: sale.branchId },
+        select: { name: true },
+      })
+    : null
+
   if (!tenant) {
     redirect('/dashboard')
   }
@@ -127,7 +137,7 @@ export default async function SaleDetailPage({ params }: PageProps) {
             </p>
           </div>
         ) : (
-          <SaleReceiptView sale={sale} tenant={tenant} />
+          <SaleReceiptView sale={sale} tenant={tenant} branchName={branch?.name ?? null} />
         )}
       </div>
     </AppLayout>

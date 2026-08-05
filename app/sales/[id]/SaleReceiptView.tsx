@@ -73,9 +73,11 @@ interface Tenant {
 interface SaleReceiptViewProps {
   sale: Sale
   tenant: Tenant
+  /** Branch that made the sale, resolved server-side. */
+  branchName?: string | null
 }
 
-export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
+export function SaleReceiptView({ sale, tenant, branchName }: SaleReceiptViewProps) {
   const [showPreview, setShowPreview] = useState(true)
   const [showReturnModal, setShowReturnModal] = useState(false)
   const [isVoiding, setIsVoiding] = useState(false)
@@ -116,6 +118,7 @@ export function SaleReceiptView({ sale, tenant }: SaleReceiptViewProps) {
       minute: '2-digit',
     }),
     tenantName: tenant.name,
+    branchName: branchName || undefined,
     tenantPhone: tenant.phone || undefined,
     customerName: sale.customer?.name,
     items: sale.items.map((saleItem) => ({
