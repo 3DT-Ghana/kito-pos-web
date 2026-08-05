@@ -245,7 +245,8 @@ export function ThermalReceipt({ data, width = '80mm' }: ThermalReceiptProps) {
 }
 
 /**
- * Print Receipt Function — uses QZ Tray silent print if configured, else browser dialog
+ * Print Receipt Function — prints via the browser; silent when the till runs
+ * with --kiosk-printing, otherwise the print dialog appears.
  */
 export async function printReceipt() {
   if (typeof window === 'undefined') return

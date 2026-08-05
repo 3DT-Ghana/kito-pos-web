@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { Printer, Check, RefreshCw } from 'lucide-react'
-import { findPrinters } from '@/lib/print/qzTray'
 import { smartPrint, saveReceiptWidth, getReceiptBehaviour, saveReceiptBehaviour, type ReceiptBehaviour } from '@/lib/print/print'
 import { savePrinterName } from '@/lib/print/print'
 
@@ -21,10 +20,6 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
   const [printerWidth, setPrinterWidth] = useState(initialSettings.receiptPrinterWidth)
   const [receiptPrinter, setReceiptPrinter] = useState(initialSettings.receiptPrinterName ?? '')
   const [reportPrinter, setReportPrinter] = useState(initialSettings.reportPrinterName ?? '')
-  const [availablePrinters, setAvailablePrinters] = useState<string[]>([])
-  const [detectingPrinters, setDetectingPrinters] = useState(false)
-  const [qzStatus, setQzStatus] = useState<'unknown' | 'connected' | 'unavailable'>('unknown')
-  const [qzError, setQzError] = useState('')
   const [testingPrint, setTestingPrint] = useState(false)
   const [kioskHint, setKioskHint] = useState('')
   const [receiptBehaviour, setReceiptBehaviour] = useState<ReceiptBehaviour>('preview')
@@ -45,30 +40,6 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
     saveReceiptWidth(printerWidth)
   }, [printerWidth])
 
-  const detectPrinters = async () => {
-    setDetectingPrinters(true)
-    setQzStatus('unknown')
-    setQzError('')
-    try {
-      const { printers, error } = await findPrinters()
-      if (printers.length > 0) {
-        setAvailablePrinters(printers)
-        setQzStatus('connected')
-      } else {
-        setQzStatus('unavailable')
-        setQzError(error ?? '')
-      }
-    } catch (err) {
-      setQzStatus('unavailable')
-      setQzError(err instanceof Error ? err.message : 'Printer detection failed.')
-    } finally {
-      setDetectingPrinters(false)
-    }
-  }
-
-  // Prints a real receipt-shaped page through the same path a sale uses, so it
-  // exercises the page geometry and the silent/dialog decision rather than just
-  // proving the printer exists.
   // Prints a sample sale through the same path a real receipt uses, so the
   // paper geometry, the layout and the silent-versus-dialog behaviour are all
   // exercised rather than just proving a printer exists.
@@ -183,147 +154,65 @@ export function ReceiptSettings({ initialSettings, tenantId }: ReceiptSettingsPr
 
       <div className="space-y-6">
 
-        {/* QZ Tray Printer Setup */}
-        <div className="border-2 border-gray-200 p-5 space-y-4">
-          <div className="flex items-start justify-between gap-4">
+        {/* Printer names — window.print() cannot choose a printer, so these are
+            stored for the print agent and to record the operator's intent. */}
+        <div className="border-2 border-gray-200 p-5">
+          <h3 className="text-lg font-bold text-gray-900">Printers</h3>
+          <p className="text-sm text-gray-600 mt-1 mb-4">
+            Receipts print through the browser, which uses the computer&apos;s{' '}
+            <strong>default printer</strong>. Set the receipt printer as the default in
+            Windows, and start the till from a shortcut with{' '}
+            <code className="bg-gray-100 px-1 text-xs">--kiosk-printing</code> to print
+            without a dialog.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h3 className="text-lg font-bold text-gray-900">Direct Printer Setup</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Configure printers for silent printing (no dialog). Requires{' '}
-                <strong>QZ Tray</strong> to be installed and running on this computer.{' '}
-                <a href="https://qz.io/download/" target="_blank" rel="noreferrer" className="text-blue-600 underline">
-                  Download QZ Tray
-                </a>
-              </p>
-              <details className="mt-3 text-sm">
-                <summary className="cursor-pointer text-blue-700 font-semibold">
-                  QZ Tray blocked or not working? Print silently without it
-                </summary>
-                <div className="mt-2 space-y-2 text-gray-600">
-                  <p>
-                    Chrome and Edge can print with no dialog when started in kiosk-printing
-                    mode. Nothing extra is installed, and no extension can block it.
-                  </p>
-                  <ol className="list-decimal ml-5 space-y-1">
-                    <li>Set the receipt printer as the <strong>default printer</strong> in Windows.</li>
-                    <li>Make a desktop shortcut to the browser and add the flag below to its Target.</li>
-                    <li>Always open the till from that shortcut.</li>
-                  </ol>
-                  <code className="block bg-gray-100 px-3 py-2 text-xs break-all">
-                    chrome.exe --kiosk-printing --app=https://citizen-pos.eyosolutions.com
-                  </code>
-                  <p className="text-xs">
-                    Receipts then print straight to the default printer. Paper size still comes
-                    from the printer&apos;s own settings, so set it to your 80mm roll there.
-                  </p>
-                </div>
-              </details>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Receipt printer
+              </label>
+              <input
+                type="text"
+                value={receiptPrinter}
+                onChange={e => setReceiptPrinter(e.target.value)}
+                placeholder="e.g. XP-80C"
+                className="w-full px-3 py-2 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
+              />
             </div>
-            <div className="flex flex-wrap gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={detectPrinters}
-              disabled={detectingPrinters}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold shrink-0 transition-colors disabled:opacity-50"
-            >
-              <RefreshCw className={`w-4 h-4 ${detectingPrinters ? 'animate-spin' : ''}`} />
-              {detectingPrinters ? 'Detecting...' : 'Detect Printers'}
-            </button>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Report printer
+              </label>
+              <input
+                type="text"
+                value={reportPrinter}
+                onChange={e => setReportPrinter(e.target.value)}
+                placeholder="e.g. HP LaserJet"
+                className="w-full px-3 py-2 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={runPrintTest}
               disabled={testingPrint}
               title="Print a sample receipt using the current settings"
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold shrink-0 transition-colors disabled:opacity-50"
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
               🖨 {testingPrint ? 'Sending...' : 'Test Print'}
             </button>
-            </div>
           </div>
 
           {kioskHint && (
-            <div className="bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900 space-y-1">
+            <div className="mt-3 bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-900 space-y-1">
               <p className="font-semibold">Printing is not silent on this browser</p>
               <p>{kioskHint}</p>
             </div>
           )}
-
-          {qzStatus === 'unavailable' && (
-            <div className="bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 space-y-1">
-              <p className="font-semibold">Printers could not be detected</p>
-              {qzError ? (
-                <p>{qzError}</p>
-              ) : (
-                <p>Make sure QZ Tray is installed and running, then click Detect Printers again.</p>
-              )}
-              <p className="text-xs">
-                Without QZ Tray the app falls back to the browser print dialog, which still prints.
-              </p>
-            </div>
-          )}
-
-          {qzStatus === 'connected' && (
-            <div className="bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 font-medium">
-              QZ Tray connected — {availablePrinters.length} printer{availablePrinters.length !== 1 ? 's' : ''} found.
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                POS Receipt Printer <span className="text-gray-400 font-normal">(thermal)</span>
-              </label>
-              {availablePrinters.length > 0 ? (
-                <select
-                  value={receiptPrinter}
-                  onChange={e => setReceiptPrinter(e.target.value)}
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
-                >
-                  <option value="">— Use browser dialog —</option>
-                  {availablePrinters.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={receiptPrinter}
-                  onChange={e => setReceiptPrinter(e.target.value)}
-                  placeholder="e.g. EPSON TM-T20"
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
-                />
-              )}
-              <p className="text-xs text-gray-400 mt-1">Used when printing POS receipts</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Invoice / Report Printer <span className="text-gray-400 font-normal">(A4)</span>
-              </label>
-              {availablePrinters.length > 0 ? (
-                <select
-                  value={reportPrinter}
-                  onChange={e => setReportPrinter(e.target.value)}
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
-                >
-                  <option value="">— Use browser dialog —</option>
-                  {availablePrinters.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={reportPrinter}
-                  onChange={e => setReportPrinter(e.target.value)}
-                  placeholder="e.g. HP LaserJet"
-                  className="w-full px-3 py-2.5 border-2 border-gray-200 focus:border-blue-500 focus:outline-none text-sm"
-                />
-              )}
-              <p className="text-xs text-gray-400 mt-1">Used when printing invoices and reports</p>
-            </div>
-          </div>
         </div>
+
 
         {/* Show Manufacturer Toggle */}
         <div className="border-2 border-gray-200 p-5 hover:border-blue-300 transition-colors">
