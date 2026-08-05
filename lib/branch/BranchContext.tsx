@@ -47,12 +47,28 @@ const BranchContext = createContext<BranchContextValue>({
 
 const STORAGE_KEY = BRANCH_SELECTION_COOKIE
 
+// The branch selection has to outlive the browser session. It was written as a
+// session cookie and mirrored only in sessionStorage, so closing the browser
+// or restarting the till dropped it — while the auth cookie survived, leaving
+// the cashier logged in on a branch the server had silently fallen back to.
+// The POS grid then loaded one branch's items and the sale posted against
+// another, which surfaced as "one or more items ... do not belong to your
+// tenant" and cleared only after logging out and back in.
+const BRANCH_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+
 function writeBranchSelection(value: string | null) {
   if (typeof window === 'undefined') return
 
   const storedValue = value ?? ALL_BRANCHES_SELECTION
-  sessionStorage.setItem(STORAGE_KEY, storedValue)
-  document.cookie = `${STORAGE_KEY}=${encodeURIComponent(storedValue)}; path=/; samesite=lax`
+  // localStorage, not sessionStorage: sessionStorage is per tab and dies with
+  // it, so a second tab or a restored window started from a different branch.
+  try {
+    localStorage.setItem(STORAGE_KEY, storedValue)
+  } catch {
+    // Private browsing can refuse storage; the cookie below still carries it.
+  }
+  document.cookie =
+    `${STORAGE_KEY}=${encodeURIComponent(storedValue)}; path=/; samesite=lax; max-age=${BRANCH_COOKIE_MAX_AGE_SECONDS}`
 }
 
 interface BranchProviderProps {
@@ -78,10 +94,13 @@ export function BranchProvider({ children, initialState }: BranchProviderProps) 
     if (initialStateRef.current) {
       writeBranchSelection(initialStateRef.current.currentBranchId)
     } else {
-      const saved = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null
-      if (saved) {
-        document.cookie = `${STORAGE_KEY}=${encodeURIComponent(saved)}; path=/; samesite=lax`
-      }
+      // sessionStorage is read as a fallback so a user mid-session when this
+      // shipped keeps their selection rather than being bounced to the default.
+      const saved =
+        typeof window !== 'undefined'
+          ? localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(STORAGE_KEY)
+          : null
+      if (saved) writeBranchSelection(saved === ALL_BRANCHES_SELECTION ? null : saved)
     }
 
     void fetchBranches()

@@ -168,8 +168,38 @@ export async function createSaleFromInput(
   })
 
   if (items.length !== itemIds.length) {
+    // The query filters on branch as well as tenant, so the commonest cause is
+    // a cart built in one branch being submitted against another — not a
+    // tenant problem at all. Naming the branch turns an alarming and
+    // misleading message into an actionable one.
+    const missingIds = itemIds.filter((id) => !items.some((item) => item.id === id))
+    const elsewhere = await prisma.item.findMany({
+      where: { id: { in: missingIds }, tenantId: context.tenantId },
+      select: { name: true, branchId: true },
+    })
+
+    if (elsewhere.length > 0) {
+      const names = elsewhere.map((i) => `"${i.name}"`).join(', ')
+      // Item has no branch relation, so the name is looked up separately.
+      const otherBranchId = elsewhere.find((i) => i.branchId)?.branchId
+      const branchName = otherBranchId
+        ? (
+            await prisma.branch.findUnique({
+              where: { id: otherBranchId },
+              select: { name: true },
+            })
+          )?.name
+        : null
+      throw new SaleOperationError(
+        branchName
+          ? `${names} belong${elsewhere.length === 1 ? 's' : ''} to ${branchName}, not the branch you are selling from. Switch branch, or clear the cart and add the items again.`
+          : `${names} could not be sold from this branch. Clear the cart and add the items again.`,
+        409
+      )
+    }
+
     throw new SaleOperationError(
-      'One or more items not found or do not belong to your tenant',
+      'One or more items no longer exist. Clear the cart and add them again.',
       404
     )
   }
