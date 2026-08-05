@@ -452,6 +452,9 @@ interface CustomerReturnModalProps {
 function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalProps) {
   const [selectedItemId, setSelectedItemId] = useState(sale.items[0]?.item.id ?? '')
   const [quantity, setQuantity] = useState(1)
+  // Return every line at once. Without this a multi-line sale has to be
+  // returned one item at a time, which is slow and easy to leave half done.
+  const [returnWholeSale, setReturnWholeSale] = useState(false)
   const [returnType, setReturnType] = useState<'CASH' | 'CREDIT' | 'EXCHANGE'>('CASH')
   const [amount, setAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -467,17 +470,37 @@ function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalPr
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (!selectedItemId) { setError('Select an item to return'); return }
-    if (quantity <= 0) { setError('Quantity must be at least 1'); return }
     const amountNum = parseFloat(amount)
-    if (isNaN(amountNum) || amountNum < 0) { setError('Enter a valid refund amount'); return }
-    if (selectedSaleItem && quantity > selectedSaleItem.quantity) {
-      setError(`Max returnable: ${selectedSaleItem.quantity}`)
-      return
+    if (!returnWholeSale) {
+      if (!selectedItemId) { setError('Select an item to return'); return }
+      if (quantity <= 0) { setError('Quantity must be at least 1'); return }
+      if (isNaN(amountNum) || amountNum < 0) { setError('Enter a valid refund amount'); return }
+      if (selectedSaleItem && quantity > selectedSaleItem.quantity) {
+        setError(`Max returnable: ${selectedSaleItem.quantity}`)
+        return
+      }
     }
 
     setIsSubmitting(true)
     try {
+      if (returnWholeSale) {
+        // Bulk endpoint validates the whole refund against what was paid
+        // before writing any line.
+        const res = await fetch('/api/returns/customers/bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            saleId: sale.id,
+            type: returnType,
+            lines: sale.items.map(si => ({ itemId: si.item.id, quantity: si.quantity })),
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Return failed')
+        onSuccess()
+        return
+      }
+
       const res = await fetch('/api/returns/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -516,6 +539,37 @@ function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalPr
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Return everything, rather than one line at a time. */}
+          <label className="flex items-start gap-2.5 p-3 border-2 border-gray-200 cursor-pointer hover:border-blue-300">
+            <input
+              type="checkbox"
+              checked={returnWholeSale}
+              onChange={e => setReturnWholeSale(e.target.checked)}
+              className="w-4 h-4 mt-0.5 shrink-0"
+            />
+            <span>
+              <span className="block text-sm font-semibold text-gray-900">Return the entire sale</span>
+              <span className="block text-xs text-gray-500 mt-0.5">
+                {sale.items.length === 1
+                  ? 'The one line, at full quantity'
+                  : `All ${sale.items.length} lines at full quantity`}
+                {' — '}
+                {formatCurrency(sale.items.reduce((t, si) => t + si.lineTotalAmount, 0))}
+              </span>
+            </span>
+          </label>
+
+          {returnWholeSale ? (
+            <div className="border border-gray-200 divide-y divide-gray-100 max-h-48 overflow-y-auto">
+              {sale.items.map(si => (
+                <div key={si.item.id} className="flex justify-between gap-2 px-3 py-1.5 text-sm">
+                  <span className="flex-1 min-w-0 truncate">{si.quantity} × {si.item.name}</span>
+                  <span className="font-semibold shrink-0">{formatCurrency(si.lineTotalAmount)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+          <>
           {/* Item selector */}
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Item to Return</label>
@@ -553,6 +607,9 @@ function CustomerReturnModal({ sale, onClose, onSuccess }: CustomerReturnModalPr
                 className="px-4 py-2.5 text-gray-600 hover:bg-gray-100 font-bold text-lg border-l border-gray-200">+</button>
             </div>
           </div>
+
+          </>
+          )}
 
           {/* Return type */}
           <div>
