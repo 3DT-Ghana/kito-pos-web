@@ -12,6 +12,7 @@ interface SmsSettingsProps {
     hubtelClientSecretSet: boolean
     hubtelSenderId: string | null
     hubtelCollectionAccount: string | null
+    hubtelCallbackUrl: string | null
   }
 }
 
@@ -23,6 +24,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
   const [collectionAccount, setCollectionAccount] = useState(
     initialSettings.hubtelCollectionAccount || ''
   )
+  const [callbackUrl, setCallbackUrl] = useState(initialSettings.hubtelCallbackUrl || '')
   const [testPhone, setTestPhone] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
@@ -43,6 +45,7 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
           ...(clientSecret !== MASKED ? { hubtelClientSecret: clientSecret || null } : {}),
           hubtelSenderId: senderId || null,
           hubtelCollectionAccount: collectionAccount.trim() || null,
+          hubtelCallbackUrl: callbackUrl.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -165,6 +168,31 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
             Needed to check a MoMo number is registered before sending a payment prompt.
             Find it in your Hubtel dashboard. Hubtel must also whitelist this
             server&apos;s IP address before verification will work.
+          </p>
+        </div>
+
+        <div className="max-w-lg">
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Payment Callback URL{' '}
+            <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="url"
+            value={callbackUrl}
+            onChange={e => setCallbackUrl(e.target.value.trim())}
+            placeholder="https://your-domain.com/api/momo/callback"
+            className="w-full px-4 py-2.5 border-2 border-gray-200 focus:border-green-500 focus:outline-none text-sm font-mono"
+          />
+          {callbackUrl && !/^https:\/\//i.test(callbackUrl) && (
+            <p className="text-xs text-amber-700 mt-1">
+              Hubtel requires https. A plain http address will be rejected.
+            </p>
+          )}
+          <p className="text-xs text-gray-400 mt-1">
+            Where Hubtel reports the outcome of a payment. Leave blank to rely on the
+            till polling for status, which is how it works today &mdash; note that a
+            till which loses power or closes the tab mid-payment will not record a sale
+            that the customer did approve.
           </p>
         </div>
       </div>

@@ -11,6 +11,11 @@
 export interface HubtelCollectConfig {
   clientId: string
   clientSecret: string
+  /**
+   * Where Hubtel reports the payment outcome. Optional: without it the till
+   * polls for status, which works but is lost if the browser closes mid-payment.
+   */
+  callbackUrl?: string | null
 }
 
 export interface MomoCollectRequest {
@@ -69,7 +74,9 @@ export async function sendMomoCollect(
       PhoneNumber: phone,
       Description: req.description,
       ClientReference: req.clientReference,
-      CallbackUrl: '', // optional — we poll instead
+      // Sent when configured. Polling remains the primary path; a callback is
+      // the safety net for a till that closes or loses power mid-payment.
+      CallbackUrl: config.callbackUrl?.trim() || '',
     }
 
     const res = await fetch('https://api.hubtel.com/v2/merchant/pay', {

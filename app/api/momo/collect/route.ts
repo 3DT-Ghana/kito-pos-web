@@ -26,7 +26,12 @@ export async function POST(req: Request) {
     // Load tenant Hubtel credentials
     const tenant = await prisma.tenant.findUnique({
       where: { id: context!.tenantId },
-      select: { hubtelClientId: true, hubtelClientSecret: true, name: true },
+      select: {
+        hubtelClientId: true,
+        hubtelClientSecret: true,
+        hubtelCallbackUrl: true,
+        name: true,
+      },
     })
 
     if (!tenant?.hubtelClientId || !tenant?.hubtelClientSecret) {
@@ -37,7 +42,11 @@ export async function POST(req: Request) {
     }
 
     const result = await sendMomoCollect(
-      { clientId: tenant.hubtelClientId, clientSecret: tenant.hubtelClientSecret },
+      {
+        clientId: tenant.hubtelClientId,
+        clientSecret: tenant.hubtelClientSecret,
+        callbackUrl: tenant.hubtelCallbackUrl,
+      },
       {
         amount: parseFloat(String(amount)),
         phoneNumber: String(phoneNumber),

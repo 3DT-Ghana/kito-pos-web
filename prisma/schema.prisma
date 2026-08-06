@@ -247,6 +247,11 @@ model Tenant {
   // Verification API, which sits on a different host to the payment API and
   // identifies the merchant by account rather than by credentials alone.
   hubtelCollectionAccount String?
+  // Where Hubtel reports the outcome of a payment, e.g.
+  // https://citizen-pos.eyosolutions.com/api/momo/callback
+  // Sent with each collect request. Stored rather than hardcoded because the
+  // domain differs per deployment.
+  hubtelCallbackUrl       String?
 
   // WhatsApp Notifications — Meta WhatsApp Business Cloud API
   enableWhatsApp         Boolean @default(false)

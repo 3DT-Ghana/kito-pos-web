@@ -162,6 +162,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         ...(body.hubtelClientSecret !== undefined && { hubtelClientSecret: body.hubtelClientSecret ? String(body.hubtelClientSecret).trim() : null }),
         ...(body.hubtelSenderId !== undefined && { hubtelSenderId: body.hubtelSenderId ? String(body.hubtelSenderId).trim().slice(0, 11) : null }),
         ...(body.hubtelCollectionAccount !== undefined && { hubtelCollectionAccount: body.hubtelCollectionAccount ? String(body.hubtelCollectionAccount).trim() : null }),
+        ...(body.hubtelCallbackUrl !== undefined && { hubtelCallbackUrl: body.hubtelCallbackUrl ? String(body.hubtelCallbackUrl).trim() : null }),
         // WhatsApp settings
         ...(body.enableWhatsApp !== undefined && { enableWhatsApp: Boolean(body.enableWhatsApp) }),
         ...(body.metaWabaToken !== undefined && { metaWabaToken: body.metaWabaToken ? String(body.metaWabaToken).trim() : null }),
