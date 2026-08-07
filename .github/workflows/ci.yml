@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # `staging` builds the demo image. The publish job already trusts this ref;
+    # without it here the workflow simply never runs on that branch, so the
+    # `:staging` tag the fleet manifest pins would never exist.
+    #
+    # Safe because the migrate job is pinned to main — a staging push must never
+    # run migrations against the production Neon database.
+    branches: [main, staging]
   pull_request:
   workflow_dispatch:
 
