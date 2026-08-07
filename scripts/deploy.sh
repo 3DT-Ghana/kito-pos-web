@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
 #
-# Deploy the current checkout to the Hetzner host.
+# SUPERSEDED for the pooled fleet — kept for single-box installs.
 #
-# Run by the self-hosted GitHub Actions runner on every push to main (see
-# .github/workflows/ci.yml), and safe to run by hand on the box:
+# This builds on the box and swaps containers there. That cannot work for the
+# hosted deployment any more: the app runs on THREE pool members behind a load
+# balancer, so a build on one box is invisible to the other two. CI now publishes
+# an image to GHCR (.github/workflows/ci.yml `publish`) and the fleet converges
+# with eyo-deploy's `deploy-box.sh`, one member at a time.
 #
-#   cd /opt/actions-runner/_work/point-of-sale/point-of-sale && ./scripts/deploy.sh
+# Still the right tool for a SINGLE-box deployment — an on-prem install, or a
+# client running their own server — where building and swapping in place is
+# exactly what you want. Safe to run by hand:
+#
+#   ./scripts/deploy.sh
 #
 # Order matters. Migrations are applied *before* the new container takes over,
 # which is the safe direction for additive changes: the old code keeps serving
