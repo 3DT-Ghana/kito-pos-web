@@ -1,0 +1,36 @@
+# Refuse to push directly to main.
+#
+# GitHub's own branch protection and rulesets are the right place for this, but
+# both require GitHub Pro on a private repository and this org is on the free
+# plan. So this is a local guard, and it is worth being honest about what that
+# means: it protects THIS clone only, it does not apply to the web UI or the API,
+# and `--no-verify` walks straight past it.
+#
+# It stops the mistake, not an adversary. Given main is what CI publishes to
+# production from, stopping the mistake is most of the value.
+#
+# Deliberate exception:  ALLOW_PUSH_MAIN=1 git push
+protected=main
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/"$protected")
+      if [ "${ALLOW_PUSH_MAIN:-}" = "1" ]; then
+        echo "pre-push: ALLOW_PUSH_MAIN=1 — pushing to $protected anyway."
+      else
+        echo
+        echo "pre-push: direct pushes to '$protected' are blocked."
+        echo
+        echo "  main is what CI builds and publishes :main from, and what the"
+        echo "  fleet's production tenant pulls. Open a pull request instead:"
+        echo
+        echo "    git switch -c my-change && git push -u origin my-change"
+        echo "    gh pr create --fill"
+        echo
+        echo "  Genuine emergency:  ALLOW_PUSH_MAIN=1 git push"
+        echo
+        exit 1
+      fi
+      ;;
+  esac
+done
+exit 0
