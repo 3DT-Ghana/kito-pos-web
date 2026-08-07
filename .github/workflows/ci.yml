@@ -188,6 +188,61 @@ jobs:
           DATABASE_URL: ${{ secrets.DIRECT_URL }}
           DIRECT_URL: ${{ secrets.DIRECT_URL }}
 
+  # ── Demo migrations ─────────────────────────────────────────────────────────
+  #
+  # The demo has its own Neon database, so it needs its own migration run. Doing
+  # this by hand does not survive contact with a second schema change: the demo
+  # drifts, and the first symptom is a runtime error in front of a customer.
+  #
+  # STAGING_DIRECT_URL must point at the DEMO database and nothing else. If it
+  # ever held the production URL, every staging push would migrate the client's
+  # database from an unreviewed branch. The guard below refuses the run rather
+  # than trusting that the secret was set correctly.
+  migrate-staging:
+    name: Apply demo database migrations
+    needs: [publish]
+    if: github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    environment: staging
+
+    concurrency:
+      group: migrate-staging
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fail closed. A missing secret must not silently skip migrations, and a
+      # secret pointing at production must not run at all.
+      - name: Refuse to migrate the wrong database
+        env:
+          STAGING_DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+          PROD_DIRECT_URL: ${{ secrets.DIRECT_URL }}
+        run: |
+          if [ -z "$STAGING_DIRECT_URL" ]; then
+            echo "STAGING_DIRECT_URL is not set. Add it as a repository secret,"
+            echo "pointing at the DEMO Neon database (direct, non-pooled endpoint)."
+            exit 1
+          fi
+          if [ -n "$PROD_DIRECT_URL" ] && [ "$STAGING_DIRECT_URL" = "$PROD_DIRECT_URL" ]; then
+            echo "STAGING_DIRECT_URL is identical to the production DIRECT_URL."
+            echo "Refusing: a staging push would migrate the client's database."
+            exit 1
+          fi
+
+      - name: prisma migrate deploy
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DIRECT_URL }}
+          DIRECT_URL: ${{ secrets.STAGING_DIRECT_URL }}
+
   # The fleet is NOT converged from here. Run, one member at a time, waiting for
   # the load balancer to report each healthy before the next:
   #
