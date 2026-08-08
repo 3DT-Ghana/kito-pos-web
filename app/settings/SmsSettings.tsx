@@ -4,6 +4,36 @@ import { useState } from 'react'
 
 const MASKED = '••••••••'
 
+interface DiagnosticProbe {
+  service: string
+  host: string
+  verdict: 'reachable' | 'blocked' | 'timeout' | 'error'
+  detail: string
+  httpStatus?: number
+}
+
+interface Diagnostics {
+  ip: string | null
+  ipSource?: string
+  ipError?: string
+  configured?: boolean
+  settings?: {
+    clientIdSet: boolean
+    clientSecretSet: boolean
+    collectionAccount: string | null
+    callbackUrl: string | null
+    momoCollectEnabled: boolean
+  }
+  probes: DiagnosticProbe[]
+}
+
+const VERDICT_STYLES: Record<DiagnosticProbe['verdict'], { border: string; label: string; tone: string }> = {
+  reachable: { border: 'border-green-300 bg-green-50', label: 'Reachable', tone: 'text-green-800' },
+  blocked: { border: 'border-red-300 bg-red-50', label: 'Blocked', tone: 'text-red-800' },
+  timeout: { border: 'border-red-300 bg-red-50', label: 'No response', tone: 'text-red-800' },
+  error: { border: 'border-amber-300 bg-amber-50', label: 'Error', tone: 'text-amber-900' },
+}
+
 interface SmsSettingsProps {
   tenantId: string
   initialSettings: {
@@ -31,6 +61,43 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
   const [saveMsg, setSaveMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [testMsg, setTestMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [showSecret, setShowSecret] = useState(false)
+  const [isDiagnosing, setIsDiagnosing] = useState(false)
+  const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const runDiagnostics = async () => {
+    setIsDiagnosing(true)
+    setDiagnostics(null)
+    setCopied(false)
+    try {
+      const res = await fetch('/api/momo/diagnostics')
+      const data = await res.json()
+      if (!res.ok) {
+        setDiagnostics({ ip: null, ipError: data.error || 'Could not run the check.', probes: [] })
+        return
+      }
+      setDiagnostics(data)
+    } catch {
+      setDiagnostics({
+        ip: null,
+        ipError: 'Could not reach the server to run the check.',
+        probes: [],
+      })
+    } finally {
+      setIsDiagnosing(false)
+    }
+  }
+
+  const copyIp = async () => {
+    if (!diagnostics?.ip) return
+    try {
+      await navigator.clipboard.writeText(diagnostics.ip)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard blocked — the address is on screen to read off anyway.
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -194,6 +261,101 @@ export function SmsSettings({ tenantId, initialSettings }: SmsSettingsProps) {
             till which loses power or closes the tab mid-payment will not record a sale
             that the customer did approve.
           </p>
+        </div>
+
+        {/* Connection check — finds the IP Hubtel needs to whitelist. */}
+        <div className="border-t border-gray-200 pt-5">
+          <h3 className="text-base font-bold text-gray-800">Hubtel Connection Check</h3>
+          <p className="text-sm text-gray-500 mt-1 max-w-2xl">
+            Hubtel only accepts requests from IP addresses they have whitelisted, and the
+            address they need is this <strong>server&apos;s</strong> &mdash; not the till&apos;s.
+            This finds it and tests whether Hubtel is currently accepting traffic.
+          </p>
+
+          <button
+            type="button"
+            onClick={runDiagnostics}
+            disabled={isDiagnosing}
+            className="mt-3 px-4 py-2.5 bg-gray-800 text-white font-bold hover:bg-gray-900 disabled:opacity-50 text-sm"
+          >
+            {isDiagnosing ? 'Checking…' : 'Run Connection Check'}
+          </button>
+
+          {diagnostics && (
+            <div className="mt-4 space-y-3 max-w-2xl">
+              {/* The IP itself — the reason most people open this. */}
+              {diagnostics.ip ? (
+                <div className="border-2 border-blue-300 bg-blue-50 px-4 py-3">
+                  <p className="text-[11px] font-bold text-blue-700 uppercase tracking-wide">
+                    This server&apos;s outbound IP address
+                  </p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-2xl font-black font-mono text-blue-900 tracking-tight">
+                      {diagnostics.ip}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={copyIp}
+                      className="px-3 py-1.5 border-2 border-blue-300 text-blue-800 text-xs font-bold hover:bg-blue-100"
+                    >
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-blue-800 mt-2">
+                    Send this to your Hubtel Retail System Engineer and ask them to whitelist
+                    it for <strong>both</strong> the Verification and Receive Money services.
+                    Whitelisting is per service &mdash; adding it to one does not cover the other.
+                  </p>
+                  {diagnostics.ipSource && (
+                    <p className="text-[11px] text-blue-600 mt-1">
+                      Reported by {diagnostics.ipSource}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  {diagnostics.ipError}
+                </div>
+              )}
+
+              {/* Reachability, per service. */}
+              {diagnostics.configured === false ? (
+                <div className="border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  <p className="font-bold">Hubtel is not fully configured</p>
+                  <p className="text-xs mt-1">
+                    Add the Client ID, Client Secret and Collection Account Number above and
+                    save, then run this check again to test the connection.
+                  </p>
+                </div>
+              ) : (
+                diagnostics.probes.map((p) => {
+                  const style = VERDICT_STYLES[p.verdict]
+                  return (
+                    <div key={p.service} className={`border-2 px-4 py-3 ${style.border}`}>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className={`font-bold text-sm ${style.tone}`}>{p.service}</p>
+                        <span className={`text-xs font-bold uppercase tracking-wide ${style.tone}`}>
+                          {style.label}
+                          {p.httpStatus ? ` · ${p.httpStatus}` : ''}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 font-mono mt-0.5">{p.host}</p>
+                      <p className={`text-xs mt-1.5 ${style.tone}`}>{p.detail}</p>
+                    </div>
+                  )
+                })
+              )}
+
+              {/* A payment cannot succeed while the switch is off, whatever the probes say. */}
+              {diagnostics.settings && !diagnostics.settings.momoCollectEnabled && (
+                <div className="border border-gray-300 bg-gray-50 px-4 py-2.5 text-xs text-gray-600">
+                  MoMo collection is currently <strong>off</strong> for this business. Even once
+                  Hubtel accepts this IP, no payment prompts will be sent until it is switched
+                  on in Settings &rarr; Features.
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
