@@ -4,8 +4,11 @@ import { prisma } from '@/lib/db/prisma'
 import { getMomoStatus } from '@/lib/momo/hubtelCollect'
 
 /**
- * GET /api/momo/status?transactionId=xxx
- * Poll the status of a Hubtel MoMo collect transaction.
+ * GET /api/momo/status?clientReference=xxx
+ *
+ * Check a MoMo payment's status. Hubtel keys this by our own clientReference,
+ * not their transaction id, and treats it as the fallback for when a callback
+ * has not arrived within five minutes rather than the primary path.
  */
 export async function GET(req: Request) {
   try {
@@ -13,15 +16,22 @@ export async function GET(req: Request) {
     if (error) return error
 
     const { searchParams } = new URL(req.url)
-    const transactionId = searchParams.get('transactionId')
+    // transactionId is still accepted so a till running older JS keeps working
+    // through a deploy.
+    const clientReference =
+      searchParams.get('clientReference') ?? searchParams.get('transactionId')
 
-    if (!transactionId) {
-      return NextResponse.json({ error: 'transactionId is required' }, { status: 400 })
+    if (!clientReference) {
+      return NextResponse.json({ error: 'clientReference is required' }, { status: 400 })
     }
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: context!.tenantId },
-      select: { hubtelClientId: true, hubtelClientSecret: true },
+      select: {
+        hubtelClientId: true,
+        hubtelClientSecret: true,
+        hubtelCollectionAccount: true,
+      },
     })
 
     if (!tenant?.hubtelClientId || !tenant?.hubtelClientSecret) {
@@ -29,8 +39,12 @@ export async function GET(req: Request) {
     }
 
     const result = await getMomoStatus(
-      { clientId: tenant.hubtelClientId, clientSecret: tenant.hubtelClientSecret },
-      transactionId
+      {
+        clientId: tenant.hubtelClientId,
+        clientSecret: tenant.hubtelClientSecret,
+        collectionAccount: tenant.hubtelCollectionAccount ?? '',
+      },
+      clientReference
     )
 
     if (!result.success) {

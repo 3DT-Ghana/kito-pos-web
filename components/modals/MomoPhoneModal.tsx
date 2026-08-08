@@ -8,7 +8,8 @@ interface MomoPhoneModalProps {
   initialValue?: string
   /** Skip verification entirely — used when the payment gateway is off. */
   skipVerification?: boolean
-  onAccept: (phone: string) => void
+  /** The network is returned too: Hubtel requires it with the payment. */
+  onAccept: (phone: string, channel: MomoChannel) => void
   onClose: () => void
 }
 
@@ -91,7 +92,7 @@ export function MomoPhoneModal({
   }
 
   const commit = () => {
-    onAccept(phone)
+    onAccept(phone, channel)
     onClose()
   }
 

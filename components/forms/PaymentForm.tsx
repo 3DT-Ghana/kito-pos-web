@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { paymentSchema, PaymentFormData } from '@/types/form'
 import { formatCurrency } from '@/lib/utils/format'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
+import type { MomoChannel } from '@/lib/momo/hubtelVerify'
 import { useTenantFeatures } from '@/hooks/useTenant'
 
 type PaymentMethod = 'CASH' | 'MOMO' | 'BANK'
@@ -32,6 +33,8 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
   const [method, setMethod] = useState<PaymentMethod>('CASH')
   const [splitMode, setSplitMode] = useState(false)
   const [momoPhone, setMomoPhone] = useState('')
+  // Required by Hubtel on every payment request.
+  const [momoChannel, setMomoChannel] = useState<MomoChannel>('mtn-gh')
   const [splitMomoAmount, setSplitMomoAmount] = useState('')
   const [splitCashAmount, setSplitCashAmount] = useState('')
 
@@ -118,6 +121,7 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         body: JSON.stringify({
           amount: amountToCharge,
           phoneNumber: phone,
+          channel: momoChannel,
           description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
           clientReference: ref,
         }),
@@ -538,7 +542,12 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         // No gateway means no prompt is sent, so there is nothing to verify.
         skipVerification={!momoCollectEnabled}
         initialValue={momoPhone}
-        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoError('') }}
+        onAccept={(phone, channel) => {
+          setMomoPhone(phone)
+          setMomoChannel(channel)
+          setMomoStatus('idle')
+          setMomoError('')
+        }}
         onClose={() => setMomoPhoneModalOpen(false)}
       />
     </form>

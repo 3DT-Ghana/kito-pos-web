@@ -14,6 +14,7 @@ import { isLowStock } from '@/lib/items/stock'
 import { MomoPhoneModal } from '@/components/modals/MomoPhoneModal'
 import { AmountEntryModal } from '@/components/modals/AmountEntryModal'
 import { PosReceipt } from '@/components/receipts/PosReceipt'
+import type { MomoChannel } from '@/lib/momo/hubtelVerify'
 import { smartPrint, getReceiptBehaviour } from '@/lib/print/print'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -229,6 +230,9 @@ export default function PosPage() {
   // Payment
   const [method, setMethod] = useState<PaymentMethod>('CASH')
   const [momoPhone, setMomoPhone] = useState('')
+  // Hubtel requires the network with every payment request; it cannot be
+  // inferred from the number because a ported line keeps its old prefix.
+  const [momoChannel, setMomoChannel] = useState<MomoChannel>('mtn-gh')
   const [tendered, setTendered] = useState('')        // cash tendered
   const [momoPaid, setMomoPaid] = useState('')        // momo amount in split
   const [cashPaid, setCashPaid] = useState('')        // cash amount in split
@@ -724,6 +728,7 @@ export default function PosPage() {
       body: JSON.stringify({
         amount: amountToCharge,
         phoneNumber: phone,
+        channel: momoChannel,
         description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
         clientReference: ref,
       }),
@@ -2455,7 +2460,12 @@ export default function PosPage() {
         // prompt is sent, so there is nothing to verify against.
         skipVerification={!features.enableMomoCollect}
         initialValue={momoPhone}
-        onAccept={(phone) => { setMomoPhone(phone); setMomoStatus('idle'); setMomoTxId(null) }}
+        onAccept={(phone, channel) => {
+          setMomoPhone(phone)
+          setMomoChannel(channel)
+          setMomoStatus('idle')
+          setMomoTxId(null)
+        }}
         onClose={() => setMomoPhoneModalOpen(false)}
       />
 
