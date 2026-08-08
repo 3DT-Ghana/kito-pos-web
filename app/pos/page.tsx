@@ -751,14 +751,16 @@ export default function PosPage() {
     if (momoPollRef.current) { clearInterval(momoPollRef.current); momoPollRef.current = null }
   }
 
-  const pollMomoStatus = (txId: string, onSuccess: () => void, onFail: (msg?: string) => void) => {
+  // Keyed by our own clientReference: Hubtel's status endpoint no longer
+  // accepts their transaction id.
+  const pollMomoStatus = (clientRef: string, onSuccess: () => void, onFail: (msg?: string) => void) => {
     stopMomoPoll() // never run two pollers at once
     let attempts = 0
     const max = 24 // 2 minutes at 5s intervals
     momoPollRef.current = setInterval(async () => {
       attempts++
       try {
-        const res = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
+        const res = await fetch(`/api/momo/status?clientReference=${encodeURIComponent(clientRef)}`)
         const data = await res.json()
         if (!res.ok) {
           stopMomoPoll(); setMomoStatus('failed'); onFail(data.error)
@@ -1022,7 +1024,7 @@ export default function PosPage() {
       if (!txId) return // error already set by sendMomoRequest
       // Poll and complete checkout on success
       pollMomoStatus(
-        txId,
+        saleRef,
         () => void completeCheckout(),
         (msg) => setErrorMsg(msg || 'MoMo payment was declined or timed out. Please try again.'),
       )

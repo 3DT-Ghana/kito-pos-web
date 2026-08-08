@@ -133,7 +133,6 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         return false
       }
 
-      const txId = data.transactionId
       setMomoStatus('pending')
 
       // Poll for approval — every 5 s, up to 2 min
@@ -142,7 +141,9 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
         const interval = setInterval(async () => {
           attempts++
           try {
-            const sr = await fetch(`/api/momo/status?transactionId=${encodeURIComponent(txId)}`)
+            // Keyed by our own reference: Hubtel's status endpoint no longer
+            // accepts their transaction id.
+            const sr = await fetch(`/api/momo/status?clientReference=${encodeURIComponent(ref)}`)
             const sd = await sr.json()
             if (sd.status === 'success') {
               clearInterval(interval)

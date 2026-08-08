@@ -5,6 +5,8 @@ import { useItems } from "@/hooks/useItems";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useUser } from "@/hooks/useUser";
 import { useRolePermissions, useTenantFeatures } from "@/hooks/useTenant";
+import { MomoPhoneModal } from "@/components/modals/MomoPhoneModal";
+import type { MomoChannel } from "@/lib/momo/hubtelVerify";
 import { isLowStock } from "@/lib/items/stock";
 import { formatCurrency } from "@/lib/utils/format";
 import { isInventoryItemType, itemTypeLabel, normalizeItemType } from "@/lib/items/type";
@@ -149,6 +151,15 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   const [paymentType, setPaymentType] = useState<"CASH" | "CREDIT">("CASH");
   const [paymentMethod, setPaymentMethod] = useState<"CASH" | "MOMO" | "BANK">("CASH");
   const [momoPhone, setMomoPhone] = useState("");
+  // MoMo is charged before the sale is saved, as it is in the POS and the
+  // customer payment form. Recording a sale as paid before the customer has
+  // approved would mark money received that never arrived.
+  const [momoChannel, setMomoChannel] = useState<MomoChannel>("mtn-gh");
+  const [momoPhoneModalOpen, setMomoPhoneModalOpen] = useState(false);
+  const [momoStatus, setMomoStatus] = useState<
+    "idle" | "sending" | "pending" | "success" | "failed"
+  >("idle");
+  const [momoError, setMomoError] = useState("");
   const [bankName, setBankName] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
   const [bankReference, setBankReference] = useState("");
@@ -487,6 +498,79 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
   const change = paidNum - totalAmount;
   const creditAmount = totalAmount - paidNum;
 
+  /**
+   * Send the MoMo prompt and wait for the customer to approve.
+   *
+   * Resolves true only once Hubtel confirms the payment, so the sale is never
+   * saved as paid for money that has not arrived. Polling is the fast path;
+   * Hubtel's callback is the authoritative one.
+   */
+  const runMomoCollect = async (
+    amountToCharge: number,
+    phone: string,
+    ref: string,
+  ): Promise<boolean> => {
+    setMomoStatus("sending");
+    setMomoError("");
+    try {
+      const res = await fetch("/api/momo/collect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: amountToCharge,
+          phoneNumber: phone,
+          channel: momoChannel,
+          description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
+          clientReference: ref,
+          customerName: selectedCustomer?.name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMomoStatus("failed");
+        setMomoError(data.error || "Failed to send the MoMo request.");
+        return false;
+      }
+
+      setMomoStatus("pending");
+
+      // Every 5s for 2 minutes — long enough for the customer to find their PIN.
+      return await new Promise<boolean>((resolve) => {
+        let attempts = 0;
+        const interval = setInterval(async () => {
+          attempts++;
+          try {
+            const sr = await fetch(
+              `/api/momo/status?clientReference=${encodeURIComponent(ref)}`,
+            );
+            const sd = await sr.json();
+            if (sd.status === "success") {
+              clearInterval(interval);
+              setMomoStatus("success");
+              resolve(true);
+            } else if (sd.status === "failed") {
+              clearInterval(interval);
+              setMomoStatus("failed");
+              setMomoError("The customer declined, or the payment failed.");
+              resolve(false);
+            } else if (attempts >= 24) {
+              clearInterval(interval);
+              setMomoStatus("failed");
+              setMomoError("The request timed out. Ask the customer to try again.");
+              resolve(false);
+            }
+          } catch {
+            // A network hiccup mid-poll is not a decline — keep waiting.
+          }
+        }, 5000);
+      });
+    } catch {
+      setMomoStatus("failed");
+      setMomoError("Could not reach the payment service.");
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
@@ -535,6 +619,26 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
     }
     setIsSubmitting(true);
     try {
+      // Collect the money first. A sale saved before approval would record
+      // payment that never arrived, and there is no way to tell afterwards.
+      if (
+        !isCredit &&
+        paymentMethod === "MOMO" &&
+        features.enableMomoCollect &&
+        momoStatus !== "success"
+      ) {
+        const ref = `SALE-${Date.now()}`;
+        const approved = await runMomoCollect(
+          data.paidAmount ?? totalAmount,
+          momoPhone.trim(),
+          ref,
+        );
+        if (!approved) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       await onSubmit(data);
       clearDraft();
     } catch (err) {
@@ -639,15 +743,45 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
         {paymentMethod === "MOMO" && (
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
-              MoMo Phone Number <span className="text-red-500">*</span>
+              MoMo Number{" "}
+              {features.enableMomoCollect && <span className="text-red-500">*</span>}
             </label>
-            <input
-              type="tel"
-              value={momoPhone}
-              onChange={e => setMomoPhone(e.target.value)}
-              placeholder="e.g. 0244123456"
-              className="w-full px-3 py-2.5 border-2 border-indigo-200 focus:border-indigo-500 focus:outline-none text-sm"
-            />
+            {/* The same modal the POS and customer payments use: it verifies
+                the number and captures the network, which Hubtel requires with
+                every payment request. */}
+            <button
+              type="button"
+              onClick={() => setMomoPhoneModalOpen(true)}
+              className="w-full px-3 py-2.5 border-2 border-indigo-200 hover:border-indigo-400 text-left text-sm transition-colors"
+            >
+              {momoPhone ? (
+                <span className="font-bold tracking-wide text-gray-900">{momoPhone}</span>
+              ) : (
+                <span className="text-gray-400">Tap to enter the number</span>
+              )}
+            </button>
+
+            {momoStatus === "sending" && (
+              <p className="mt-1 text-xs text-indigo-700">Sending the request…</p>
+            )}
+            {momoStatus === "pending" && (
+              <p className="mt-1 text-xs text-amber-700">
+                Waiting for the customer to approve on their phone…
+              </p>
+            )}
+            {momoStatus === "success" && (
+              <p className="mt-1 text-xs text-green-700 font-semibold">
+                ✓ Payment received
+              </p>
+            )}
+            {momoError && (
+              <p className="mt-1 text-xs text-red-600">{momoError}</p>
+            )}
+            {!features.enableMomoCollect && (
+              <p className="mt-1 text-xs text-gray-400">
+                Recorded for the receipt only — no prompt is sent.
+              </p>
+            )}
           </div>
         )}
         {paymentMethod === "BANK" && (
@@ -1663,6 +1797,21 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           </button>
         )}
       </div>
+
+      <MomoPhoneModal
+        open={momoPhoneModalOpen}
+        // With no gateway the number is kept for the receipt only, so there is
+        // nothing to verify it against.
+        skipVerification={!features.enableMomoCollect}
+        initialValue={momoPhone}
+        onAccept={(phone, channel) => {
+          setMomoPhone(phone);
+          setMomoChannel(channel);
+          setMomoStatus("idle");
+          setMomoError("");
+        }}
+        onClose={() => setMomoPhoneModalOpen(false)}
+      />
     </form>
   );
 }
