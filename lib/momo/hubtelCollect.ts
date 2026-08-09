@@ -101,6 +101,60 @@ async function readJson(res: Response): Promise<{ data: unknown; error?: string 
 }
 
 /**
+ * Turn a Hubtel failure into something the person at the till can act on.
+ *
+ * Hubtel's messages are written for whoever integrated the API, not for a
+ * cashier with a customer waiting — "Supplied API keys does not have
+ * mobilemoney-receive-direct in scopes" is accurate and useless at a counter.
+ * Their own docs pair each code with a required action; this carries that
+ * across, and keeps the original text so the detail is not lost.
+ *
+ * Codes from the Sales API reference.
+ */
+function explainFailure(
+  code: string | undefined,
+  message: string | undefined,
+  httpStatus: number
+): string {
+  const detail = message?.trim()
+
+  switch (code) {
+    case '4101':
+      // Either the account is not set up to receive, or the keys belong to a
+      // different merchant than the one in the URL path. Both need Hubtel.
+      return (
+        'This business is not set up to receive mobile money payments yet. ' +
+        'Ask your Hubtel Retail Systems Engineer to enable the Receive Money ' +
+        'scope on your API keys, and check the Collection Account Number in ' +
+        'Settings → SMS.' + (detail ? ` (Hubtel: ${detail})` : '')
+      )
+    case '4103':
+      return (
+        'Your Hubtel account is not allowed to take payments on this network. ' +
+        'Contact your Retail Systems Engineer.' + (detail ? ` (Hubtel: ${detail})` : '')
+      )
+    case '4070':
+      return (
+        'Hubtel could not price this transaction — the amount may be below ' +
+        'their minimum, or fees are not set up for this account.' +
+        (detail ? ` (Hubtel: ${detail})` : '')
+      )
+    case '2001':
+      // The customer-facing failure: insufficient funds, wrong network for the
+      // number, a timed-out USSD session.
+      return (
+        detail ||
+        'The payment did not go through. The customer may have insufficient ' +
+        'funds, or the number may not match the network selected.'
+      )
+    case '4000':
+      return `Hubtel rejected the request details. ${detail ?? ''}`.trim()
+    default:
+      return detail || `Payment request failed (${code ?? httpStatus}).`
+  }
+}
+
+/**
  * Send a MoMo payment prompt.
  *
  * A `0001` response is success: the prompt has been sent and the customer has
@@ -153,9 +207,13 @@ export async function sendMomoCollect(
           Channel: req.channel,
           // Hubtel allows 2 decimal places only.
           Amount: Number(req.amount.toFixed(2)),
-          // "Url", not "URL". Hubtel ignores the misspelling rather than
-          // rejecting it, then refuses the request for having no callback.
+          // Hubtel's own docs disagree with themselves here: the parameter
+          // table says PrimaryCallbackURL, the sample request says
+          // PrimaryCallbackUrl. Send both — an unread extra key is ignored,
+          // whereas guessing wrong means the request arrives with no callback
+          // on an API where the callback is mandatory.
           PrimaryCallbackUrl: config.callbackUrl.trim(),
+          PrimaryCallbackURL: config.callbackUrl.trim(),
           Description: req.description,
           ClientReference: req.clientReference,
         }),
@@ -176,7 +234,7 @@ export async function sendMomoCollect(
     if (body?.ResponseCode !== '0000' && body?.ResponseCode !== '0001') {
       return {
         success: false,
-        error: body?.Message || `Payment request failed (${body?.ResponseCode ?? res.status}).`,
+        error: explainFailure(body?.ResponseCode, body?.Message, res.status),
       }
     }
 
@@ -229,21 +287,32 @@ export async function getMomoStatus(
     const { data, error } = await readJson(res)
     if (error) return { success: false, error }
 
+    type StatusEntry = { Status?: string; status?: string }
     const body = data as {
       ResponseCode?: string
-      Data?: { Status?: string } | { Status?: string }[]
+      responseCode?: string
+      Data?: StatusEntry | StatusEntry[]
+      data?: StatusEntry | StatusEntry[]
     }
 
-    // The status endpoint has returned Data as both an object and a
-    // single-element array; accept either rather than silently reading
-    // undefined and reporting every payment as pending.
-    const entry = Array.isArray(body?.Data) ? body.Data[0] : body?.Data
-    const raw = (entry?.Status ?? '').toLowerCase()
+    // Casing differs across Hubtel's APIs — the Receive Money response is
+    // PascalCase, the status response in the same reference is camelCase. Read
+    // either, or a working payment reads as undefined and polls until timeout.
+    // Data has also come back as a single-element array rather than an object.
+    const container = body?.Data ?? body?.data
+    const entry = Array.isArray(container) ? container[0] : container
+    const raw = (entry?.Status ?? entry?.status ?? '').toLowerCase()
 
     const status: MomoStatusResult['status'] =
       raw === 'paid' || raw === 'success' || raw === 'successful'
         ? 'success'
-        : raw === 'failed' || raw === 'cancelled' || raw === 'expired'
+        : // "Unpaid" is Hubtel's documented terminal decline, and "Refunded"
+          // means the money went back — neither should keep the till waiting.
+          raw === 'failed' ||
+            raw === 'unpaid' ||
+            raw === 'refunded' ||
+            raw === 'cancelled' ||
+            raw === 'expired'
           ? 'failed'
           : 'pending'
 
