@@ -69,12 +69,29 @@ export async function POST(req: Request) {
     )
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 502 })
+      console.error('[momo-collect] Hubtel refused the payment request:', {
+        reference: clientReference,
+        channel,
+        error: result.error,
+      })
+      // 200, deliberately. A 5xx here is indistinguishable in the browser from
+      // the proxy itself failing, and some proxies replace a 5xx body with
+      // their own HTML error page — which discards Hubtel's message and leaves
+      // the cashier with "Unexpected token '<'" instead of a reason.
+      // The caller reads `success`, not the status code.
+      return NextResponse.json({ success: false, error: result.error })
     }
 
-    return NextResponse.json({ transactionId: result.transactionId })
+    return NextResponse.json({
+      success: true,
+      transactionId: result.transactionId,
+      status: result.status,
+    })
   } catch (err) {
     console.error('MoMo collect error:', err)
-    return NextResponse.json({ error: 'Failed to send MoMo request' }, { status: 500 })
+    return NextResponse.json({
+      success: false,
+      error: err instanceof Error ? err.message : 'Failed to send MoMo request',
+    })
   }
 }

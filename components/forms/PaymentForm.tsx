@@ -126,10 +126,13 @@ export function PaymentForm({ type, entities, onSubmit, onCancel, preselectedId 
           clientReference: ref,
         }),
       })
-      const data = await res.json()
-      if (!res.ok || !data.transactionId) {
+      const data = await res.json().catch(() => null)
+      // Refusals arrive as success:false with a 200 so Hubtel's message is not
+      // replaced by a proxy error page. transactionId is absent when a payment
+      // settles instantly, so it cannot be the test.
+      if (!data || data.success === false || (!res.ok && !data.error)) {
         setMomoStatus('failed')
-        setMomoError(data.error || 'Failed to send MoMo request')
+        setMomoError(data?.error || 'Failed to send MoMo request')
         return false
       }
 

@@ -212,6 +212,16 @@ export async function GET() {
             `?clientReference=DIAGNOSTIC-PROBE`,
           auth
         ),
+        // The host that actually takes payments, and the one that was missing
+        // here while collect failed — verification passing on rnv says nothing
+        // about rmp, because whitelisting and scopes are both per service.
+        // GET on a POST-only path: a 404/405 still proves auth and routing work
+        // without sending anyone a real payment prompt.
+        probe(
+          'Receive money (payments)',
+          `https://rmp.hubtel.com/merchantaccount/merchants/${account}/receive/mobilemoney`,
+          auth
+        ),
       ])
     }
 

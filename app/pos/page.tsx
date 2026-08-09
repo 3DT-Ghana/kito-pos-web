@@ -733,15 +733,20 @@ export default function PosPage() {
         clientReference: ref,
       }),
     })
-    const data = await res.json()
-    if (!res.ok || !data.transactionId) {
+    const data = await res.json().catch(() => null)
+    // The route reports refusals as success:false with a 200, so Hubtel's own
+    // message survives any proxy that would rewrite a 5xx body.
+    if (!data || data.success === false || (!res.ok && !data.error)) {
       setMomoStatus('failed')
-      setErrorMsg(data.error || 'Failed to send MoMo request')
+      setErrorMsg(data?.error || 'Failed to send MoMo request')
       return null
     }
-    setMomoTxId(data.transactionId)
+    setMomoTxId(data.transactionId ?? null)
     setMomoStatus('pending')
-    return data.transactionId as string
+    // Returns whether the prompt was sent, not the transaction id: polling is
+    // keyed by our own clientReference, and Hubtel omits the id when a payment
+    // settles instantly — gating on it would fail a sale that had succeeded.
+    return true
   }
 
   // Poller lives in a ref so it can be cancelled from anywhere (method switch,
@@ -1020,8 +1025,8 @@ export default function PosPage() {
         return
       }
       const saleRef = `POS-${Date.now()}`
-      const txId = await sendMomoRequest(momoAmount, momoPhone.trim(), saleRef)
-      if (!txId) return // error already set by sendMomoRequest
+      const sent = await sendMomoRequest(momoAmount, momoPhone.trim(), saleRef)
+      if (!sent) return // error already set by sendMomoRequest
       // Poll and complete checkout on success
       pollMomoStatus(
         saleRef,

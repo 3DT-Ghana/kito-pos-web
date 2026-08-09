@@ -525,10 +525,12 @@ export function SaleForm({ onSubmit, onCancel }: SaleFormProps) {
           customerName: selectedCustomer?.name,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      // Refusals come back as success:false with a 200 so Hubtel's message
+      // survives a proxy that would otherwise replace a 5xx body with HTML.
+      if (!data || data.success === false || (!res.ok && !data.error)) {
         setMomoStatus("failed");
-        setMomoError(data.error || "Failed to send the MoMo request.");
+        setMomoError(data?.error || "Failed to send the MoMo request.");
         return false;
       }
 
