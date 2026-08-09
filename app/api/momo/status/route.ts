@@ -48,10 +48,33 @@ export async function GET(req: Request) {
     )
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 502 })
+      // 200 with success:false, as the collect route does: a 5xx body can be
+      // replaced by a proxy's own HTML error page, which loses the reason and
+      // breaks the caller's JSON parse.
+      return NextResponse.json({ success: false, error: result.error })
     }
 
-    return NextResponse.json({ status: result.status })
+    // Keep our record in step. Hubtel's callback usually gets here first, but
+    // when it does not arrive this poll is the only thing that closes the row —
+    // and a PENDING row is what the recovery list works from.
+    if (result.status === 'success' || result.status === 'failed') {
+      await prisma.momoTransaction.updateMany({
+        where: {
+          clientReference,
+          tenantId: context!.tenantId,
+          status: 'PENDING',
+        },
+        data: {
+          status: result.status === 'success' ? 'SUCCESS' : 'FAILED',
+          completedAt: new Date(),
+          ...(result.status === 'failed'
+            ? { failureReason: 'Reported as unpaid by Hubtel' }
+            : {}),
+        },
+      })
+    }
+
+    return NextResponse.json({ success: true, status: result.status })
   } catch (err) {
     console.error('MoMo status error:', err)
     return NextResponse.json({ error: 'Failed to check MoMo status' }, { status: 500 })

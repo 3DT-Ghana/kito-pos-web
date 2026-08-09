@@ -15,7 +15,8 @@ export async function POST(req: Request) {
     if (error) return error
 
     const body = await req.json()
-    const { amount, phoneNumber, description, clientReference, channel, customerName } = body
+    const { amount, phoneNumber, description, clientReference, channel, customerName, salePayload } =
+      body
 
     if (!amount || !phoneNumber || !clientReference) {
       return NextResponse.json(
@@ -51,6 +52,23 @@ export async function POST(req: Request) {
       )
     }
 
+    // Recorded before the prompt goes out, not after. If the till loses power
+    // or closes its tab while the customer is entering their PIN, this row and
+    // Hubtel's callback are the only things that can still turn an approved
+    // payment into a sale.
+    await prisma.momoTransaction.create({
+      data: {
+        tenantId: context!.tenantId,
+        branchId: context!.currentBranchId ?? null,
+        clientReference: String(clientReference),
+        phoneNumber: String(phoneNumber),
+        channel,
+        amount: parseFloat(String(amount)),
+        salePayload: salePayload ? JSON.stringify(salePayload) : null,
+        createdById: context!.user.id,
+      },
+    })
+
     const result = await sendMomoCollect(
       {
         clientId: tenant.hubtelClientId,
@@ -74,6 +92,12 @@ export async function POST(req: Request) {
         channel,
         error: result.error,
       })
+      // The prompt never reached the customer, so this reference is dead.
+      // Closing it keeps a refused attempt from sitting in the pending list.
+      await prisma.momoTransaction.updateMany({
+        where: { clientReference: String(clientReference), status: 'PENDING' },
+        data: { status: 'FAILED', failureReason: result.error, completedAt: new Date() },
+      })
       // 200, deliberately. A 5xx here is indistinguishable in the browser from
       // the proxy itself failing, and some proxies replace a 5xx body with
       // their own HTML error page — which discards Hubtel's message and leaves
@@ -81,6 +105,18 @@ export async function POST(req: Request) {
       // The caller reads `success`, not the status code.
       return NextResponse.json({ success: false, error: result.error })
     }
+
+    await prisma.momoTransaction.updateMany({
+      where: { clientReference: String(clientReference), status: 'PENDING' },
+      data: {
+        transactionId: result.transactionId ?? null,
+        // 0000 means Hubtel settled it outright — no callback is coming, so
+        // leaving it PENDING would strand a paid transaction.
+        ...(result.status === 'success'
+          ? { status: 'SUCCESS' as const, completedAt: new Date() }
+          : {}),
+      },
+    })
 
     return NextResponse.json({
       success: true,

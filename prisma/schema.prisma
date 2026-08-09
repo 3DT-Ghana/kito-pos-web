@@ -217,6 +217,7 @@ model Tenant {
   status    TenantStatus @default(TRIAL)
   users     User[]
   branches  Branch[]
+  momoTransactions MomoTransaction[]
   createdAt DateTime     @default(now())
 
   // Receipt Settings
@@ -337,6 +338,7 @@ model User {
   approvedTransactions TransactionApproval[] @relation("ApprovedBy")
   createdTransactions  TransactionApproval[] @relation("CreatedBy")
   salesCreated         Sale[]               @relation("SaleCreatedBy")
+  momoTransactions     MomoTransaction[]    @relation("MomoTransactionCreatedBy")
 }
 
 // =====================
@@ -1771,4 +1773,61 @@ model WaybillItem {
   notes       String?
 
   @@index([waybillId])
+}
+
+/// A MoMo payment prompt sent to a customer, recorded before Hubtel is called.
+///
+/// Without this row a payment is only ever known to the browser that started
+/// it: the reference is generated at the till and the sale is written after
+/// polling succeeds. A till that loses power or closes its tab in the ~30s
+/// before the customer approves therefore takes the money and records nothing.
+///
+/// Writing first also gives Hubtel's callback something to match on. Their docs
+/// treat the callback as the primary signal and the status endpoint as a
+/// fallback for when no callback arrives within five minutes; without a row to
+/// look up we could only run the fallback.
+model MomoTransaction {
+  id       String @id @default(uuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId String?
+
+  /// Our own reference, sent to Hubtel as ClientReference and used to match the
+  /// callback. Unique so a retry cannot create a second charge for one sale.
+  clientReference String @unique
+
+  phoneNumber String
+  channel     String // mtn-gh | vodafone-gh | tigo-gh
+  amount      Float
+
+  status        MomoTransactionStatus @default(PENDING)
+  transactionId String?               // Hubtel's TransactionId
+  externalTransactionId String?        // the telco's reference
+  amountCharged Float?                // what the customer actually paid, incl. charges
+  failureReason String?
+
+  /// The sale to create once payment is confirmed, as JSON. Held here rather
+  /// than only in the browser so a callback can complete a sale the till never
+  /// came back for.
+  salePayload String?
+
+  /// Set once the sale exists, whether the till or the callback created it.
+  /// Doubles as the guard against creating it twice.
+  saleId String? @unique
+
+  createdById String?
+  createdBy   User?   @relation("MomoTransactionCreatedBy", fields: [createdById], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  completedAt DateTime?
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+enum MomoTransactionStatus {
+  PENDING // prompt sent, customer has not answered
+  SUCCESS // Hubtel confirmed payment
+  FAILED // declined, cancelled, or expired
 }

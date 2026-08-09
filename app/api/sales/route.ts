@@ -198,6 +198,26 @@ export async function POST(req: Request) {
       )
     }
 
+    // Bind the sale to its MoMo payment. This is what tells the callback the
+    // till got here first, so it does not record the same sale a second time.
+    // Best-effort: the sale is already committed, and failing to link it must
+    // not fail the checkout.
+    const momoReference = typeof body.momoReference === 'string' ? body.momoReference : null
+    if (momoReference && result.sale?.id) {
+      try {
+        await prisma.momoTransaction.updateMany({
+          where: {
+            clientReference: momoReference,
+            tenantId: context!.tenantId,
+            saleId: null,
+          },
+          data: { saleId: result.sale.id },
+        })
+      } catch (linkErr) {
+        console.error('Failed to link sale to MoMo payment:', linkErr)
+      }
+    }
+
     return NextResponse.json(result.sale, { status: 201 })
   } catch (err) {
     if (err instanceof SaleOperationError) {

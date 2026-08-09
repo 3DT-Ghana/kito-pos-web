@@ -731,6 +731,10 @@ export default function PosPage() {
         channel: momoChannel,
         description: `Payment of GHS ${amountToCharge.toFixed(2)}`,
         clientReference: ref,
+        // Sent so the callback can still record this sale if the till never
+        // comes back — a closed tab or a power cut must not leave a charged
+        // customer with no sale.
+        salePayload: buildSaleBody(),
       }),
     })
     const data = await res.json().catch(() => null)
@@ -1030,7 +1034,7 @@ export default function PosPage() {
       // Poll and complete checkout on success
       pollMomoStatus(
         saleRef,
-        () => void completeCheckout(),
+        () => void completeCheckout(saleRef),
         (msg) => setErrorMsg(msg || 'MoMo payment was declined or timed out. Please try again.'),
       )
       return
@@ -1039,7 +1043,7 @@ export default function PosPage() {
     await completeCheckout()
   }
 
-  const completeCheckout = async () => {
+  const completeCheckout = async (momoReference?: string) => {
     // Synchronous guard — isSubmitting is state and can read stale across
     // batched updates, and the MoMo poll callback bypasses it entirely.
     if (submitLockRef.current) return
@@ -1048,7 +1052,9 @@ export default function PosPage() {
     setNoticeMsg('')
     setIsSubmitting(true)
     try {
-      const body = buildSaleBody()
+      // Carries the payment reference so the sale is bound to it, which is what
+      // tells the callback this sale already exists.
+      const body = { ...buildSaleBody(), momoReference }
       const res = await fetch('/api/sales', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
