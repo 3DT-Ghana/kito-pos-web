@@ -153,7 +153,9 @@ export async function sendMomoCollect(
           Channel: req.channel,
           // Hubtel allows 2 decimal places only.
           Amount: Number(req.amount.toFixed(2)),
-          PrimaryCallbackURL: config.callbackUrl.trim(),
+          // "Url", not "URL". Hubtel ignores the misspelling rather than
+          // rejecting it, then refuses the request for having no callback.
+          PrimaryCallbackUrl: config.callbackUrl.trim(),
           Description: req.description,
           ClientReference: req.clientReference,
         }),
